@@ -1,0 +1,23 @@
+# Private data and local configuration
+.env
+.env.*
+!.env.example
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.eml
+*.msg
+*.ics
+private/
+local-data/
+backups/
+uploads/
+# Build output and dependencies
+node_modules/
+dist/
+build/
+# Operating systems and editors
+.DS_Store
+Thumbs.db
+*.log
