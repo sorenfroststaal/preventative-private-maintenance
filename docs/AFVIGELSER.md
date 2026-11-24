@@ -1,4 +1,4 @@
-# Afvigelser og fortolkninger (branch `claude/app`)
+# Afvigelser og fortolkninger (branch `Cherry`)
 
 Listen dækker de steder, hvor implementeringen afviger fra specifikationen eller vælger en fortolkning, som specifikationen ikke selv fastlægger. Forslag til rettelser af specifikationen står til sidst.
 
@@ -23,10 +23,14 @@ Listen dækker de steder, hvor implementeringen afviger fra specifikationen elle
 | F5 | 02 Gendannelse | Er målmappen en tom mappe (fx nyoprettet i dialogen), fjernes den i stedet for at blive flyttet til `.old-*`. En åben (ikke forældet) lås på målet afviser gendannelsen. |
 | F6 | 02 Backup | `backup.last_at` skrives efter snapshot. Backuppen indeholder derfor tidspunktet for den forrige backup. |
 | F7 | 03 Søgeindeks | Arkiverede poster fjernes fra `search_index` og indsættes igen ved gendannelse. Søgeord matches som præfiks (`"ord"*`). |
-| F8 | schema `app_user.pin_hash` | PIN skal være 4–8 cifre. PBKDF2-SHA256 med 210.000 iterationer. |
+| F8 | schema `app_user.pin_hash` | PIN skal være 4–8 cifre. PBKDF2-SHA256 med 600.000 iterationer (OWASP 2023). Ved login afvises hashes med over 2.000.000 iterationer, så en manipuleret værdi ikke kan låse login-skærmen. Eksisterende hashes med 210.000 iterationer virker stadig, fordi antallet står i selve hashen. |
 | F9 | 04 Opstart | Er den valgte mappe til et nyt arkiv ikke tom, oprettes undermappen `PPM-arkiv` i den i stedet for at afvise valget. Appen advarer også om skymapper, når arkivet oprettes. |
 | F10 | 05 Import trin 3 | Tekstudtræk fra PDF og mail kommer i fase 2. I fase 1 gemmes, hashes og dubletkontrolleres filerne, og titlen sættes. Filen kopieres først til `*.part` og verificeres, før den får sit endelige navn. |
 | F11 | 02 Konfiguration | På Linux og macOS ligger `config.json` i `<OS config dir>/ppm/` (fx `~/.config/ppm`). |
+| F12 | 03 audit_log `diff_json` | `pin_hash` skrives aldrig i auditloggen. Der står kun `"[skjult]"` (eller `null`), så det kan ses, at PIN er sat, ændret eller fjernet. Ideen kommer fra `codex/app`. |
+| F13 | 04 Opstart og brugere, punkt 3 | Reglen "admin opretter brugere og personer" håndhæves i core (`createUser` og `createPerson`), ikke kun i UI. Den første bruger i et tomt arkiv bliver altid admin. Ideen kommer fra `codex/app`. |
+| F14 | 02 Regler, skrivebeskyttet åbning | Er databasen nyere end appen, sættes `PRAGMA query_only = ON`, så SQLite selv afviser skrivninger. Manifestet ændres ikke. Det er et ekstra lag og ingen sikkerhedsgrænse. |
+| F15 | 02 Backup og gendannelse | Backup afvises, hvis et bilags indhold ikke længere passer med dets hash-navn. Ved gendannelse afvises filer, der ikke står i manifestet, stier, der hverken er `arkiv.sqlite` eller `bilag/<xx>/<sha256>.<ext>`, dubletter i manifestet og `document`-rækker uden en bilagsfil i backuppen. Ideen kommer fra `codex/app`. |
 
 ## Forslag til rettelser af specifikationen
 
@@ -34,3 +38,6 @@ Listen dækker de steder, hvor implementeringen afviger fra specifikationen elle
 2. Spec 01: Tilføj `executeScript` til `DbAdapter`.
 3. Spec 04: Præcisér F1–F3 (forfaldsdato uden for mønsteret, spring over uden dato og første dato ved fast mønster).
 4. Spec 02: Nævn, at låsen fjernes ved normal afslutning, og at hostname indgår i låsen.
+5. Spec 07, fase 1 punkt 1: Angiv, at `pnpm mcp` først skal virke i fase 3. Forslaget kommer fra `codex/app`.
+6. Spec 03: Afgræns pr. tabel, hvilke felter der indekseres i `search_index`, og hvilke felter der aldrig må stå i `audit_log` (fx `pin_hash`). Forslaget kommer fra `codex/app`.
+7. Spec 07: Angiv en målemetode for opstartstid. Forslaget kommer fra `codex/app`.

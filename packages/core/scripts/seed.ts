@@ -9,6 +9,7 @@ import {
   createArchive,
   createEntity,
   createTask,
+  createPerson,
   createUser,
   importDocument,
   linkDocument,
@@ -71,9 +72,9 @@ async function main() {
   const tmp = mkdtempSync(join(tmpdir(), "ppm-seed-"));
 
   const { user: anna, person: annaP } = await createUser(sys, { name: "Anna Eksempel", isAdmin: true });
-  const { person: boP } = await createUser(sys, { name: "Bo Eksempel", pin: "1234", relation: "partner" });
   const ctx: Ctx = makeCtx(env, archive.db, String(anna.id), "ui");
-  const ida = await createEntity(ctx, "person", { name: "Ida Eksempel", relation: "barn", birth_year: 2018 });
+  const { person: boP } = await createUser(ctx, { name: "Bo Eksempel", pin: "1234", relation: "partner" });
+  const ida = await createPerson(ctx, { name: "Ida Eksempel", relation: "barn", birth_year: 2018 });
 
   const doc = async (name: string, data: Uint8Array, target: { type: string; id: unknown; role: string }) => {
     const p = join(tmp, name);

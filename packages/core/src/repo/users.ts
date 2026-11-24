@@ -2,7 +2,10 @@ import { createEntity, listEntities, mustGet, updateEntity, ValidationError, typ
 import type { DbAdapter } from "../db/adapter";
 import type { Row } from "../domain/registry";
 
-const PBKDF2_ITERATIONS = 210_000;
+// OWASP 2023 recommendation for PBKDF2-HMAC-SHA256.
+const PBKDF2_ITERATIONS = 600_000;
+/** Upper bound accepted when verifying, so a tampered hash cannot hang the login screen. */
+const PBKDF2_MAX_ITERATIONS = 2_000_000;
 
 const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
 const unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
@@ -32,6 +35,7 @@ export async function hashPin(pin: string, iterations = PBKDF2_ITERATIONS): Prom
 export async function verifyPin(pin: string, stored: string): Promise<boolean> {
   const [alg, iter, salt, hash] = stored.split("$");
   if (alg !== "pbkdf2" || !iter || !salt || !hash) return false;
+  if (!/^\d+$/.test(iter) || Number(iter) < 1 || Number(iter) > PBKDF2_MAX_ITERATIONS) return false;
   const computed = await pbkdf2(pin, unb64(salt), Number(iter));
   const expected = unb64(hash);
   if (computed.length !== expected.length) return false;
@@ -49,14 +53,40 @@ export interface NewUser {
   relation?: string | null;
 }
 
+export class PermissionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PermissionError";
+  }
+}
+
+/**
+ * Throws unless the archive has no users yet (first-run setup) or ctx.userId is an
+ * active admin (spec 04: only admin creates users and persons).
+ */
+export async function assertAdminOrFirstUser(db: DbAdapter, userId: string | null): Promise<void> {
+  const [any] = await db.select<{ id: string }>("SELECT id FROM app_user LIMIT 1");
+  if (!any) return;
+  const [admin] = userId
+    ? await db.select<{ id: string }>(
+        "SELECT id FROM app_user WHERE id = ? AND is_admin = 1 AND archived_at IS NULL",
+        [userId],
+      )
+    : [];
+  if (!admin) throw new PermissionError("Kun en administrator kan oprette brugere og personer.");
+}
+
 export async function createUser(ctx: Ctx, u: NewUser): Promise<{ user: Row; person: Row | null }> {
   const pin_hash = u.pin ? await hashPin(u.pin) : null;
   return ctx.db.transaction(async (tx) => {
     const c = { ...ctx, db: tx };
+    await assertAdminOrFirstUser(tx, ctx.userId);
+    const isFirst = (await tx.select("SELECT id FROM app_user LIMIT 1")).length === 0;
     const user = await createEntity(c, "app_user", {
       name: u.name,
       pin_hash,
-      is_admin: u.isAdmin ? 1 : 0,
+      // The first user is always admin (spec 04), otherwise nobody could manage users.
+      is_admin: isFirst || u.isAdmin ? 1 : 0,
     });
     let person: Row | null = null;
     if (u.createPerson !== false) {
@@ -67,6 +97,26 @@ export async function createUser(ctx: Ctx, u: NewUser): Promise<{ user: Row; per
       });
     }
     return { user, person };
+  });
+}
+
+export interface NewPerson {
+  name: string;
+  relation?: string | null;
+  birth_year?: number | null;
+  notes?: string | null;
+}
+
+/** Creates a household member without a login. Admin only (spec 04). */
+export async function createPerson(ctx: Ctx, p: NewPerson): Promise<Row> {
+  return ctx.db.transaction(async (tx) => {
+    await assertAdminOrFirstUser(tx, ctx.userId);
+    return createEntity({ ...ctx, db: tx }, "person", {
+      name: p.name,
+      relation: p.relation ?? null,
+      birth_year: p.birth_year ?? null,
+      notes: p.notes ?? null,
+    });
   });
 }
 

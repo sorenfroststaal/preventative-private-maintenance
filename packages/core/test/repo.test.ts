@@ -4,6 +4,7 @@ import {
   completeOccurrence,
   createEntity,
   createTask,
+  createPerson,
   createUser,
   deleteLink,
   getOpenOccurrence,
@@ -14,6 +15,7 @@ import {
   login,
   restoreEntity,
   search,
+  setPin,
   updateEntity,
   ValidationError,
 } from "../src";
@@ -119,7 +121,7 @@ describe("phase 1.5 – users and persons", () => {
     const { env, archive } = await newArchive();
     const ctx = ctxFor(env, archive);
     const { user, person } = await createUser(ctx, { name: "Anna", pin: "1234", isAdmin: true });
-    await createUser(ctx, { name: "Bo" });
+    await createUser(ctxFor(env, archive, String(user.id)), { name: "Bo" });
     expect(person?.app_user_id).toBe(user.id);
     const users = await listUsers(archive.db);
     expect(users).toEqual([
@@ -137,9 +139,40 @@ describe("phase 1.5 – users and persons", () => {
     const { env, archive } = await newArchive();
     const ctx = ctxFor(env, archive);
     await expect(createUser(ctx, { name: "A", pin: "12" })).rejects.toBeInstanceOf(ValidationError);
-    await createUser(ctx, { name: "A" });
-    await expect(createUser(ctx, { name: "A" })).rejects.toThrow();
+    const { user } = await createUser(ctx, { name: "A" });
+    await expect(createUser(ctxFor(env, archive, String(user.id)), { name: "A" })).rejects.toThrow();
     expect(await archive.db.select("SELECT * FROM person")).toHaveLength(1);
+  });
+
+  it("makes the first user admin and lets only an admin create users and persons", async () => {
+    const { env, archive } = await newArchive();
+    const { user: first } = await createUser(ctxFor(env, archive), { name: "Anna" });
+    expect(first.is_admin).toBe(1);
+    const admin = ctxFor(env, archive, String(first.id));
+    const { user: bo } = await createUser(admin, { name: "Bo" });
+    expect(bo.is_admin).toBe(0);
+    const asBo = ctxFor(env, archive, String(bo.id));
+    await expect(createUser(asBo, { name: "Cille" })).rejects.toThrow("administrator");
+    await expect(createUser(ctxFor(env, archive), { name: "Cille" })).rejects.toThrow("administrator");
+    await expect(createPerson(asBo, { name: "Ida" })).rejects.toThrow("administrator");
+    const ida = await createPerson(admin, { name: "Ida", relation: "barn", birth_year: 2018 });
+    expect(ida).toMatchObject({ name: "Ida", app_user_id: null });
+    expect(await archive.db.select("SELECT id FROM app_user")).toHaveLength(2);
+    expect(await archive.db.select("SELECT id FROM person")).toHaveLength(3);
+  });
+
+  it("never writes the PIN hash to audit_log", async () => {
+    const { env, archive } = await newArchive();
+    const ctx = ctxFor(env, archive);
+    const { user } = await createUser(ctx, { name: "Anna", pin: "4321" });
+    await setPin(ctxFor(env, archive, String(user.id)), String(user.id), "8765");
+    await setPin(ctxFor(env, archive, String(user.id)), String(user.id), null);
+    const rows = await auditFor(archive.db, "app_user", String(user.id));
+    expect(rows.map((r) => r.action)).toEqual(["create", "update", "update"]);
+    const all = JSON.stringify(await archive.db.select("SELECT diff_json FROM audit_log"));
+    expect(all).not.toMatch(/pbkdf2|4321|8765/);
+    expect(JSON.parse(rows[0]!.diff_json).pin_hash).toEqual([null, "[skjult]"]);
+    expect(JSON.parse(rows[2]!.diff_json).pin_hash).toEqual(["[skjult]", null]);
   });
 });
 

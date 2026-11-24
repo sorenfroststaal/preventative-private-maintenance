@@ -62,6 +62,8 @@ describe("recurrence – further rules", () => {
   it("fixed: a previous due date off-pattern moves to the next matching date", () => {
     expect(nextDueDate(fixedYear(10, 1), { dueDate: "2026-09-15", completedDate: "2026-09-15", status: "done" })).toBe("2026-10-01");
     expect(nextDueDate(fixedMonth(15), { dueDate: "2026-03-20", completedDate: "2026-03-20", status: "done" })).toBe("2026-04-15");
+    // Due date before the pattern day in the same month (case from codex/app): stays in that month.
+    expect(nextDueDate(fixedMonth(20), { dueDate: "2026-03-10", completedDate: "2026-04-15", status: "done" })).toBe("2026-03-20");
   });
 
   it("firstDueDate: fixed derives the date, interval leaves it missing", () => {

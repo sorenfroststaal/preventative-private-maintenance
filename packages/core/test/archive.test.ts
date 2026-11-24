@@ -72,7 +72,10 @@ describe("phase 1.3 – migrations", () => {
     const first = await migrate(db, () => env.clock.nowIso());
     expect(first).toMatchObject({ from: 0, to: APP_SCHEMA_VERSION, applied: [1] });
     const schemaBefore = await db.select("SELECT type, name, sql FROM sqlite_master ORDER BY name");
+    const changesBefore = await db.select("SELECT total_changes() AS n");
     const second = await migrate(db, () => env.clock.nowIso());
+    // The second run writes no rows at all.
+    expect(await db.select("SELECT total_changes() AS n")).toEqual(changesBefore);
     expect(second.applied).toEqual([]);
     expect(await db.select("SELECT type, name, sql FROM sqlite_master ORDER BY name")).toEqual(schemaBefore);
     expect(await db.select("SELECT * FROM schema_migrations")).toHaveLength(1);
@@ -96,6 +99,10 @@ describe("phase 1.3 – migrations", () => {
     await archive.close();
     const again = track(await openArchive(env, root, { appVersion: "t" }));
     expect(again.readOnly).toBe(true);
+    // Writes are refused by SQLite, and the manifest is left untouched.
+    await expect(again.db.execute("DELETE FROM schema_migrations")).rejects.toThrow();
+    expect(await again.db.select("SELECT version FROM schema_migrations ORDER BY version")).toHaveLength(2);
+    expect(JSON.parse(await fsp.readFile(join(root, "manifest.json"), "utf8")).schemaVersion).toBe(1);
   });
 });
 

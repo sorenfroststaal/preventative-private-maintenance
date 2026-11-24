@@ -112,6 +112,8 @@ export async function openArchive(env: Env, root: string, opts: OpenOptions): Pr
     await applyPragmas(db);
     const result = await migrate(db, () => env.clock.nowIso());
     const readOnly = result.newerThanApp;
+    // Enforce read-only in SQLite itself, not only in the UI.
+    if (readOnly) await db.execute("PRAGMA query_only = ON");
     if (!readOnly && manifest.schemaVersion !== result.to) {
       manifest.schemaVersion = result.to;
       manifest.appVersion = opts.appVersion;

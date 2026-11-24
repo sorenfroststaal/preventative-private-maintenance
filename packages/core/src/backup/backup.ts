@@ -2,6 +2,7 @@ import type { Archive, Manifest } from "../archive/archive";
 import { readManifest, writeManifest } from "../archive/archive";
 import { readLock, isLockStale } from "../archive/lock";
 import type { Env, ZipEntry } from "../env";
+import { documentRelPath } from "../repo/documents";
 import { setSetting } from "../repo/settings";
 import type { Ctx } from "../repo/entities";
 
@@ -32,6 +33,10 @@ async function walk(env: Env, dir: string, rel: string): Promise<string[]> {
 
 const sqlString = (s: string) => `'${s.replace(/'/g, "''")}'`;
 
+/** bilag/<sha[0:2]>/<sha256>.<ext> (spec 02). */
+const ATTACHMENT_PATH = /^bilag\/([0-9a-f]{2})\/(\1[0-9a-f]{62})\.[a-z0-9]+$/;
+const isAllowedBackupPath = (p: string) => p === "arkiv.sqlite" || ATTACHMENT_PATH.test(p);
+
 /**
  * Writes a full backup zip (spec 02): a VACUUM INTO snapshot of the database, all
  * documents, and a manifest with checksums. The inbox is not included.
@@ -50,11 +55,19 @@ export async function createBackup(env: Env, archive: Archive, ctx: Ctx, destDir
     const snapStat = await fs.stat(snapshot);
     files.push({ path: "arkiv.sqlite", sha256: await fs.sha256File(snapshot), size: snapStat!.size });
     entries.push({ src: snapshot, name: "arkiv.sqlite" });
+    const damaged: string[] = [];
     for (const rel of await walk(env, archive.path("bilag"), "bilag")) {
       const abs = archive.path(rel);
       const st = await fs.stat(abs);
-      files.push({ path: rel, sha256: await fs.sha256File(abs), size: st!.size });
+      const sha = await fs.sha256File(abs);
+      // Files are named by their hash, so a mismatch means the archive copy is damaged.
+      const m = ATTACHMENT_PATH.exec(rel);
+      if (m && m[2] !== sha) damaged.push(rel);
+      files.push({ path: rel, sha256: sha, size: st!.size });
       entries.push({ src: abs, name: rel });
+    }
+    if (damaged.length) {
+      throw new BackupError("Disse bilag i arkivet er beskadiget, så backuppen blev ikke lavet:", damaged);
     }
     const manifest: Manifest = { ...(await readManifest(env, archive.root)), files };
     await fs.writeText(manifestTmp, JSON.stringify(manifest, null, 2) + "\n");
@@ -65,6 +78,16 @@ export async function createBackup(env: Env, archive: Archive, ctx: Ctx, destDir
   } finally {
     await fs.remove(snapshot).catch(() => undefined);
     await fs.remove(manifestTmp).catch(() => undefined);
+  }
+}
+
+export class BackupError extends Error {
+  constructor(
+    message: string,
+    readonly failedFiles: string[] = [],
+  ) {
+    super(message);
+    this.name = "BackupError";
   }
 }
 
@@ -81,7 +104,7 @@ export class RestoreError extends Error {
 /** Unpacks into a temp folder and verifies checksums and integrity. Returns the temp folder. */
 export async function verifyBackup(env: Env, zipPath: string, tmpDir: string): Promise<Manifest> {
   const { fs } = env;
-  await env.zip.unzip(zipPath, tmpDir);
+  const names = await env.zip.unzip(zipPath, tmpDir);
   let manifest: Manifest;
   try {
     manifest = JSON.parse(await fs.readText(fs.join(tmpDir, "manifest.json"))) as Manifest;
@@ -92,7 +115,15 @@ export async function verifyBackup(env: Env, zipPath: string, tmpDir: string): P
     throw new RestoreError("Filen er ikke en PPM-backup.", ["manifest.json"]);
   }
   const failed: string[] = [];
+  const listed = new Set(manifest.files.map((f) => f.path));
+  if (listed.size !== manifest.files.length) {
+    throw new RestoreError("Manifestet i backuppen nævner samme fil flere gange.", ["manifest.json"]);
+  }
+  // Only the database and hash-named attachments may be restored, and only if listed.
+  for (const f of manifest.files) if (!isAllowedBackupPath(f.path)) failed.push(f.path);
+  for (const n of names) if (n !== "manifest.json" && !listed.has(n)) failed.push(n);
   for (const f of manifest.files) {
+    if (!isAllowedBackupPath(f.path)) continue;
     const abs = fs.join(tmpDir, ...f.path.split("/"));
     const st = await fs.stat(abs);
     if (!st || st.size !== f.size || (await fs.sha256File(abs)) !== f.sha256) failed.push(f.path);
@@ -106,6 +137,12 @@ export async function verifyBackup(env: Env, zipPath: string, tmpDir: string): P
     if (r[0]?.integrity_check !== "ok") {
       throw new RestoreError("Databasen i backuppen fejlede integritetskontrollen.", ["arkiv.sqlite"]);
     }
+    // Every document row must have its file in the backup.
+    const docs = await db.select<{ sha256: string; ext: string }>("SELECT sha256, ext FROM document");
+    const missing = docs
+      .map((d) => documentRelPath(d.sha256, d.ext))
+      .filter((p) => !listed.has(p));
+    if (missing.length) throw new RestoreError("Bilag mangler i backuppen:", missing);
   } finally {
     await db.close();
   }

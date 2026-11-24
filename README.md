@@ -4,7 +4,7 @@ Et open source-desktopprogram, der samler hjemmets dokumentation, tilbagevendend
 
 Projektet er inspireret af vedligeholdelsessystemer som Sertica, men henvender sig til privatpersoner og familier i Danmark. Det har ingen tilknytning til Sertica.
 
-**Status (branch `claude/app`): Fase 1 (Fundament) er bygget. Se [docs/STATUS.md](docs/STATUS.md).**
+**Status (branch `Cherry`): Fase 1 (Fundament) er bygget. Branchen bygger på `claude/app` og har de bedste dele fra `codex/app` med. Se [docs/STATUS.md](docs/STATUS.md).**
 
 ## Vision
 

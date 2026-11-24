@@ -3,6 +3,7 @@ import { promises as fsp, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { unzipSync, zipSync } from "fflate";
 import {
+  BackupError,
   createBackup,
   createEntity,
   createTask,
@@ -129,6 +130,50 @@ describe("phase 1.9 – backup and restore", () => {
     const err = await restoreBackup(env, corrupt, join(tempDir(), "x")).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(RestoreError);
     expect((err as RestoreError).failedFiles).toContain("arkiv.sqlite");
+  });
+
+  it("refuses to back up an attachment whose content no longer matches its hash", async () => {
+    const { env, archive, root, uctx, docs } = await seedSmall();
+    const sha = String(docs[0]!.sha256);
+    await fsp.chmod(join(root, "bilag", sha.slice(0, 2), `${sha}.pdf`), 0o644);
+    await fsp.writeFile(join(root, "bilag", sha.slice(0, 2), `${sha}.pdf`), "bit rot");
+    const out = tempDir();
+    const err = await createBackup(env, archive, uctx, out).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(BackupError);
+    expect((err as BackupError).failedFiles).toEqual([`bilag/${sha.slice(0, 2)}/${sha}.pdf`]);
+    expect(readdirSync(out)).toEqual([]);
+    expect(readdirSync(root).filter((f) => f.startsWith(".backup"))).toEqual([]);
+  });
+
+  it("rejects files that are not listed in the manifest and documents whose file is missing", async () => {
+    const { env, archive, uctx, docs } = await seedSmall();
+    const res = await createBackup(env, archive, uctx, tempDir());
+    const entries = unzipSync(new Uint8Array(await fsp.readFile(res.path)));
+
+    const extra = { ...entries, "bilag/ab/ekstra.txt": new TextEncoder().encode("x") };
+    const extraZip = join(tempDir(), "extra.zip");
+    await fsp.writeFile(extraZip, zipSync(extra));
+    const e1 = await restoreBackup(env, extraZip, join(tempDir(), "a")).catch((e: unknown) => e);
+    expect(e1).toBeInstanceOf(RestoreError);
+    expect((e1 as RestoreError).failedFiles).toEqual(["bilag/ab/ekstra.txt"]);
+
+    // Drop one attachment from both the zip and the manifest: checksums pass, but the
+    // database still refers to the document.
+    const sha = String(docs[2]!.sha256);
+    const name = `bilag/${sha.slice(0, 2)}/${sha}.pdf`;
+    const manifest = JSON.parse(new TextDecoder().decode(entries["manifest.json"]));
+    manifest.files = manifest.files.filter((f: { path: string }) => f.path !== name);
+    const { [name]: _dropped, ...rest } = entries;
+    const missingZip = join(tempDir(), "missing.zip");
+    await fsp.writeFile(
+      missingZip,
+      zipSync({ ...rest, "manifest.json": new TextEncoder().encode(JSON.stringify(manifest)) }),
+    );
+    const target = join(tempDir(), "b");
+    const e2 = await restoreBackup(env, missingZip, target).catch((e: unknown) => e);
+    expect(e2).toBeInstanceOf(RestoreError);
+    expect((e2 as RestoreError).failedFiles).toEqual([name]);
+    expect(await env.fs.exists(target)).toBe(false);
   });
 
   it("rejects zip-slip entries", async () => {

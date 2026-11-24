@@ -66,6 +66,20 @@ function toSql(v: unknown): SqlValue {
   return JSON.stringify(v);
 }
 
+/** Fields whose values must never be written to audit_log (only that they changed). */
+const SECRET_FIELDS = new Set(["pin_hash"]);
+const REDACTED = "[skjult]";
+
+function redact(diff: Record<string, [unknown, unknown]>): Record<string, [unknown, unknown]> {
+  const out: Record<string, [unknown, unknown]> = {};
+  for (const [k, [before, after]] of Object.entries(diff)) {
+    out[k] = SECRET_FIELDS.has(k)
+      ? [before == null ? null : REDACTED, after == null ? null : REDACTED]
+      : [before, after];
+  }
+  return out;
+}
+
 export async function writeAudit(
   ctx: Ctx,
   entityType: string,
@@ -75,7 +89,7 @@ export async function writeAudit(
 ): Promise<void> {
   await ctx.db.execute(
     "INSERT INTO audit_log (id, at, user_id, via, entity_type, entity_id, action, diff_json) VALUES (?,?,?,?,?,?,?,?)",
-    [ctx.newId(), ctx.clock.nowIso(), ctx.userId, ctx.via, entityType, entityId, action, diff ? JSON.stringify(diff) : null],
+    [ctx.newId(), ctx.clock.nowIso(), ctx.userId, ctx.via, entityType, entityId, action, diff ? JSON.stringify(redact(diff)) : null],
   );
 }
 

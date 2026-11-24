@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createBackup,
-  createEntity,
+  createPerson,
   createUser,
   detectCloudFolder,
   getSetting,
@@ -212,10 +212,11 @@ function PersonsPanel() {
   const [name, setName] = useState("");
   const [relation, setRelation] = useState("");
   const [birthYear, setBirthYear] = useState("");
+  const isAdmin = session.user.is_admin === 1;
 
   const add = useMutation({
     mutationFn: () =>
-      createEntity(session.ctx(), "person", {
+      createPerson(session.ctx(), {
         name,
         relation: relation || null,
         birth_year: birthYear ? Number(birthYear) : null,
@@ -245,6 +246,8 @@ function PersonsPanel() {
           </li>
         ))}
       </ul>
+      {!isAdmin && <p className="small muted">Kun en administrator kan tilføje personer.</p>}
+      {isAdmin && (
       <form
         className="row"
         onSubmit={(e: FormEvent) => {
@@ -268,6 +271,7 @@ function PersonsPanel() {
           Tilføj person
         </button>
       </form>
+      )}
     </div>
   );
 }
