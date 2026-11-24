@@ -29,10 +29,17 @@ if (process.argv.includes("--check")) {
     console.error("migrations.generated.ts is out of date. Run: pnpm gen:migrations");
     process.exit(1);
   }
-  const spec = readFileSync(join(root, "docs/spec/schema.sql"), "utf8");
-  if (entries[0]?.sql !== spec) {
-    console.error("0001_init.sql must be identical to docs/spec/schema.sql");
-    process.exit(1);
+  // Normative migrations must be byte-identical copies of the specification (AGENTS.md).
+  const normative = [
+    ["0001_init.sql", "docs/spec/schema.sql"],
+    ["0002_meal_plan.sql", "docs/spec/schema-0002.sql"],
+  ];
+  for (const [name, specPath] of normative) {
+    const spec = readFileSync(join(root, specPath), "utf8");
+    if (entries.find((e) => e.name === name)?.sql !== spec) {
+      console.error(`${name} must be identical to ${specPath}`);
+      process.exit(1);
+    }
   }
 } else {
   writeFileSync(out, content);
