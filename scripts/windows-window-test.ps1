@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
+Add-Type -AssemblyName System.Windows.Forms
 $archive = Join-Path $env:RUNNER_TEMP 'ppm-window-archive'
 pnpm seed -- --archive $archive
 if ($LASTEXITCODE) { throw 'Could not prepare the synthetic archive' }
@@ -30,7 +31,8 @@ for ($i=0; $i -lt 3; $i++) {
         }
         if (!$button) { throw 'Recent archive button did not become interactive' }
         $samples += $timer.ElapsedMilliseconds
-        $button.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+        $button.SetFocus()
+        [Windows.Forms.SendKeys]::SendWait('{ENTER}')
         $lock = Join-Path $archive '.lock'
         $deadline = [datetime]::UtcNow.AddSeconds(15)
         while (!(Test-Path $lock) -and [datetime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 50 }
@@ -42,4 +44,6 @@ for ($i=0; $i -lt 3; $i++) {
     }
 }
 $median = ($samples | Sort-Object)[1]
-"Windows release startup samples (ms): $samples. Median: $median ms." >> $env:GITHUB_STEP_SUMMARY
+$measurement = "Windows release startup samples (ms): $samples. Median: $median ms."
+Write-Output $measurement
+$measurement >> $env:GITHUB_STEP_SUMMARY
