@@ -1,5 +1,5 @@
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -95,7 +95,7 @@ it('refuses a second writer while a live process holds the lock', async () => {
 it('replaces a stale lock only after confirmation', async () => {
   const child = spawn(process.execPath, ['-e', 'process.exit(0)']);
   await once(child, 'exit');
-  const original = JSON.stringify({ pid: child.pid, at: '2026-11-24T18:10:00Z' });
+  const original = JSON.stringify({ pid: child.pid, hostname: hostname(), at: '2026-11-24T18:10:00Z' });
   const path = join(temp, '.lock');
   await writeFile(path, original);
   await expect(acquireLock(temp)).rejects.toThrow('forældede');
@@ -193,4 +193,34 @@ it('round-trips a snapshot with three attachments and rejects a corrupt attachme
   await expect(restoreBackup(corrupt, corruptTarget)).rejects.toThrow(attachment);
   expect(await readdir(corruptTarget)).toEqual(['marker.txt']);
   expect(await readFile(join(corruptTarget, 'marker.txt'), 'utf8')).toBe('Bevar');
+});
+
+it('keeps foreign-host locks even after confirmation', async () => {
+  const path = join(temp, '.lock');
+  const lock = JSON.stringify({ pid: process.pid, hostname: 'synthetic-other-host', at: '2026-11-24T18:10:00Z' });
+  await writeFile(path, lock);
+  await expect(acquireLock(temp, async () => true)).rejects.toThrow();
+  expect(await readFile(path, 'utf8')).toBe(lock);
+});
+
+it('allows only an archive-local snapshot and rejects ATTACH on every SQL entry point', async () => {
+  const { db, root } = await createArchive();
+  await expect(db.execute('ATTACH DATABASE ? AS external', [join(temp, 'external.sqlite')])).rejects.toThrow('ATTACH');
+  await expect(db.executeScript("SELECT 1; ATTACH DATABASE ':memory:' AS external")).rejects.toThrow('ATTACH');
+  await expect(db.select('VACUUM INTO ?', [join(temp, 'external.sqlite')])).rejects.toThrow('arkivet');
+  await expect(db.execute('VACUUM INTO ?', [join(root, 'snapshot.sqlite')])).resolves.toBeDefined();
+});
+
+it('rejects a ZIP member that traverses out of the restore directory', async () => {
+  const zip = join(temp, 'traversal.zip');
+  const safe = zipSync({ 'AA/extra.txt': bytes('synthetic') });
+  const modified = Buffer.from(safe);
+  let offset = modified.indexOf('AA/extra.txt');
+  while (offset !== -1) {
+    modified.write('../extra.txt', offset);
+    offset = modified.indexOf('AA/extra.txt');
+  }
+  await writeFile(zip, modified);
+  await expect(restoreBackup(zip, join(temp, 'target'))).rejects.toThrow(/invalid relative path/i);
+  expect(await readdir(temp)).toEqual(['traversal.zip']);
 });

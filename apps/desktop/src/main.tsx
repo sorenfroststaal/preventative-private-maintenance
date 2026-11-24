@@ -2,13 +2,14 @@ import { StrictMode, useEffect, useState, type FormEvent, type ReactNode } from 
 import { createRoot } from 'react-dom/client';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
-import { open } from '@tauri-apps/plugin-dialog';
 import './style.css';
 
 type User = { id: string; name: string; has_pin: number; is_admin: number };
 type Task = { id: string; title: string; due_date: string | null };
 type Document = { id: string; title: string; filename: string };
 type Opened = { cloud?: boolean; readonly?: boolean; users?: User[]; lastUserId?: string };
+
+const chooseFiles = (purpose: string) => invoke<string[]>('choose_files', { purpose });
 
 async function local<T>(action: string, data?: unknown): Promise<T> {
   const response = await invoke<{ result: T; error?: string }>('local_call', { request: { action, data } });
@@ -65,12 +66,12 @@ function App() {
     setDocuments(nextDocuments);
   }
 
-  async function archive(path: string, create: boolean) {
+  async function archive(path: string | null, create: boolean) {
     let cloud = false;
     let stale = false;
     while (true) {
       try {
-        const result = await local<Opened>('open', { path, create, cloud, stale });
+        const result = await local<Opened>(path ? 'open' : 'openRecent', { path, create, cloud, stale });
         if (result.cloud) {
           if (!window.confirm('Mappen kan være synkroniseret med en skytjeneste. Vil du fortsætte?')) return;
           cloud = true;
@@ -79,7 +80,7 @@ function App() {
         setReadonly(Boolean(result.readonly));
         setUsers(result.users ?? []);
         setSelected(result.lastUserId ?? result.users?.[0]?.id ?? '');
-        setSavedPath(path);
+        if (path) setSavedPath(path);
         return;
       } catch (reason) {
         if (stale || !(reason instanceof Error) || !reason.message.includes('forældede arkivlås')) throw reason;
@@ -108,13 +109,13 @@ function App() {
   useEffect(() => {
     if (!current) return;
     const listener = getCurrentWebview().onDragDropEvent(({ payload }) => {
-      if (payload.type === 'drop') void run(() => importPaths(payload.paths));
+      if (payload.type === 'drop') void run(async () => importPaths(await invoke<string[]>('take_dropped')));
     });
     return () => { void listener.then((unlisten) => unlisten()); };
   }, [current]);
 
   const chooseArchive = (create: boolean) => run(async () => {
-    const path = await open({ directory: true });
+    const [path] = await chooseFiles('open');
     if (typeof path === 'string') await archive(path, create);
   });
 
@@ -156,7 +157,7 @@ function App() {
   let content: ReactNode;
   if (users === null) {
     content = <><h1>Dit vedligeholdelsesarkiv</h1><p>Vælg en mappe til dit arkiv.</p><div className="actions">
-      {savedPath && <button onClick={() => void run(() => archive(savedPath, false))}>Åbn seneste arkiv</button>}
+      {savedPath && <button onClick={() => void run(() => archive(null, false))}>Åbn seneste arkiv</button>}
       <button onClick={() => void chooseArchive(true)}>Opret arkiv</button>
       <button onClick={() => void chooseArchive(false)}>Åbn eksisterende arkiv</button>
     </div></>;
@@ -177,7 +178,7 @@ function App() {
   } else if (section === 'Dokumenter') {
     content = <><h1>Dokumenter</h1><p>Træk bilag ind i vinduet, eller vælg filer.</p>
       <button onClick={() => void run(async () => {
-        const paths = await open({ multiple: true, filters: [{ name: 'Bilag', extensions: ['pdf', 'jpg', 'jpeg', 'png', 'heic', 'eml', 'msg'] }] });
+        const paths = await chooseFiles('import');
         if (Array.isArray(paths)) await importPaths(paths);
       })}>Importér bilag</button>
       <ul className="records">{documents.map(({ id, filename, title }) => <li key={id}><strong>{title}</strong><span>{filename}</span></li>)}</ul>
@@ -185,14 +186,14 @@ function App() {
   } else if (section === 'Indstillinger') {
     content = <><h1>Indstillinger</h1><p className="path">{savedPath}</p><div className="actions">
       <button onClick={() => void run(async () => {
-        const path = await open({ directory: true });
+        const [path] = await chooseFiles('backup');
         if (typeof path === 'string') {
           setNotice('Backup gemt. ' + await local<string>('backup', path));
           setBackupDue(false);
         }
       })}>Lav backup</button>
       <button onClick={() => void run(async () => {
-        const path = await open({ filters: [{ name: 'Backup', extensions: ['zip'] }] });
+        const [path] = await chooseFiles('restore');
         if (typeof path !== 'string' || !window.confirm('Vil du gendanne arkivet fra den valgte backup?')) return;
         try {
           await local('restore', path);
@@ -230,7 +231,7 @@ function App() {
       </li>)}</ul>
       <h2>Ny opgave</h2><form onSubmit={taskForm}>
         <label>Titel<input name="title" required /></label>
-        <label>Forfaldsdato<input name="due_date" type="date" required={Boolean(repeat)} /></label>
+        <label>Forfaldsdato<input name="due_date" type="date" /></label>
         <label>Gentagelse<select value={repeat} onChange={(event) => setRepeat(event.target.value)}>
           <option value="">Ingen</option><option value="fixed">Fast mønster</option><option value="interval">Fra udførelsesdato</option>
         </select></label>

@@ -1,7 +1,9 @@
 import { mkdir, readFile, writeFile, rename, readdir, realpath, lstat, unlink } from 'node:fs/promises';
+import { hostname } from 'node:os';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { insideArchive } from './scoped-path';
 import { BetterSqliteAdapter } from './db/better-sqlite';
 import { databaseVersion, migrate, now, schemaVersion } from './db/migrate';
 
@@ -37,10 +39,10 @@ async function processIsAlive(pid: number) {
   }
 }
 
-const lockSchema = z.object({ pid: z.number().int().positive(), at: z.iso.datetime() });
+const lockSchema = z.object({ pid: z.number().int().positive(), at: z.iso.datetime(), hostname: z.string().min(1).optional() });
 export async function acquireLock(root: string, confirmStale?: () => Promise<boolean>) {
   const path = join(root, '.lock');
-  const contents = JSON.stringify({ pid: process.pid, at: now(), token: randomUUID() });
+  const contents = JSON.stringify({ pid: process.pid, hostname: hostname(), at: now() });
   while (true) {
     try {
       await writeFile(path, contents, { flag: 'wx' });
@@ -51,8 +53,8 @@ export async function acquireLock(root: string, confirmStale?: () => Promise<boo
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
     }
     const original = await readFile(path, 'utf8');
-    const { pid } = lockSchema.parse(JSON.parse(original));
-    if (await processIsAlive(pid)) throw new Error('Arkivet er allerede åbent.');
+    const lock = lockSchema.parse(JSON.parse(original));
+    if (lock.hostname !== hostname() || await processIsAlive(lock.pid)) throw new Error('Arkivet er allerede åbent.');
     if (!await confirmStale?.()) throw new Error('Bekræft fjernelse af den forældede arkivlås.');
     // Serialize stale-lock removal between competing openers.
     const guard = path + '.recovery';
@@ -92,8 +94,15 @@ export async function openArchive(path: string, options: { create?: boolean; con
       }
       manifest = { format: 'ppm-archive', formatVersion: 1, schemaVersion, createdAt: now(), appVersion: '0.1.0' };
     } else {
-      manifest = manifestSchema.parse(JSON.parse(await readFile(manifestPath, 'utf8')));
+      manifest = manifestSchema.parse(JSON.parse(await readFile(await insideArchive(root, manifestPath), 'utf8')));
       if (!(await lstat(databasePath)).isFile()) throw new Error('Arkivdatabasen mangler.');
+      for (const name of ['arkiv.sqlite-wal', 'arkiv.sqlite-shm', 'arkiv.sqlite-journal', '.lock']) {
+        const stat = await lstat(join(root, name)).catch((error: NodeJS.ErrnoException) => {
+          if (error.code === 'ENOENT') return undefined;
+          throw error;
+        });
+        if (stat && !stat.isFile()) throw new Error('Arkivet indeholder en ugyldig fil: ' + name);
+      }
       db = new BetterSqliteAdapter(databasePath, true);
       const version = await databaseVersion(db);
       if (Math.max(version, manifest.schemaVersion) > schemaVersion) {

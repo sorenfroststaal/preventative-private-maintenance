@@ -1,6 +1,7 @@
 import { link, lstat, mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { importDocument, sha256 } from './repo/documents';
+import { insideArchive } from './scoped-path';
 import type { Archive } from './archive';
 import type { WriteContext } from './repo/write';
 
@@ -8,7 +9,9 @@ export function importArchiveDocument(archive: Archive, filename: string, bytes:
   if (archive.readonly) throw new Error('Arkivet er skrivebeskyttet.');
   return importDocument(archive.db, { filename, source: 'drop' }, bytes, ctx, async (relative, content, hash) => {
     const path = join(archive.root, relative);
+    await insideArchive(archive.root, join(archive.root, 'bilag'));
     await mkdir(dirname(path), { recursive: true });
+    await insideArchive(archive.root, dirname(path));
     const temp = path + '.' + crypto.randomUUID();
     await writeFile(temp, content, { flag: 'wx' });
     try {

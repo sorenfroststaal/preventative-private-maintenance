@@ -36,15 +36,17 @@ const request = z.object({ action: z.string(), data: z.unknown().optional() });
 
 async function call(action: string, data: unknown) {
   if (action === 'config') return settings();
-  if (action === 'open') {
-    const { path, create, stale, cloud } = z.object({
-      path: pathSchema, create: z.boolean(), stale: z.boolean().optional(), cloud: z.boolean().optional(),
+  if (action === 'open' || action === 'openRecent') {
+    const { path: chosen, create, stale, cloud } = z.object({
+      path: pathSchema.nullable(), create: z.boolean(), stale: z.boolean().optional(), cloud: z.boolean().optional(),
     }).parse(data);
+    const path = action === 'openRecent' ? (await settings())?.archivePath : chosen;
+    if (!path) throw new Error('Der er intet valgt arkiv.');
     if (isCloudPath(path) && !cloud) return { cloud: true };
     if (archive) await archive.close();
     archive = undefined;
     userId = undefined;
-    archive = await openArchive(path, { create, confirmStale: async () => Boolean(stale) });
+    archive = await openArchive(path, { create: action === 'open' && create, confirmStale: async () => Boolean(stale) });
     const last = await settings();
     const lastUserId = last?.archivePath === archive.root ? last.lastUserId : undefined;
     await saveConfig(archive.root, lastUserId);

@@ -1,6 +1,7 @@
 export interface DbAdapter {
   select<T>(sql: string, params?: unknown[]): Promise<T[]>;
   execute(sql: string, params?: unknown[]): Promise<{ rowsAffected: number }>;
+  executeScript(sql: string): Promise<void>;
   transaction<T>(fn: (tx: DbAdapter) => Promise<T>): Promise<T>;
 }
 
@@ -23,6 +24,10 @@ export class SerializedAdapter implements DbAdapter {
     return this.exclusive(() => this.connection.execute(sql, params));
   }
 
+  executeScript(sql: string) {
+    return this.exclusive(() => this.connection.executeScript(sql));
+  }
+
   transaction<T>(fn: (tx: DbAdapter) => Promise<T>): Promise<T> {
     return this.exclusive(async () => {
       await this.connection.execute('BEGIN IMMEDIATE');
@@ -30,6 +35,7 @@ export class SerializedAdapter implements DbAdapter {
         const tx: DbAdapter = {
           select: this.connection.select.bind(this.connection),
           execute: this.connection.execute.bind(this.connection),
+          executeScript: this.connection.executeScript.bind(this.connection),
           transaction: (nested) => nested(tx),
         };
         const result = await fn(tx);

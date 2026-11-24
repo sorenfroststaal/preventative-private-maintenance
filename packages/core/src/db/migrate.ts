@@ -17,10 +17,7 @@ export async function migrate(db: DbAdapter, initialSql: string) {
   if (version >= schemaVersion) return version;
   await db.transaction(async (tx) => {
     if (await databaseVersion(tx) === schemaVersion) return;
-    // Migration 0001 has no quoted semicolons or trigger bodies.
-    for (const statement of initialSql.replace(/--[^\r\n]*/g, '').split(';')) {
-      if (statement.trim()) await tx.execute(statement.trim());
-    }
+    await tx.executeScript(initialSql);
     await tx.execute('INSERT INTO schema_migrations VALUES (?, ?)', [schemaVersion, now()]);
   });
   return schemaVersion;

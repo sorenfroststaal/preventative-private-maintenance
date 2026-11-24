@@ -34,6 +34,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm build
+      - run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
       - name: Report installer sizes
         shell: pwsh
         run: Get-ChildItem apps/desktop/src-tauri/target/release/bundle/nsis/*.exe | Select-Object Name, Length

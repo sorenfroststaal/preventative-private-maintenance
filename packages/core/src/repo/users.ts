@@ -52,8 +52,8 @@ export async function createUser(db: DbAdapter, input: unknown, userId?: string)
     await tx.execute('INSERT INTO app_user (id, name, pin_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?)',
       [id, name, pinHash, existing ? 0 : 1, createdAt]);
     await tx.execute('INSERT INTO person (id, name, app_user_id, created_at) VALUES (?, ?, ?, ?)', [personId, personName, id, createdAt]);
-    await recordChange(tx, ctx, 'app_user', id, null, { name, is_admin: existing ? 0 : 1, has_pin: Boolean(pin) });
-    await recordChange(tx, ctx, 'person', personId, null, { name: personName, app_user_id: id });
+    await recordChange(tx, ctx, 'app_user', id, null, { name, is_admin: existing ? 0 : 1, pin_hash: pinHash, created_at: createdAt });
+    await recordChange(tx, ctx, 'person', personId, null, { name: personName, app_user_id: id, created_at: createdAt });
     return id;
   });
 }
