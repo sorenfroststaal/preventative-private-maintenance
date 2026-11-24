@@ -13,7 +13,7 @@
     "withGlobalTauri": false,
     "windows": [
       {
-        "title": "PPM – Hjemmets vedligehold",
+        "title": "PPM \u2013 Hjemmets vedligehold",
         "width": 1280,
         "height": 820,
         "minWidth": 900,
@@ -22,12 +22,15 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost; object-src 'none'; frame-src 'none'"
+      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; connect-src ipc: http://ipc.localhost; object-src 'none'; frame-src 'none'"
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "deb"],
+    "targets": [
+      "nsis",
+      "deb"
+    ],
     "publisher": "PPM open source",
     "copyright": "MIT",
     "category": "Productivity",
@@ -40,7 +43,13 @@
       "icons/icon.ico"
     ],
     "windows": {
-      "nsis": { "languages": ["Danish", "English"], "installMode": "currentUser" }
+      "nsis": {
+        "languages": [
+          "Danish",
+          "English"
+        ],
+        "installMode": "currentUser"
+      }
     }
   }
 }

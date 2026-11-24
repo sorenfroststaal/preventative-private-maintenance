@@ -3,6 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createBackup,
   createEntity,
+  exportAllJson,
+  exportIcs,
+  exportableTables,
+  exportTableCsv,
+  exportTableJson,
+  updateEntity,
   createUser,
   detectCloudFolder,
   getSetting,
@@ -15,6 +21,7 @@ import { pickDirectory, pickFiles } from "../platform/tauri";
 import { formatDateTime } from "../lib/format";
 import { useToast } from "../layout/Shell";
 import { PinFields, validatePin } from "../components/PinFields";
+import { EntityForm } from "../components/EntityForm";
 
 export function Settings() {
   return (
@@ -24,7 +31,9 @@ export function Settings() {
       <BackupPanel />
       <UsersPanel />
       <PersonsPanel />
-      <p className="small muted">AI-adgang, importprofiler, kategorier og skabeloner kommer i fase 2 og 3.</p>
+      <ExportPanel />
+      <CategoriesPanel />
+      <p className="small muted">AI-adgang og opsætning af AI-klienter kommer i fase 3.</p>
     </section>
   );
 }
@@ -241,7 +250,26 @@ function PersonsPanel() {
           <li key={String(p.id)} className="line">
             <span>{String(p.name)}</span>
             <span className="muted">{String(p.relation ?? "")}</span>
-            <span className="muted">{p.birth_year ? `f. ${String(p.birth_year)}` : ""}</span>
+            <span className="row tight">
+              <span className="muted">{p.birth_year ? `f. ${String(p.birth_year)}` : ""}</span>
+              <label className="inline small">
+                <input
+                  type="checkbox"
+                  checked={p.health_private_user_id === session.user.id}
+                  disabled={session.archive.readOnly || Boolean(p.health_private_user_id && p.health_private_user_id !== session.user.id)}
+                  onChange={async (e) => {
+                    try {
+                      await updateEntity(session.ctx(), "person", String(p.id), { health_private_user_id: e.target.checked ? session.user.id : null });
+                      await qc.invalidateQueries({ queryKey: ["person"] });
+                      await qc.invalidateQueries({ queryKey: ["persons"] });
+                    } catch (err) {
+                      toast(errorText(err), "error");
+                    }
+                  }}
+                />
+                Helbred kun synligt for mig
+              </label>
+            </span>
           </li>
         ))}
       </ul>
@@ -268,6 +296,97 @@ function PersonsPanel() {
           Tilføj person
         </button>
       </form>
+    </div>
+  );
+}
+
+function ExportPanel() {
+  const session = useSession();
+  const toast = useToast();
+  const tables = useQuery({ queryKey: ["export", "tables"], queryFn: () => exportableTables(session.archive.db) });
+  const [table, setTable] = useState("item");
+  const [fullHealth, setFullHealth] = useState(false);
+
+  async function save(name: string, text: string) {
+    const path = session.archive.path("eksport", name);
+    await session.env.fs.writeText(path, text);
+    toast(`Gemt: ${path}`);
+  }
+  const run = (f: () => Promise<void>) => f().catch((e) => toast(errorText(e), "error"));
+  const stamp = session.env.clock.today().replace(/-/g, "");
+
+  return (
+    <div className="panel">
+      <h2>Eksport</h2>
+      <p className="small muted">Filerne gemmes i arkivets mappe <code>eksport</code>. Dine data er aldrig låst til programmet.</p>
+      <div className="row">
+        <label>
+          Tabel
+          <select value={table} onChange={(e) => setTable(e.target.value)}>
+            {(tables.data ?? []).map((t) => (
+              <option key={t}>{t}</option>
+            ))}
+          </select>
+        </label>
+        <button onClick={() => run(async () => save(`${table}-${stamp}.csv`, await exportTableCsv(session.archive.db, table)))}>CSV</button>
+        <button onClick={() => run(async () => save(`${table}-${stamp}.json`, await exportTableJson(session.archive.db, table)))}>JSON</button>
+        <button onClick={() => run(async () => save(`ppm-export-${stamp}.json`, await exportAllJson(session.archive.db, session.env.clock.nowIso())))}>
+          Alt som JSON
+        </button>
+      </div>
+      <h3>Kalender (ICS)</h3>
+      <p className="small muted">
+        Opgaver med dato eksporteres som heldagsbegivenheder uden noter og bilag. Helbredsopgaver får titlen "Helbred: påmindelse", medmindre du vælger andet.
+      </p>
+      <div className="row">
+        <label className="inline">
+          <input type="checkbox" checked={fullHealth} onChange={(e) => setFullHealth(e.target.checked)} /> Brug fulde titler på helbredsopgaver
+        </label>
+        <button
+          onClick={() =>
+            run(async () => save(`ppm-opgaver-${stamp}.ics`, await exportIcs(session.archive.db, { nowIso: session.env.clock.nowIso(), fullHealthTitles: fullHealth })))
+          }
+        >
+          Eksportér ICS
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CategoriesPanel() {
+  const session = useSession();
+  const [ruleKey, setRuleKey] = useState(0);
+  const [catKey, setCatKey] = useState(0);
+  const rules = useQuery({
+    queryKey: ["category_rule", "list"],
+    queryFn: () =>
+      session.archive.db.select<Record<string, unknown>>(
+        "SELECT r.*, c.name AS category_name FROM category_rule r JOIN category c ON c.id = r.category_id ORDER BY r.priority, r.rowid",
+      ),
+  });
+  const cats = useQuery({ queryKey: ["category", "list"], queryFn: () => listEntities(session.archive.db, "category", { orderBy: "name" }) });
+  const MATCH: Record<string, string> = { contains: "indeholder", starts_with: "starter med", regex: "regex" };
+  return (
+    <div className="panel">
+      <h2>Kategorier og regler</h2>
+      <p className="small">{(cats.data ?? []).map((c) => String(c.name)).join(" · ")}</p>
+      <EntityForm key={catKey} type="category" title="Ny kategori" submitLabel="Tilføj" invalidate={[["category"]]} onSaved={() => setCatKey((k) => k + 1)} />
+      <h3>Regler for automatisk kategorisering</h3>
+      <ul className="plain">
+        {(rules.data ?? []).map((r) => (
+          <li key={String(r.id)} className="line">
+            <span>
+              Tekst {MATCH[String(r.match_type)]} "{String(r.pattern)}"
+            </span>
+            <span>→ {String(r.category_name)}</span>
+            <span className="muted small">
+              {r.created_from === "learned" ? "lært" : "manuel"} · prioritet {String(r.priority)}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <EntityForm key={ruleKey} type="category_rule" title="Ny regel" submitLabel="Tilføj" defaults={{ priority: 100 }} invalidate={[["category_rule"]]} onSaved={() => setRuleKey((k) => k + 1)} />
     </div>
   );
 }

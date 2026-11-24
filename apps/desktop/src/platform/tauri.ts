@@ -114,7 +114,16 @@ export function createTauriEnv(info: AppInfo): Env {
     hostname: async () => info.hostname,
     isProcessAlive: (pid) => invoke<boolean>("process_alive", { pid }),
   };
-  return { fs: tauriFs, platform, zip: tauriZip, openDb: openTauriDb, clock: systemClock, newId: randomId };
+  return {
+    fs: tauriFs,
+    platform,
+    zip: tauriZip,
+    openDb: openTauriDb,
+    clock: systemClock,
+    newId: randomId,
+    // Loaded lazily so pdf.js is only fetched when a PDF is imported.
+    pdfText: async (bytes) => (await import("../lib/pdf")).pdfText(bytes),
+  };
 }
 
 export async function readConfig(): Promise<AppConfig> {
