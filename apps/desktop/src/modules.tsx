@@ -46,7 +46,7 @@ const choices: Record<string, string> = {
   improvement: 'Forbedring', inspection: 'Eftersyn', registered: 'Registreret', quote_requested: 'Tilbud udbedt',
   ordered: 'Bestilt', done: 'Udført', invoiced: 'Faktureret', closed: 'Lukket', cancelled: 'Annulleret',
   petrol: 'Benzin', diesel: 'Diesel', electric: 'El', hybrid: 'Hybrid', plugin_hybrid: 'Plug-in-hybrid',
-  expense: 'Udgift', income: 'Indtægt', transfer: 'Overførsel', contains: 'Indeholder', starts_with: 'Starter med',
+  expense: 'Udgift', income: 'Indtægt', transfer: 'Overførsel', contains: 'Indeholder', starts_with: 'Starter med', regex: 'Regulært udtryk',
   month: 'Måned', quarter: 'Kvartal', half_year: 'Halvår', year: 'År', user: 'Bruger', learned: 'Lært',
   home_contents: 'Indbo', building: 'Bygning', car: 'Bil', accident: 'Ulykke', health: 'Sundhed', life: 'Liv',
   travel: 'Rejse', change_of_ownership: 'Ejerskifte', pet: 'Dyr', reported: 'Anmeldt', in_progress: 'Under behandling',

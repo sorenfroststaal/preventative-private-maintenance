@@ -96,13 +96,15 @@ export async function importBank(db: DbAdapter, account: string, rows: BankRow[]
     const rules = await tx.select<{ match_type: string; pattern: string; category_id: string }>(
       'SELECT r.match_type, r.pattern, r.category_id FROM category_rule r JOIN category c ON c.id = r.category_id WHERE c.archived_at IS NULL ORDER BY r.priority, r.rowid',
     );
+    const expressions = new Map(rules.filter(rule => rule.match_type === 'regex')
+      .map(rule => [rule.pattern, new RegExp(rule.pattern, 'iu')]));
     for (const row of newRows) {
       const rule = rules.find(({ match_type, pattern }) => {
         const input = row.text.toLocaleLowerCase('da');
         const term = pattern.toLocaleLowerCase('da');
         if (match_type === 'contains') return input.includes(term);
         if (match_type === 'starts_with') return input.startsWith(term);
-        return false;
+        return expressions.get(pattern)?.test(row.text) ?? false;
       });
       const data = { id: crypto.randomUUID(), account_id: account, ...row, currency: owner.currency,
         category_id: rule?.category_id ?? null, category_source: rule ? 'rule' : null, import_batch_id: batch.id };

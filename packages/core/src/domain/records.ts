@@ -24,7 +24,7 @@ export const fields = {
   contact: { name: title, kind: z.enum(['craftsman', 'shop', 'insurer', 'doctor', 'dentist', 'workshop', 'bank', 'other']), phone: text, email: text, website: text, notes: text },
   account: { name: title, bank: text, last4: z.string().regex(/^\d{4}$/).nullish(), currency },
   category: { name: title, parent_id: ref, kind: z.enum(['expense', 'income', 'transfer']) },
-  category_rule: { match_type: z.enum(['contains', 'starts_with']), pattern: title, category_id: id, priority: z.number().int().safe().optional(), created_from: z.enum(['user', 'learned']).optional() },
+  category_rule: { match_type: z.enum(['contains', 'starts_with', 'regex']), pattern: title, category_id: id, priority: z.number().int().safe().optional(), created_from: z.enum(['user', 'learned']).optional() },
   budget: { year: z.number().int().min(1900).max(9999), name: title },
   budget_line: { budget_id: id, category_id: id, month: z.number().int().min(1).max(12).nullish(), amount_minor: z.number().int().safe().nonnegative() },
   recurring_expense: { name: title, category_id: ref, amount_minor: z.number().int().safe().nonnegative(), currency, period, next_date: day, binding_until: day, contact_id: ref, policy_id: ref, notes: text },

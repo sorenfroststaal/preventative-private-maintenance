@@ -82,6 +82,9 @@ it('keeps status history and odometer readings and groups vehicle costs by curre
 it('reads Danish money and Windows-1252 and only imports new rows, including repeated originals', async () => {
   const { db } = archive;
   const account = await saveRecord(db, 'account', { name: 'Demokonto' }, ctx);
+  const category = await saveRecord(db, 'category', { name: 'Testindkøb', kind: 'expense' }, ctx);
+  const rule = await saveRecord(db, 'category_rule', { match_type: 'regex', pattern: '^k[øo]b$', category_id: category.id }, ctx);
+  await expect(saveRecord(db, 'category_rule', { pattern: '[' }, ctx, rule.id)).rejects.toThrow('Ugyldigt');
   expect(danishMinor('-1.234,56')).toBe(-123456);
   const bytes = Buffer.from('Dato;Posteringstekst;Beløb\n01.03.2026;Køb;"-1.234,56"\n01.03.2026;Køb;"-1.234,56"', 'latin1');
   const rows = parseBank(bytes, 'sparkron', account.id);
@@ -92,6 +95,7 @@ it('reads Danish money and Windows-1252 and only imports new rows, including rep
   expect(await previewBank(db, account.id, rows)).toMatchObject({ added: 2, duplicates: 0 });
   expect(await importBank(db, account.id, rows, 'sparkron', ctx, store)).toEqual({ added: 2, duplicates: 0 });
   expect(await importBank(db, account.id, rows, 'sparkron', ctx, store)).toEqual({ added: 0, duplicates: 2 });
+  expect(await db.select('SELECT category_id FROM bank_transaction')).toEqual([{ category_id: category.id }, { category_id: category.id }]);
   expect(() => parseBank(Buffer.from('Dato;Posteringstekst;Beløb\n99.03.2026;Demo;12,00'), 'sparkron', account.id)).toThrow('Række 2');
 });
 

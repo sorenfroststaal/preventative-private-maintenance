@@ -101,6 +101,10 @@ export async function saveRecord(db: DbAdapter, rawType: unknown, values: unknow
     if (!before && createdTables.has(type)) data.created_at = now();
     if (updatedTables.has(type)) data.updated_at = now();
     const current: Row = { ...before, ...data, id };
+    if (type === 'category_rule' && current.match_type === 'regex') {
+      try { new RegExp(String(current.pattern), 'iu'); }
+      catch { throw new Error('Ugyldigt regulært udtryk.'); }
+    }
     if (type.startsWith('health_')) {
       if (before) await assertPersonVisible(tx, before.person_id, ctx.userId);
       await assertPersonVisible(tx, current.person_id, ctx.userId);

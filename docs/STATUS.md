@@ -1,6 +1,6 @@
 # Implementeringsstatus på codex/app
 
-Branchen indeholder merge af `main` efter PR #2. Migration 0001 er byteidentisk med det normative skema.
+Branchen indeholder merge af `main` efter PR #3. Migration 0001 er byteidentisk med det normative skema.
 
 ## Fase 1 · Fundament
 
