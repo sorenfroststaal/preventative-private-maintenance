@@ -4,7 +4,7 @@
 
 | Kriterium | Status | Resultat |
 | --- | --- | --- |
-| 1 | Delvist | Workspace, lokale kommandoer og CI-konfiguration. MCP er udestående. Windows-installer og native dev-flow afventer verificering. Se A1 og A2. |
+| 1 | Delvist | Workspace, lokale kommandoer og CI-konfiguration. MCP er udestående. Windows-installeren er bygget i CI. Native dev-flow afventer manuel verificering. Se A1 og A2. |
 | 2 | Opfyldt | Oprettelse og genåbning af arkiv, manifest, mapper og migration. Automatiseret test. |
 | 3 | Opfyldt | Migration 0001 er en byteidentisk kopi af skemaet. Gentagen kørsel ændrer intet. En fejl ruller migrationen tilbage. Automatiserede tests. |
 | 4 | Opfyldt | En aktiv PID afviser en ny skriver. Fjernelse af en forældet lås kræver bekræftelse. Automatiserede tests. |
@@ -17,9 +17,10 @@
 
 - **Afvigelser** fremgår af [AFVIGELSER.md](AFVIGELSER.md).
 - **Lokalt, Linux med Node 24**. `pnpm lint` bestået. `pnpm test` bestået med 16 tests. `pnpm build` bestået for frontend og den pakkede arkivproces. Arkivprocessen er afprøvet over stdio med et syntetisk arkiv.
-- **Installerstørrelse** er ikke målt. Linux-miljøet har ingen Rust/Tauri Windows-værktøjskæde. CI er sat op til at bygge og rapportere NSIS-filens størrelse.
+- **GitHub Actions**. Linux-jobbet bestod lint, test og build. Windows-jobbet bestod alle 16 tests og byggede installeren med Tauri. [CI-kørsel for c54840a](https://github.com/sorenfroststaal/preventative-private-maintenance/actions/runs/45475310287).
+- **Installerstørrelse**. `PPM_0.1.0_x64-setup.exe` er 26.664.367 bytes (25,43 MiB). [Windows x64-installer](https://github.com/sorenfroststaal/preventative-private-maintenance/actions/runs/45475310287/artifacts/14958958664).
 - **Opstartstid** er ikke målt. Målingen kræver en kørbar Windows-installer og en almindelig opstart fra installeret app til første interaktive vindue.
 
 ## Fase 2 og 3
 
-Afventer verifikation af fundamentet på Windows. Kriterierne 1–12 i fase 2 og 1–9 i fase 3 er åbne.
+Afventer manuel verifikation af fundamentets brugerforløb på Windows. Kriterierne 1–12 i fase 2 og 1–9 i fase 3 er åbne.
