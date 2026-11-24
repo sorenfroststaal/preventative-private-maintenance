@@ -42,8 +42,27 @@ Hver linje har en hurtighandling: *Udført, Udskyd* (vælg en dato) og *Åbn*.
 ```
 
 - `unit`: `day`, `week`, `month` eller `year`. I `fixed` bruges `month` (1–12) og `day` (1–31) kun ved `year`. Ved `month` bruges kun `day`.
-- **fixed:** næste forfaldsdato er den første dato efter den forrige forfaldsdato, der passer til mønsteret. Udførelsesdatoen er ligegyldig.
-- **interval:** næste forfaldsdato er udførelsesdatoen plus `every × unit`. Ved spring over regnes der fra den forrige forfaldsdato.
+- **fixed:** udførelsesdatoen er ligegyldig. Næste forfaldsdato findes sådan:
+  - Ligger den forrige forfaldsdato på mønsteret (dagen klemt til månedens længde), flyttes den `every` perioder frem, og mønsterets dag bruges igen.
+  - Ligger den forrige forfaldsdato uden for mønsteret, bruges den første dato strengt efter den, som passer. Derefter gælder reglen ovenfor.
+  - Ved `day` og `week` regnes der fra den forrige forfaldsdato.
+  - Mangler den forrige forfaldsdato, bruges udførelsesdatoen som base.
+- **interval:** næste forfaldsdato er udførelsesdatoen plus `every × unit`. Ved spring over regnes der fra den forrige forfaldsdato. Mangler den, regnes der fra datoen for overspringet.
+- **Første forfaldsdato:** brugeren kan angive den. Gør brugeren det ikke, gælder:
+  - `fixed` med `year` eller `month`: datoen bliver den første dato på mønsteret samme dag som oprettelsen eller senere.
+  - `interval` og engangsopgaver: datoen gemmes som manglende (`NULL`) og vises under "Mangler oplysninger". Den gættes aldrig.
+- Eksempler (alle SKAL være dækket af tests):
+
+  | Regel | Forrige forfaldsdato | Udført | Næste |
+  | --- | --- | --- | --- |
+  | fixed, år, 01.10, every 1 | 2026-10-01 | 2026-11-20 | 2027-10-01 |
+  | fixed, år, 01.10, every 1 | 2026-09-15 | 2026-09-15 | 2026-10-01 |
+  | fixed, år, 01.10, every 2 | 2026-11-15 | 2026-11-15 | 2027-10-01 og derefter 2029-10-01 |
+  | fixed, måned, dag 31 | 2026-01-31 | 2026-01-31 | 2026-02-28 og derefter 2026-03-31 |
+  | fixed, år, 29.02 | 2028-02-29 | 2028-02-29 | 2029-02-28 |
+  | interval, 6 måneder | 2026-03-01 | 2026-03-15 | 2026-09-15 |
+  | interval, 3 måneder, sprunget over | 2026-01-10 | 2026-02-20 | 2026-04-10 |
+  | interval, 1 måned | 2026-01-31 | 2026-01-31 | 2026-02-28 |
 - Månedsenden klemmes: 31. januar plus 1 måned giver 28. eller 29. februar. Der regnes altid i kalenderdatoer, ikke i tidszoner.
 - Når en forekomst markeres `done` eller `skipped`, oprettes den næste åbne forekomst i samme transaktion. Der må højst være én åben forekomst pr. opgave (det håndhæves af et indeks).
 - Opgaven kan knyttes til en arbejdsordre. Med knappen *Udført, opret arbejdsordre* oprettes en arbejdsordre med status `done`, og den kobles til forekomsten.
