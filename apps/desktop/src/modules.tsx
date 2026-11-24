@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { z } from 'zod';
 import { fields, archivedTables, type RecordType } from '../../../packages/core/src/domain/records';
-import { BankImport, RelatedDocuments, SaveOutput } from './module-actions';
+import { AccountTransactions, BankImport, PolicyCoverage, RelatedDocuments, SaveOutput, VehicleTemplates } from './module-actions';
 import { nextDate } from '../../../packages/core/src/recurrence/next';
 
 type Row = { id: string } & Record<string, unknown>;
@@ -83,6 +83,7 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
   const [showArchived, setShowArchived] = useState(false);
   const tableFields = fields[type];
   const [receipts, setReceipts] = useState(false);
+  const multipliers: Record<string, number> = { month: 12, quarter: 4, half_year: 2, year: 1 };
   const display = (r: Row) => String(r.title ?? r.name ?? r.vaccine ?? r.reason ?? r.description ?? r.substance ?? r.pattern ?? r.type ?? r.reading_date ?? r.amount_minor ?? r.id);
   const referenceFor = (key: string) => key === 'target_id' ? targetType : key === 'parent_id' ? type : references[key];
 
@@ -123,13 +124,11 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
     event.preventDefault();
     const form = event.currentTarget;
     const result: Record<string, unknown> = {};
-    const schema = z.toJSONSchema(z.object(tableFields), { io: 'input' });
-    const required = new Set(schema.required as string[] ?? []);
     for (const [key, field] of Object.entries(tableFields)) {
       const raw = new FormData(form).get(key);
       const info = shape(field);
       if (typeof raw !== 'string' || raw === '') {
-        if (selected?.[key] != null && !required.has(key) && key !== 'currency') result[key] = null;
+        if (selected?.[key] != null && field.safeParse(null).success) result[key] = null;
         continue;
       }
       result[key] = info.type === 'number' || info.type === 'integer' ? Number(raw) : info.format === 'date-time' ? new Date(raw).toISOString() : raw;
@@ -173,7 +172,13 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
       <SaveOutput action="report" payload={{ policy: type === 'policy' ? selected?.id : undefined, property: type === 'property' ? selected?.id : undefined,
         location: type === 'location' ? selected?.id : undefined, archived: showArchived, receipts }} label="Gem forsikringsrapport" local={local} run={run} />
     </section>}
-    {selected && type === 'account' && <BankImport key={selected.id} account={selected.id} local={local} run={run} />}
+    {selected && type === 'account' && <><BankImport key={selected.id} account={selected.id} local={local} run={run} />
+      <AccountTransactions id={selected.id} local={local} run={run} /></>}
+    {selected && type === 'vehicle' && <VehicleTemplates id={selected.id} local={local} run={run} />}
+    {selected && type === 'policy' && <PolicyCoverage id={selected.id} currency={String(selected.currency)}
+      limit={typeof selected.coverage_sum_minor === 'number' ? selected.coverage_sum_minor : null}
+      annual={typeof selected.premium_minor === 'number' && selected.premium_period ? selected.premium_minor * multipliers[String(selected.premium_period)] : null}
+      local={local} run={run} />}
     {selected && ['item', 'work_order', 'policy', 'vehicle', 'building_part'].includes(type) &&
       <RelatedDocuments key={selected.id} type={type} id={selected.id} local={local} run={run} />}
     <div className="actions">

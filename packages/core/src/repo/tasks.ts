@@ -1,3 +1,4 @@
+import templates from "../../../../templates/da/basis.json";
 import { z } from 'zod';
 import type { DbAdapter } from '../db/adapter';
 import { date, recurrence, today } from '../domain/dates';
@@ -65,5 +66,29 @@ export async function postponeTask(db: DbAdapter, id: string, input: unknown, ct
     if (!before) throw new Error('Opgaven har ingen åben forekomst.');
     await tx.execute('UPDATE task_occurrence SET due_date = ? WHERE id = ?', [due, id]);
     await recordChange(tx, ctx, 'task_occurrence', id, before, { ...before, due_date: due });
+  });
+}
+
+export const vehicleTemplates = templates.filter(template => template.applies_to === 'vehicle');
+
+export async function addVehicleTemplate(db: DbAdapter, vehicle: string, template: string, rawDate: unknown, ctx: WriteContext) {
+  const due = date.nullable().parse(rawDate);
+  const selected = vehicleTemplates.find(item => item.id === template);
+  if (!selected) throw new Error('Skabelonen findes ikke.');
+  const rule = recurrence.nullable().parse(selected.recurrence);
+  if (!rule && !due) throw new Error('Vælg datoen for næste syn.');
+  return db.transaction(async tx => {
+    const [car] = await tx.select<{ name: string }>('SELECT name FROM vehicle WHERE id = ? AND archived_at IS NULL', [vehicle]);
+    if (!car) throw new Error('Bilen findes ikke.');
+    const [existing] = await tx.select('SELECT id FROM task WHERE target_type = ? AND target_id = ? AND template_id = ? AND status != ?', ['vehicle', vehicle, selected.id, 'archived']);
+    if (existing) throw new Error('Skabelonen er allerede føjet til bilen.');
+    const id = crypto.randomUUID();
+    const title = selected.title + ' · ' + car.name;
+    const fields = { title, description: selected.description, module: 'vehicle', target_type: 'vehicle', target_id: vehicle,
+      recurrence_json: rule ? JSON.stringify(rule) : null, source: 'template', template_id: selected.id,
+      template_version: selected.version, created_at: now(), updated_at: now() };
+    await tx.execute(`INSERT INTO task (id, ${Object.keys(fields).join(', ')}) VALUES (?, ${Object.keys(fields).map(() => '?').join(', ')})`, [id, ...Object.values(fields)]);
+    await recordChange(tx, ctx, 'task', id, null, fields, { module: 'vehicle', title, body: selected.description });
+    return occurrence(tx, id, due ?? firstDate(rule, today()), ctx);
   });
 }

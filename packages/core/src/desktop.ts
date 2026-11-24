@@ -7,17 +7,17 @@ import { createBackup, restoreBackup } from './backup/backup';
 import { today } from './domain/dates';
 import { importArchiveDocument } from './node-documents';
 import { documentLimit, documentPath, listDocuments } from './repo/documents';
-import { completeTask, createTask, openTasks, postponeTask } from './repo/tasks';
+import { addVehicleTemplate, completeTask, createTask, openTasks, postponeTask, vehicleTemplates } from './repo/tasks';
 import { listRecords, saveRecord, setArchived } from './repo/records';
 import { writeLink } from './repo/links';
 import { dashboard, history, vehicleCosts } from './repo/overview';
 import { searchRecords } from './repo/search';
-import { importBank, parseBank, previewBank, profileSchema, type Profile } from './import/bank';
+import { categorizeBank, importBank, parseBank, previewBank, profileSchema, type Profile } from './import/bank';
 import { insideArchive } from './scoped-path';
-import { insuranceReport } from './report/insurance';
+import { insuranceItems, insuranceReport } from './report/insurance';
 import { startInbox } from './import/inbox';
 import { exportFile } from './report/export';
-import { authenticate, createPerson, createUser, listUsers } from './repo/users';
+import { authenticate, createPerson, createUser, listUsers, setHealthPrivacy } from './repo/users';
 
 const configDir = process.argv[2];
 if (!configDir) throw new Error('Konfigurationsmappen mangler.');
@@ -90,6 +90,33 @@ async function call(action: string, data: unknown) {
       const [row] = await db.select<{ value_json: string }>("SELECT value_json FROM setting WHERE key = 'backup.last_at'");
       const previous = row ? Date.parse(JSON.parse(row.value_json)) : Date.parse(archive.manifest.createdAt);
       return Date.now() - previous > 30 * 86400000;
+    }
+    case 'privacy': {
+      if (!(await listUsers(db)).some(user => user.id === userId && user.is_admin)) throw new Error('Kun administratoren kan ændre synligheden.');
+      return { persons: await db.select('SELECT id, name, health_private_user_id FROM person WHERE archived_at IS NULL ORDER BY name'), users: await listUsers(db) };
+    }
+    case 'setPrivacy': {
+      const { person, owner } = z.object({ person: z.uuid(), owner: z.uuid().nullable() }).parse(data);
+      return setHealthPrivacy(db, userId, person, owner);
+    }
+    case 'vehicleTemplates': return vehicleTemplates;
+    case 'addVehicleTemplate': {
+      const { vehicle, template, due } = z.object({ vehicle: z.uuid(), template: z.string(), due: z.string().nullable() }).parse(data);
+      return addVehicleTemplate(db, vehicle, template, due, ctx);
+    }
+    case 'bankTransactions': {
+      const id = z.uuid().parse(data);
+      return db.select('SELECT id, booking_date, text, amount_minor, currency, category_id FROM bank_transaction WHERE account_id = ? ORDER BY booking_date DESC, rowid DESC LIMIT 500', [id]);
+    }
+    case 'categorize': {
+      const { transaction, category, learned } = z.object({ transaction: z.uuid(), category: z.uuid().nullable(), learned: z.string().trim().max(240).nullable() }).parse(data);
+      return categorizeBank(db, transaction, category, learned, ctx);
+    }
+    case 'policyInfo': {
+      const id = z.uuid().parse(data);
+      const summary = await insuranceItems(db, { policy: id });
+      const coverage = await db.select('SELECT target_type, target_id FROM policy_coverage WHERE policy_id = ?', [id]);
+      return { totals: summary.totals, coverage };
     }
     case 'dashboard': return dashboard(db, userId, today());
     case 'report': return insuranceReport(archive, data);

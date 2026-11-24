@@ -1,9 +1,9 @@
 import { StrictMode, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { invoke } from '@tauri-apps/api/core';
-import { getCurrentWebview } from '@tauri-apps/api/webview';
+import { listen } from '@tauri-apps/api/event';
 import './style.css';
-import { Overview, SaveOutput } from './module-actions';
+import { HealthPrivacy, Overview, SaveOutput } from './module-actions';
 import { ModuleView, sections } from './modules';
 
 type User = { id: string; name: string; has_pin: number; is_admin: number };
@@ -127,8 +127,8 @@ function App() {
 
   useEffect(() => {
     if (!current) return;
-    const listener = getCurrentWebview().onDragDropEvent(({ payload }) => {
-      if (payload.type === 'drop') void run(async () => importPaths(await invoke<string[]>('take_dropped')));
+    const listener = listen('ppm-files-dropped', () => {
+      void run(async () => importPaths(await invoke<string[]>('take_dropped')));
     });
     return () => { void listener.then((unlisten) => unlisten()); };
   }, [current]);
@@ -250,6 +250,7 @@ function App() {
       })}>Gendan fra backup</button>
     </div>
     {Boolean(current.is_admin) && <><h2>Brugere og personer</h2><UserForm submit={newUser} first={false} />
+      <HealthPrivacy local={local} run={run} />
       <h3>Person uden eget login</h3>
       <form onSubmit={(event) => {
         event.preventDefault();

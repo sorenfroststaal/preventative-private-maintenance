@@ -69,3 +69,15 @@ export async function createPerson(db: DbAdapter, input: unknown, userId: string
     await recordChange(tx, { via: 'ui', userId }, 'person', id, null, person);
   });
 }
+
+export async function setHealthPrivacy(db: DbAdapter, adminId: string, personId: string, owner: string | null) {
+  await db.transaction(async tx => {
+    const [admin] = await tx.select('SELECT id FROM app_user WHERE id = ? AND is_admin = 1 AND archived_at IS NULL', [adminId]);
+    if (!admin) throw new Error('Kun administratoren kan ændre synligheden.');
+    const [before] = await tx.select<Record<string, unknown>>('SELECT * FROM person WHERE id = ? AND archived_at IS NULL', [personId]);
+    if (!before) throw new Error('Personen findes ikke.');
+    if (owner && !(await tx.select('SELECT id FROM app_user WHERE id = ? AND archived_at IS NULL', [owner])).length) throw new Error('Brugeren findes ikke.');
+    await tx.execute('UPDATE person SET health_private_user_id = ? WHERE id = ?', [owner, personId]);
+    await recordChange(tx, { via: 'ui', userId: adminId }, 'person', personId, before, { ...before, health_private_user_id: owner });
+  });
+}

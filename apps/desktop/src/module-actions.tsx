@@ -123,3 +123,108 @@ export function RelatedDocuments({ type, id, local, run }: { type: string; id: s
       <button>Tilknyt bilag</button>
     </form></section>;
 }
+
+type Named = { id: string; name?: string; title?: string };
+export function PolicyCoverage({ id, currency, limit, annual, local, run }: {
+  id: string; currency: string; limit: number | null; annual: number | null; local: Local; run: Run;
+}) {
+  const [type, setType] = useState('property');
+  const [options, setOptions] = useState<Record<string, Named[]>>({});
+  const [data, setData] = useState<{ totals: Record<string, number>; coverage: { target_type: string; target_id: string }[] }>();
+  const labels: Record<string, string> = { property: 'Boliger', item: 'Genstande', vehicle: 'Biler', person: 'Personer' };
+  const fmt = (value: number, code: string) => new Intl.NumberFormat('da-DK', { style: 'currency', currency: code }).format(value / 100);
+  async function load() { setData(await local('policyInfo', id)); }
+  useEffect(() => {
+    void run(async () => {
+      await load();
+      const entries = await Promise.all(Object.keys(labels).map(async key => [key, await local<Named[]>('records', key)] as const));
+      setOptions(Object.fromEntries(entries));
+    });
+  }, [id]);
+
+  return <section><h3>Dækning</h3>
+    {annual !== null && <p>Årlig præmie {fmt(annual, currency)}</p>}
+    {limit !== null && <p>Dækningssum {fmt(limit, currency)}</p>}
+    {data && Object.keys(data.totals).length > 0 && <p>Dækkede genstande {Object.entries(data.totals).map(([code, total]) => fmt(total, code)).join(' · ')}</p>}
+    {data && limit !== null && (data.totals[currency] ?? 0) > limit && <p role="alert">Genstandenes samlede købspris overstiger dækningssummen.</p>}
+    <ul>{data?.coverage.map(row => <li key={row.target_type + row.target_id}>
+      {options[row.target_type]?.find(option => option.id === row.target_id)?.name ?? row.target_id}
+      <button onClick={() => void run(async () => {
+        await local('unlinkRecord', { type: 'policy_coverage', key: { policy_id: id, ...row } });
+        await load();
+      })}>Fjern dækning</button></li>)}</ul>
+    <form onSubmit={e => {
+      e.preventDefault();
+      const target = new FormData(e.currentTarget).get('target');
+      void run(async () => {
+        await local('linkRecord', { type: 'policy_coverage', key: { policy_id: id, target_type: type, target_id: target } });
+        await load();
+      });
+    }}>
+      <label>Måltype<select value={type} onChange={e => setType(e.target.value)}>{Object.entries(labels).map(([key, label]) =>
+        <option key={key} value={key}>{label}</option>)}</select></label>
+      <label>Dækket post<select key={type} name="target" required><option value="">Vælg</option>{options[type]?.map(row =>
+        <option key={row.id} value={row.id}>{row.name ?? row.title}</option>)}</select></label>
+      <button>Tilføj dækning</button>
+    </form></section>;
+}
+
+type BankTransaction = { id: string; booking_date: string; text: string; category_id: string | null; currency: string; amount_minor: number };
+export function AccountTransactions({ id, local, run }: { id: string; local: Local; run: Run }) {
+  const [rows, setRows] = useState<BankTransaction[]>([]);
+  const [categories, setCategories] = useState<Named[]>([]);
+  async function reload() { setRows(await local('bankTransactions', id)); }
+  useEffect(() => {
+    void run(async () => { await reload(); setCategories(await local('records', 'category')); });
+  }, [id]);
+  return <section><h3>Posteringer</h3><button onClick={() => void run(reload)}>Opdatér posteringer</button>
+    <ul className="records">{rows.map(row => <li key={row.id}><div>
+      <strong>{row.text}</strong><p>{row.booking_date} · {new Intl.NumberFormat('da-DK', { style: 'currency', currency: row.currency }).format(row.amount_minor / 100)}</p></div>
+      <form key={String(row.category_id)} onSubmit={event => {
+        event.preventDefault();
+        const values = new FormData(event.currentTarget);
+        void run(async () => {
+          await local('categorize', { transaction: row.id, category: values.get('category') || null, learned: values.get('learned') || null });
+          await reload();
+        });
+      }}>
+        <label>Kategori<select name="category" defaultValue={row.category_id ?? ''}><option value="">Uden kategori</option>
+          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+        <label>Brug altid for tekster der indeholder (valgfrit)<input name="learned" maxLength={240} /></label>
+        <button>Gem kategori</button>
+      </form></li>)}</ul>
+  </section>;
+}
+
+export function VehicleTemplates({ id, local, run }: { id: string; local: Local; run: Run }) {
+  const [templates, setTemplates] = useState<{ id: string; title: string; description: string }[]>([]);
+  const [notice, setNotice] = useState('');
+  useEffect(() => { void run(async () => setTemplates(await local('vehicleTemplates'))); }, []);
+  return <section><h3>Forslag til bilopgaver</h3><form onSubmit={event => {
+    event.preventDefault();
+    const values = new FormData(event.currentTarget);
+    void run(async () => {
+      await local('addVehicleTemplate', { vehicle: id, template: values.get('template'), due: values.get('due') || null });
+      setNotice('Opgaven er oprettet.');
+    });
+  }}><label>Skabelon<select name="template" required><option value="">Vælg</option>{templates.map(t =>
+    <option key={t.id} value={t.id}>{t.title}</option>)}</select></label>
+    <label>Første dato (påkrævet ved syn)<input type="date" name="due" /></label><button>Opret bilopgave</button>
+  </form>{notice && <p role="status">{notice}</p>}</section>;
+}
+
+export function HealthPrivacy({ local, run }: { local: Local; run: Run }) {
+  const [data, setData] = useState<{ persons: { id: string; name: string; health_private_user_id?: string }[]; users: Named[] }>();
+  async function load() { setData(await local('privacy')); }
+  useEffect(() => { void run(load); }, []);
+  return <section><h3>Synlighed af helbred</h3><p>Arkivet er ukrypteret. Indstillingen styrer visningen i appen.</p>
+    {data?.persons.map(person => <form key={person.id + person.health_private_user_id} onSubmit={event => {
+      event.preventDefault();
+      const owner = new FormData(event.currentTarget).get('owner');
+      void run(async () => { await local('setPrivacy', { person: person.id, owner: owner || null }); await load(); });
+    }}>
+      <label>{person.name}<select name="owner" defaultValue={person.health_private_user_id ?? ''}>
+        <option value="">Alle brugere</option>{data.users.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
+      </select></label><button>Gem synlighed</button>
+    </form>)}</section>;
+}

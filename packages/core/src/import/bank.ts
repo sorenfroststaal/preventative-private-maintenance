@@ -113,3 +113,20 @@ export async function importBank(db: DbAdapter, account: string, rows: BankRow[]
     return { added: batch.rows_imported, duplicates: batch.rows_duplicate };
   });
 }
+
+export async function categorizeBank(db: DbAdapter, transaction: string, category: string | null, learned: string | null, ctx: WriteContext) {
+  await db.transaction(async tx => {
+    const [before] = await tx.select<import('../repo/write').Fields & { id: string }>('SELECT * FROM bank_transaction WHERE id = ?', [transaction]);
+    if (!before) throw new Error('Posteringen findes ikke.');
+    if (category && !(await tx.select('SELECT id FROM category WHERE id = ? AND archived_at IS NULL', [category])).length) throw new Error('Kategorien findes ikke.');
+    const after = { ...before, category_id: category, category_source: category ? 'user' : null };
+    await tx.execute('UPDATE bank_transaction SET category_id = ?, category_source = ? WHERE id = ?', [after.category_id, after.category_source, transaction]);
+    await synchronizeIndex(tx, 'bank_transaction', after, ctx, before);
+    if (category && learned?.trim()) {
+      const id = crypto.randomUUID();
+      const fields = { match_type: 'contains', pattern: learned.trim(), category_id: category, priority: 100, created_from: 'learned' };
+      await tx.execute('INSERT INTO category_rule (id, match_type, pattern, category_id, priority, created_from) VALUES (?, ?, ?, ?, ?, ?)', [id, ...Object.values(fields)]);
+      await recordChange(tx, ctx, 'category_rule', id, null, { id, ...fields });
+    }
+  });
+}

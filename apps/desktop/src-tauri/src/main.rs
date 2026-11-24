@@ -8,7 +8,7 @@ use std::{
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
     sync::Mutex,
 };
-use tauri::{DragDropEvent, Manager, State, WindowEvent};
+use tauri::{Emitter, DragDropEvent, Manager, State, WindowEvent};
 use tauri_plugin_dialog::DialogExt;
 
 #[derive(Default)]
@@ -51,7 +51,7 @@ fn authorize(request: &Value, grants: &Mutex<FileGrants>) -> Result<(), String> 
         "backup" | "restore" | "import" => request["data"].as_str(),
         "config" | "openRecent" | "login" | "logout" | "createUser" | "createPerson" | "backupDue" |
         "tasks" | "createTask" | "completeTask" | "documents" | "search" | "records" | "saveRecord" |
-        "archiveRecord" | "linkRecord" | "unlinkRecord" | "dashboard" | "vehicleCosts" | "history" | "bankApply" | "export" | "report" | "previewDocument" | "inbox" | "postponeTask" | "documentLinks" => return Ok(()),
+        "archiveRecord" | "linkRecord" | "unlinkRecord" | "dashboard" | "vehicleCosts" | "history" | "bankApply" | "export" | "report" | "previewDocument" | "inbox" | "postponeTask" | "documentLinks" | "policyInfo" | "bankTransactions" | "categorize" | "vehicleTemplates" | "addVehicleTemplate" | "privacy" | "setPrivacy" => return Ok(()),
         _ => return Err("Ukendt lokal handling.".into()),
     }.ok_or("Der mangler en godkendt sti.")?;
     let guard = grants.lock().map_err(|e| e.to_string())?;
@@ -102,6 +102,7 @@ fn main() {
             if let WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }) = event {
                 if let Ok(mut grants) = window.state::<Mutex<FileGrants>>().lock() {
                     grants.dropped = paths.iter().filter_map(|p| p.canonicalize().ok()).collect();
+                    let _ = window.emit("ppm-files-dropped", ());
                 }
             }
         })
