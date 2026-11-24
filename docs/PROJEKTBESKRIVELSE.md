@@ -32,6 +32,10 @@ Køretøj med nummerplade, stelnummer og model. Servicebog og reparationer hånd
 
 Familiebudget pr. kategori og måned, faste udgifter og abonnementer med fornyelsesdatoer. Kontoudtog importeres som CSV-filer fra banken. Rækker, der allerede er importeret, genkendes, og kategoriseringsregler kan læres af brugerens rettelser. Transaktioner kan knyttes til kvitteringer og arbejdsordrer, så man for eksempel kan se de samlede driftsomkostninger for bilen eller huset.
 
+### Madplan
+
+Ugeplan med opskrifter eller frie titler pr. dag, en opskriftsbank med ingredienser og en indkøbsliste, der samles automatisk fra ugens retter. Retter med noget, et familiemedlem er allergisk over for (fra Helbred), markeres. Ugens anslåede pris holdes op mod budgettet for mad. AI kan foreslå en madplan som kladde. Opskrifter kan importeres fra og eksporteres til projektet Open Planner, så madplanen kan blive til udprintede kort på en fysisk tavle.
+
 ### Forsikring
 
 Policer med selskab, policenummer, type, præmie, fornyelse, selvrisiko, dækningssummer, kontakt og policedokument. De er koblet til de genstande, biler og personer, de dækker. Skadesager registreres med kobling til arbejdsordrer og bilag.

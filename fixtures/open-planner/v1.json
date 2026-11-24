@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "sprog": "da",
+  "opdateret": "2026-10-26",
+  "standardkortMm": {
+    "bredde": 69,
+    "hoejde": 66
+  },
+  "retter": [
+    {
+      "id": "pasta-med-kodsovs",
+      "navn": "Pasta med kødsovs",
+      "billede": "./data/images/pasta-med-kodsovs-cirkel.png",
+      "ingredienser": [
+        "500 g hakket oksekød",
+        "1 dåse hakkede tomater",
+        "2 løg",
+        "2-3 fed hvidløg",
+        "400 g pasta",
+        "Salt og peber"
+      ],
+      "fremgangsmaade": "Brun kødet. Tilsæt løg, hvidløg og tomater. Kog pasta. (syntetisk eksempel)"
+    },
+    {
+      "id": "risengrod",
+      "navn": "Risengrød",
+      "ingredienser": "2 dl grødris\n1 l sødmælk\n½ tsk salt",
+      "opskrift": "Kog langsomt i 45 minutter. (syntetisk)"
+    },
+    {
+      "id": "tomatsuppe",
+      "navn": "Tomatsuppe",
+      "ingredienser": [],
+      "fremgangsmaade": ""
+    }
+  ]
+}
