@@ -1,6 +1,6 @@
 # Udviklingsplan
 
-Planen er prioriteret efter afhængigheder. Der er ikke lovet nogen datoer.
+Planen er prioriteret efter afhængigheder. Der er ikke lovet nogen datoer. Acceptkriterierne for hver fase står i [specifikationen](spec/07-faser-og-accept.md).
 
 ## 0. Projektgrundlag
 
@@ -24,12 +24,13 @@ Hvert modul får de få vigtigste felter, så helheden kan afprøves tidligt:
 - **Bolig og inventar:** genstande med placering, fotos, kvittering, garanti- og reklamationsfrist, manual og forsikringskobling. Bygningsdele med gentagne opgaver (rense brønd, tagrender og lignende).
 - **Arbejdsordrer:** reparationer og skader med status, håndværker, tilbud, faktura og fotos før og efter.
 - **Bil:** køretøj, servicehistorik som arbejdsordrer, km-stand, syn, dækskifte og forsikringsfrister.
-- **Økonomi:** budget pr. kategori, faste udgifter og abonnementer, CSV-import fra én dansk bank og kategoriseringsregler.
-- **Forsikring:** policer med præmie, fornyelse, selvrisiko og dækning, koblet til genstande, biler og personer.
+- **Økonomi:** budget pr. kategori, faste udgifter og abonnementer, CSV-import fra Sparekassen Kronjylland og via generisk kolonnemapping samt kategoriseringsregler.
+- **Forsikring:** policer med præmie, fornyelse, selvrisiko og dækning, koblet til genstande, biler og personer. Forsikringsrapport som PDF.
 - **Helbred:** besøg, screeninger, vaccinationer, medicin, allergier og målinger pr. person, med påmindelser.
 - Dashboard med forfaldne opgaver, kommende frister og manglende oplysninger.
 - Import med træk og slip samt en overvåget indbakkemappe.
 - Fritekstsøgning på tværs af alle moduler.
+- Eksport som CSV, JSON og ICS.
 
 ## 3. AI-integration
 
@@ -40,11 +41,10 @@ Hvert modul får de få vigtigste felter, så helheden kan afprøves tidligt:
 
 ## 4. Uddybning
 
-- Flere bankformater og bedre automatisk kategorisering.
+- Flere bankprofiler og bedre automatisk kategorisering.
 - Lokal OCR af kvitteringer med forslag til beløb og datoer.
 - Skabeloner til danske vedligeholdelsesopgaver med kilder og dato for seneste kontrol.
 - Onboarding med spørgsmål, der foreslår opgaver.
-- ICS-eksport.
 - Installation til macOS og Linux.
 
 ## 5. Senere

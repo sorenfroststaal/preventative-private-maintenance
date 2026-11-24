@@ -1,6 +1,6 @@
 # Arkitektur og beslutninger
 
-Dokumentet beskriver den valgte retning. Intet af det er implementeret endnu.
+Dokumentet beskriver den valgte retning og begrundelserne for den. Detaljerne står i den normative [specifikation](spec/README.md), og hvis de to dokumenter er uenige, gælder specifikationen. Intet af det er implementeret endnu.
 
 ## Overblik
 
@@ -40,6 +40,9 @@ Dokumentet beskriver den valgte retning. Intet af det er implementeret endnu.
 | Kryptering | Ingen kryptering af arkivet i første omgang. Diskkryptering (BitLocker) anbefales | Det er enklest at starte sådan. Se begrænsningerne nedenfor. |
 | AI | Lokal MCP-server med læse- og søgeværktøjer og adgang til bilag. Ændringer bliver lavet som kladder, der skal godkendes i appen | AI kan foreslå, men kan ikke ændre data uden at brugeren godkender det. |
 | Import | Træk og slip, en overvåget indbakkemappe og import via AI-chat | Lokal OCR kommer senere. |
+| Bank | CSV-import fra Sparekassen Kronjylland og en generisk kolonnemapping | Bankformatet skal verificeres med en anonymiseret eksempelfil. |
+| Dashboard | Frister og opgaver øverst, økonomi nedenunder | Det er fristerne, der er grunden til at åbne appen. |
+| Forsikringsrapport | PDF med genstande, fotos, priser og kvitteringer | Bruges efter indbrud eller brand. |
 
 ### Konsekvenser af at der ikke er kryptering
 
@@ -52,11 +55,13 @@ Dokumentet beskriver den valgte retning. Intet af det er implementeret endnu.
 
 Model Context Protocol er en åben standard, som Claude Desktop og flere andre klienter understøtter. Projektet leverer én MCP-server. Brugeren registrerer den i sin AI-klient, og den starter lokalt over stdio.
 
-### Værktøjer (første udkast)
+### Værktøjer
 
-- **Læsning:** `search` (fritekst på tværs af moduler), `get_item`, `list_tasks` (forfaldne og kommende), `get_history` (for en genstand, bil eller person), `budget_summary`, `list_policies`, `health_overview`.
-- **Bilag:** `get_document` returnerer en PDF eller et billede, så AI-klienten selv kan læse kvitteringer og policer.
-- **Kladder:** `propose_item`, `propose_task`, `propose_work_order`, `propose_expense`, `attach_document`. Hver kladde lægges i appens *AI-indbakke* med en forklaring. Først når brugeren godkender den, bliver den skrevet til arkivet. Godkendelser bliver logget.
+- **Læsning:** søgning på tværs af moduler, opslag, opgaver, historik, inventar, biler, policer, transaktioner, budget og helbredsoverblik.
+- **Bilag:** `get_document` returnerer PDF-filer og billeder, så AI-klienten selv kan læse kvitteringer og policer.
+- **Kladder:** `propose_create`, `propose_update`, `propose_complete_task` og `propose_attach_document`. Forslagene lander i appens *AI-indbakke* og skrives først, når brugeren godkender dem.
+
+Den præcise liste over værktøjer står i [spec 06](spec/06-ai-mcp.md).
 
 ### Adgang pr. modul
 
@@ -124,9 +129,9 @@ Regler for data:
 
 ## Åbne beslutninger
 
-- Hvordan OpenAI understøttes i praksis: lokale klienter og eventuelt en sikker vej til ChatGPT.
+- Hvordan OpenAI understøttes ud over lokale MCP-klienter. ChatGPT-connectors ligger uden for v1.
 - Hvordan mobilen sender data til desktop (lokalt netværk, en delt mappe eller QR-parring).
 - Hvornår og hvordan kryptering indføres, og hvordan en mistet nøgle håndteres.
 - Valg af lokal OCR-motor (for eksempel Tesseract med dansk sprogdata).
-- Hvilke bankformater der understøttes først.
+- Præcist format for CSV-eksport fra Sparekassen Kronjylland. Det kræver en anonymiseret eksempelfil.
 - Kodesignering af Windows-installationen.
