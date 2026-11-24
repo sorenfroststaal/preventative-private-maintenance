@@ -38,6 +38,7 @@ function App() {
   const [current, setCurrent] = useState<User>();
   const [readonly, setReadonly] = useState(false);
   const [savedPath, setSavedPath] = useState('');
+  const [exportTable, setExportTable] = useState('audit_log');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -277,6 +278,12 @@ function App() {
     </div>
     {Boolean(current.is_admin) && <><h2>Eksport</h2>
       <SaveOutput action="export" payload={{ format: 'json', table: 'all' }} label="Gem hele arkivet som JSON" local={local} run={run} />
+      <label>Administrativ tabel<select value={exportTable} onChange={e => setExportTable(e.target.value)}>
+        {'schema_migrations setting app_user person policy_coverage work_order_event task task_occurrence import_batch bank_transaction transaction_link document_link tag entity_tag search_index ai_draft ai_access_log audit_log'.split(' ').map(table =>
+          <option key={table}>{table}</option>)}
+      </select></label>
+      <SaveOutput action="export" payload={{ format: 'csv', table: exportTable }} label="Gem tabel som CSV" local={local} run={run} />
+      <SaveOutput action="export" payload={{ format: 'json', table: exportTable }} label="Gem tabel som JSON" local={local} run={run} />
       <h2>Brugere og personer</h2><UserForm submit={newUser} first={false} />
       <HealthPrivacy local={local} run={run} />
       <h3>Person uden eget login</h3>

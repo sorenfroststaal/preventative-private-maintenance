@@ -56,8 +56,10 @@ export async function exportFile(archive: Archive, input: unknown, userId: strin
     content = JSON.stringify(await allTables(archive, userId), null, 2) + '\n';
     filename = 'ppm-export.json';
   } else {
-    const table = request.table === 'document' ? 'document' : recordType.parse(request.table);
-    const rows = table === 'document' ? await listDocuments(archive.db) : await listRecords(archive.db, table, { via: 'ui', userId });
+    const table = z.string().min(1).parse(request.table);
+    const rows = table === 'document' ? await listDocuments(archive.db)
+      : recordType.safeParse(table).success ? await listRecords(archive.db, recordType.parse(table), { via: 'ui', userId })
+      : (await allTables(archive, userId, table)).tables[table];
     if (request.format === 'json') content = JSON.stringify(rows, null, 2) + '\n';
     else {
       const columns = Object.keys(rows[0] ?? {});
@@ -69,7 +71,7 @@ export async function exportFile(archive: Archive, input: unknown, userId: strin
   return writeOutput(directory, filename, content);
 }
 
-async function allTables(archive: Archive, userId: string) {
+async function allTables(archive: Archive, userId: string, only?: string) {
   return archive.db.transaction(async tx => {
     const [admin] = await tx.select('SELECT id FROM app_user WHERE id = ? AND archived_at IS NULL AND is_admin = 1', [userId]);
     if (!admin) throw new Error('Kun administratoren kan eksportere hele arkivet.');
@@ -77,8 +79,9 @@ async function allTables(archive: Archive, userId: string) {
     if (restricted) throw new Error('Hel eksport kræver adgang til alle personers helbredsdata.');
     const list = await tx.select<{ name: string }>(`SELECT name FROM pragma_table_list
       WHERE schema = 'main' AND type IN ('table', 'virtual') AND name NOT LIKE 'sqlite_%' ORDER BY name`);
-    const tables: Record<string, unknown[]> = Object.create(null);
-    for (const { name } of list) {
+    const tables: Record<string, Record<string, unknown>[]> = Object.create(null);
+    if (only && !list.some(row => row.name === only && /^[a-z_]+$/.test(only))) throw new Error('Ukendt tabel.');
+    for (const { name } of list.filter(row => !only || row.name === only)) {
       if (!/^[a-z_]+$/.test(name)) continue;
       tables[name] = name === 'app_user'
         ? await tx.select('SELECT id, name, NULL AS pin_hash, is_admin, created_at, archived_at FROM app_user')

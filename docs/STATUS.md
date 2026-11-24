@@ -30,7 +30,7 @@ Branchen indeholder merge af `main` efter PR #3. Migration 0001 er byteidentisk 
 | 8 | Delvist | Importkø, filtre, billed- og PDF-forhåndsvisning, flytning af stabile filer og advarsler. Stabilisering er testet med simulerede filmetadata, og et syntetisk PDF-tekstlag er udtrukket og fundet via FTS. Se A6. |
 | 9 | Delvist | Alle sektioner i overblikket vises. Forespørgsler om opgaver, manglende data, kladder og økonomi er testet. Se A8. |
 | 10 | Implementeret | Ctrl+K, modulgrupper og FTS-præfiks. FTS og privat filtrering testes i core. |
-| 11 | Delvist | CSV og JSON for modultabeller, samlet JSON og ICS for valgte opgaver. Tests dækker neutrale sundhedstitler, fravær af noter og fortrolighed ved samlet eksport. CSV og JSON pr. tabel udestår for interne tabeller. |
+| 11 | Delvist | CSV og JSON for modultabeller, samlet JSON og ICS for valgte opgaver. Tests dækker neutrale sundhedstitler, fravær af noter og fortrolighed ved samlet eksport. Administrator kan eksportere interne tabeller enkeltvis under samme adgangskontrol som samlet eksport. |
 | 12 | Uverificeret | Formularer og handlinger bruger native felter, knapper, synlig fokus og dialoger. Ctrl+K og kerneformularer blev afprøvet med det byggede UI og en virkelig arkivproces i en simuleret DOM. Det samlede tastaturforløb er ikke verificeret på Windows. |
 | 13 | Testet | Den Rust-kommando, webviewet kalder, kontrollerer scope før videresendelse. Native Rust-test dækker afvisning af uvalgte stier, traversal, scope-udvidelse og SQL-handlinger. Core tester også, at ATTACH og ekstern VACUUM INTO afvises. |
 | 14 | Testet | App og core-tests bruger samme better-sqlite3-adapter. Tests dækker transaktioner, FTS5 og VACUUM INTO. |
