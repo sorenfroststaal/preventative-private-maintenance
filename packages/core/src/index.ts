@@ -15,6 +15,19 @@ export * from "./repo/documents";
 export * from "./recurrence/dates";
 export * from "./recurrence/next";
 export * from "./backup/backup";
+export * from "./repo/modules";
+export * from "./repo/finance";
+export * from "./repo/eml";
+export * from "./repo/inbox";
+export * from "./repo/dashboard";
+export * from "./repo/export";
+export * from "./report/insurance";
+export { DERIVED_RULES, syncSystemTask } from "./domain/derived";
+
+import { registerDerivedRules } from "./domain/derived";
+import { registerModuleRules } from "./domain/rules";
+registerDerivedRules();
+registerModuleRules();
 
 import type { DbAdapter } from "./db/adapter";
 import type { Env } from "./env";

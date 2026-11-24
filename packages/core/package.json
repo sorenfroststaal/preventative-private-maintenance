@@ -8,9 +8,11 @@
     "./node": "./src/node/index.ts"
   },
   "dependencies": {
-    "zod": "^3.24.1",
     "better-sqlite3": "^11.7.0",
-    "fflate": "^0.8.2"
+    "fflate": "^0.8.2",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^4.10.38",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12"

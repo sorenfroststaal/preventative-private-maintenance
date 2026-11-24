@@ -80,3 +80,29 @@ describe("recurrence – further rules", () => {
     expect(zRecurrence.safeParse({ kind: "interval", unit: "month", every: 6, extra: 1 }).success).toBe(false);
   });
 });
+
+describe("spec 04 example table (all rows)", () => {
+  const Y = (m: number, d: number, every = 1): Recurrence => ({ kind: "fixed", unit: "year", every, month: m, day: d });
+  const cases: [string, Recurrence, string, string, "done" | "skipped", string[]][] = [
+    ["fixed år 01.10", Y(10, 1), "2026-10-01", "2026-11-20", "done", ["2027-10-01"]],
+    ["fixed år 01.10 uden for mønster", Y(10, 1), "2026-09-15", "2026-09-15", "done", ["2026-10-01"]],
+    ["fixed år 01.10 every 2", Y(10, 1, 2), "2026-11-15", "2026-11-15", "done", ["2027-10-01", "2029-10-01"]],
+    ["fixed måned dag 31", { kind: "fixed", unit: "month", every: 1, day: 31 }, "2026-01-31", "2026-01-31", "done", ["2026-02-28", "2026-03-31"]],
+    ["fixed år 29.02", Y(2, 29), "2028-02-29", "2028-02-29", "done", ["2029-02-28"]],
+    ["interval 6 mdr", { kind: "interval", unit: "month", every: 6 }, "2026-03-01", "2026-03-15", "done", ["2026-09-15"]],
+    ["interval 3 mdr sprunget over", { kind: "interval", unit: "month", every: 3 }, "2026-01-10", "2026-02-20", "skipped", ["2026-04-10"]],
+    ["interval 1 mdr", { kind: "interval", unit: "month", every: 1 }, "2026-01-31", "2026-01-31", "done", ["2026-02-28"]],
+  ];
+  it.each(cases)("%s", (_name, rule, due, completed, status, expected) => {
+    let prev = due;
+    let done = completed;
+    const got: string[] = [];
+    for (let i = 0; i < expected.length; i++) {
+      const next = nextDueDate(rule, { dueDate: prev, completedDate: done, status: i === 0 ? status : "done" });
+      got.push(next);
+      prev = next;
+      done = next;
+    }
+    expect(got).toEqual(expected);
+  });
+});

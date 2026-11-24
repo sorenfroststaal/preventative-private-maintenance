@@ -4,6 +4,31 @@ import type { Row } from "../domain/registry";
 import type { EntityInput, EntityType } from "../domain/schemas";
 import type { Env } from "../env";
 import { createEntity, getEntity, ValidationError, type Ctx } from "./entities";
+import { parseEml } from "./eml";
+
+const MAX_TEXT_CHARS = 200_000;
+
+/** Step 3 of spec 05: text layer of PDFs, subject/sender/date/plain text of .eml. */
+export async function extractText(
+  env: Env,
+  path: string,
+  ext: string,
+): Promise<{ text: string | null; title: string | null; date: string | null }> {
+  try {
+    if (ext === "pdf" && env.pdfText) {
+      const text = (await env.pdfText(await env.fs.readFile(path))).replace(/\s+/g, " ").trim();
+      return { text: text ? text.slice(0, MAX_TEXT_CHARS) : null, title: null, date: null };
+    }
+    if (ext === "eml") {
+      const m = parseEml(await env.fs.readFile(path));
+      const text = [m.from && `Fra: ${m.from}`, m.subject && `Emne: ${m.subject}`, m.text].filter(Boolean).join("\n");
+      return { text: text.slice(0, MAX_TEXT_CHARS) || null, title: m.subject, date: m.date };
+    }
+  } catch {
+    // Damaged files are still imported; they just have no text.
+  }
+  return { text: null, title: null, date: null };
+}
 
 export const MAX_DOCUMENT_BYTES = 100 * 1024 * 1024;
 
@@ -17,6 +42,8 @@ export const MIME_BY_EXT: Record<string, string> = {
   eml: "message/rfc822",
   msg: "application/vnd.ms-outlook",
 };
+
+export const BANK_MIME_BY_EXT: Record<string, string> = { csv: "text/csv", txt: "text/plain" };
 
 export function extOf(filename: string): string {
   const i = filename.lastIndexOf(".");
@@ -61,7 +88,8 @@ export async function importDocument(
 ): Promise<ImportResult> {
   const filename = opts.filename ?? env.fs.basename(srcPath);
   const ext = extOf(filename);
-  const mime = MIME_BY_EXT[ext];
+  // Bank exports are stored as raw files next to their import batch (spec 05).
+  const mime = MIME_BY_EXT[ext] ?? (opts.source === "bank_import" ? BANK_MIME_BY_EXT[ext] : undefined);
   if (!mime) throw new ImportError(`Filtypen .${ext || "?"} understøttes ikke.`, "unsupported");
   const st = await env.fs.stat(srcPath);
   if (!st || st.isDir) throw new ImportError("Filen findes ikke.", "missing");
@@ -85,15 +113,17 @@ export async function importDocument(
     }
     await env.fs.rename(tmp, dest);
   }
+  const extracted = await extractText(env, dest, ext);
   const document = await createEntity(ctx, "document", {
     sha256,
     filename,
     ext,
     mime,
     size_bytes: st.size,
-    title: opts.title ?? stripExt(filename),
-    doc_date: opts.docDate ?? null,
+    title: opts.title ?? extracted.title ?? stripExt(filename),
+    doc_date: opts.docDate ?? extracted.date ?? null,
     source: opts.source,
+    extracted_text: extracted.text,
     created_by: ctx.userId,
   });
   return { document, duplicate: false };

@@ -4,6 +4,7 @@ import { createReadStream, createWriteStream, mkdirSync, promises as fsp, consta
 import { hostname } from "node:os";
 import { basename, dirname, join, resolve, sep, isAbsolute } from "node:path";
 import { Unzip, UnzipInflate, Zip, ZipDeflate, ZipPassThrough } from "fflate";
+import { nodePdfText } from "./pdftext";
 import { SerializedDb, type ClosableDb, type RawExecutor, type SqlValue } from "../db/adapter";
 import { randomId, systemClock, type Clock, type Env, type FileSystem, type Platform, type Zipper } from "../env";
 
@@ -205,6 +206,7 @@ export function nodeEnv(overrides: Partial<Env> & { clock?: Clock } = {}): Env {
     openDb: openBetterSqlite,
     clock: systemClock,
     newId: randomId,
+    pdfText: nodePdfText,
     ...overrides,
   };
 }

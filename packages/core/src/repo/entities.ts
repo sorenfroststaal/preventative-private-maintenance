@@ -47,7 +47,8 @@ export function parseOrThrow<S extends z.ZodTypeAny>(schema: S, input: unknown, 
 }
 
 /** Hooks for derived rules (spec 03), run inside the write transaction. */
-export type AfterWriteHook = (ctx: Ctx, row: Row, action: "create" | "update" | "archive" | "restore") => Promise<void>;
+export type WriteAction = "create" | "update" | "archive" | "restore";
+export type AfterWriteHook = (ctx: Ctx, row: Row, action: WriteAction, before: Row | null) => Promise<void>;
 const afterWriteHooks = new Map<EntityType, AfterWriteHook[]>();
 export function registerAfterWrite(type: EntityType, hook: AfterWriteHook) {
   afterWriteHooks.set(type, [...(afterWriteHooks.get(type) ?? []), hook]);
@@ -75,7 +76,7 @@ export async function writeAudit(
 ): Promise<void> {
   await ctx.db.execute(
     "INSERT INTO audit_log (id, at, user_id, via, entity_type, entity_id, action, diff_json) VALUES (?,?,?,?,?,?,?,?)",
-    [ctx.newId(), ctx.clock.nowIso(), ctx.userId, ctx.via, entityType, entityId, action, diff ? JSON.stringify(diff) : null],
+    [ctx.newId(), ctx.clock.nowIso(), ctx.userId, ctx.via, entityType, entityId, action, diff ? JSON.stringify(redact(diff)) : null],
   );
 }
 
@@ -91,8 +92,22 @@ export async function reindex(db: DbAdapter, type: EntityType, row: Row): Promis
   );
 }
 
-async function runHooks(ctx: Ctx, type: EntityType, row: Row, action: "create" | "update" | "archive" | "restore") {
-  for (const h of afterWriteHooks.get(type) ?? []) await h(ctx, row, action);
+async function runHooks(ctx: Ctx, type: EntityType, row: Row, action: WriteAction, before: Row | null) {
+  for (const h of afterWriteHooks.get(type) ?? []) await h(ctx, row, action, before);
+}
+
+/** Fields whose values must never be written to audit_log (spec 03). */
+const REDACTED_FIELDS = new Set(["pin_hash"]);
+const REDACTED = "[skjult]";
+
+function redact(diff: Record<string, [unknown, unknown]>): Record<string, [unknown, unknown]> {
+  const out: Record<string, [unknown, unknown]> = {};
+  for (const [k, [a, b]] of Object.entries(diff)) {
+    out[k] = REDACTED_FIELDS.has(k)
+      ? [a === null || a === undefined ? null : REDACTED, b === null || b === undefined ? null : REDACTED]
+      : [a, b];
+  }
+  return out;
 }
 
 export async function getEntity<T extends Row = Row>(db: DbAdapter, type: EntityType, id: string): Promise<T | null> {
@@ -169,7 +184,7 @@ export async function createEntity<T extends EntityType>(
     if (meta.pk.length === 1) {
       const stored = await mustGet(tx, type, String(row.id));
       await reindex(tx, type, stored);
-      await runHooks(c, type, stored, "create");
+      await runHooks(c, type, stored, "create", null);
       return stored;
     }
     return row;
@@ -206,7 +221,7 @@ export async function updateEntity<T extends EntityType>(
     await writeAudit(c, type, id, "update", diff);
     const after = await mustGet(tx, type, id);
     await reindex(tx, type, after);
-    await runHooks(c, type, after, "update");
+    await runHooks(c, type, after, "update", before);
     return after;
   });
 }
@@ -224,7 +239,7 @@ async function setArchived(ctx: Ctx, type: EntityType, id: string, archived: boo
     });
     const after = await mustGet(tx, type, id);
     await reindex(tx, type, after);
-    await runHooks(c, type, after, archived ? "archive" : "restore");
+    await runHooks(c, type, after, archived ? "archive" : "restore", before);
     return after;
   });
 }

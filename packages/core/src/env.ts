@@ -70,6 +70,8 @@ export interface Env {
   openDb: DbOpener;
   clock: Clock;
   newId(): string;
+  /** Extracts the text layer of a PDF (pdf.js). Optional: without it, no text is extracted. */
+  pdfText?: (bytes: Uint8Array) => Promise<string>;
 }
 
 export const systemClock: Clock = {

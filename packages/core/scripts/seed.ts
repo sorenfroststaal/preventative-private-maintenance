@@ -6,6 +6,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
+  changeWorkOrderStatus,
   createArchive,
   createEntity,
   createTask,
@@ -137,19 +138,18 @@ async function main() {
   // ---- Work orders
   const wo = await createEntity(ctx, "work_order", {
     title: "Utæt afløb under køkkenvask",
+    description: "Vand i skabet under vasken",
     kind: "repair",
-    status: "closed",
     target_type: "property",
     target_id: String(house.id),
     contact_id: String(vvs.id),
     reported_date: "2026-05-02",
-    completed_date: "2026-05-06",
     cost_minor: kr(3125),
     created_by: String(anna.id),
   });
-  for (const [status, note] of [["registered", "Vand i skabet"], ["ordered", "VVS bestilt"], ["done", "Pakning skiftet"], ["closed", null]] as const) {
-    await createEntity(ctx, "work_order_event", { work_order_id: String(wo.id), at: env.clock.nowIso(), status, note, user_id: String(anna.id) });
-  }
+  await changeWorkOrderStatus(ctx, String(wo.id), "ordered", "VVS bestilt");
+  await changeWorkOrderStatus(ctx, String(wo.id), "done", "Pakning skiftet");
+  await changeWorkOrderStatus(ctx, String(wo.id), "closed");
   await doc("faktura-vvs.pdf", syntheticPdf("Faktura Hansen VVS 3.125,00 kr (syntetisk)"), { type: "work_order", id: wo.id, role: "invoice" });
   await createEntity(ctx, "work_order", {
     title: "Service af varmepumpe",
