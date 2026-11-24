@@ -11,10 +11,27 @@ Kolonnerne `target_type` og `target_id` peger på en vilkårlig post. Core SKAL 
 Hver skrivning gennem `repo/*` SKAL i samme transaktion:
 
 1. validere input med entitetens Zod-skema
-2. sætte `created_at` og `updated_at`
+2. sætte tidsstempler (se nedenfor)
 3. skrive en række i `audit_log` med `via` og `diff_json` (kun ændrede felter)
-4. opdatere `search_index` for posten (slet den gamle række og indsæt en ny)
+4. opdatere `search_index` for posten, hvis typen er søgbar (slet den gamle række og indsæt en ny)
 5. køre afledte regler (se nedenfor).
+
+Kravene gælder for alle handlinger: oprettelse, ændring, arkivering, gendannelse og sletning af koblingsrækker.
+
+### Hvilke tabeller reglerne gælder for
+
+| Regel | Gælder for | Gælder ikke for |
+| --- | --- | --- |
+| Audit | Alle tabeller i skemaet, inklusive koblingstabeller (`document_link`, `policy_coverage`, `transaction_link`, `entity_tag`), `setting` (entity_id = nøglen) og afgørelser på `ai_draft` (status ændres i appen) | `schema_migrations`, `search_index`, `audit_log`, `ai_access_log` og MCP-serverens oprettelse af `ai_draft` (den logges i `ai_access_log`) |
+| `created_at` | Sættes ved oprettelse på de tabeller, som har kolonnen i schema.sql | Der tilføjes ingen kolonner |
+| `updated_at` | Sættes ved hver ændring på de tabeller, som har kolonnen (`item`, `work_order`, `task`) | Andre tabeller |
+| Søgeindeks | Kun de typer, som står i tabellen "Søgeindeks" nedenfor | Alle andre typer |
+
+- Ved koblingstabeller er `audit_log.entity_id` primærnøglens værdier sat sammen med `:` i kolonnernes rækkefølge.
+- `diff_json` har formen `{felt: [før, efter]}`. Ved oprettelse er `før` `null`. Ved sletning er `efter` `null`.
+- **`pin_hash` må aldrig stå i `audit_log`.** Ændres den, skrives `{"pin_hash": ["[skjult]", "[skjult]"]}`. Er den tom, skrives `null`.
+- Arkiverede poster fjernes fra `search_index`, og de indsættes igen ved gendannelse.
+- Søgning matcher hvert ord som præfiks (`"ord"*`). Brugerens input må aldrig sendes direkte som FTS5-syntaks.
 
 ## Søgeindeks
 
