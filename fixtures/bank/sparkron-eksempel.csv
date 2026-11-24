@@ -1,7 +1,7 @@
-Dato;Tekst;Beløb;Saldo
-02-11-2026;Netto 1234 Randers;-245,50;12.754,50
-03-11-2026;Løn November;28.500,00;41.254,50
-05-11-2026;MobilePay Hansen VVS;-3.125,00;38.129,50
-05-11-2026;MobilePay Hansen VVS;-3.125,00;35.004,50
-10-11-2026;Husforsikring Eksempel Forsikring;-1.890,00;33.114,50
-15-11-2026;Benzin Q8 Eksempelby;-612,35;32.502,15
+Dato;Posteringstekst;Beløb
+02-11-2026;Netto 1234 Randers;-245,50
+03-11-2026;Løn November;28.500,00
+05-11-2026;MobilePay Hansen VVS;-3.125,00
+05-11-2026;MobilePay Hansen VVS;-3.125,00
+10-11-2026;Husforsikring Eksempel Forsikring;-1.890,00
+15-11-2026;Benzin Q8 Eksempelby;-612,35

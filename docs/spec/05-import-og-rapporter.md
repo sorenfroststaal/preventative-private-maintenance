@@ -33,9 +33,19 @@ Mail-HTML vises aldrig som HTML. Kun tekstdelen vises.
 
 ### Profil `sparkron` (Sparekassen Kronjylland)
 
-Profilen genkender filen på kolonneoverskrifterne. Den forventede struktur er: semikolon som skilletegn, kolonner for dato, tekst, beløb og eventuelt saldo.
+Filen har præcis tre kolonner: **Dato**, **Posteringstekst** og **Beløb**. Der er ingen saldo.
 
-> **Skal verificeres:** Det præcise eksportformat skal bekræftes med en **anonymiseret** eksempelfil fra netbanken, før profilen låses. Indtil da skal profilen matche kolonnenavne ved navn (uden forskel på store og små bogstaver, og med eller uden æøå): `dato|bogført|bogføringsdato` til dato, `tekst|beskrivelse|posteringstekst` til tekst, `beløb|beløb i kr.` til beløb og `saldo` til saldo. En syntetisk testfil ligger i `fixtures/bank/sparkron-eksempel.csv`.
+| Kolonne | Felt | Format |
+| --- | --- | --- |
+| `Dato` | `booking_date` | `DD-MM-YYYY` eller `DD.MM.YYYY` |
+| `Posteringstekst` | `text` | Fri tekst. Mellemrum i starten og slutningen fjernes |
+| `Beløb` | `amount_minor` | Dansk talformat (`-1.234,56`). Negativ betyder udgift |
+
+- Profilen genkender filen på, at overskriftsrækken (uden forskel på store og små bogstaver, og uden mellemrum i kanterne) er `Dato`, `Posteringstekst` og `Beløb` i den rækkefølge.
+- Skilletegnet registreres automatisk som `;` eller `,`. Det tegn, der giver tre kolonner i overskriftsrækken, vinder. Felter i anførselstegn understøttes (RFC 4180).
+- Tomme rækker springes over. En række med ugyldig dato eller ugyldigt beløb afviser **hele** importen. Fejlen vises med rækkenummer, og intet bliver importeret.
+- `balance_minor` er altid `NULL`. I `dedupe_hash` indgår saldo som en tom streng.
+- En syntetisk testfil ligger i `fixtures/bank/sparkron-eksempel.csv`.
 
 ### Profil `generic`
 

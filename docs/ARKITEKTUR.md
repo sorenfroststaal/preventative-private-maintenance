@@ -40,7 +40,7 @@ Dokumentet beskriver den valgte retning og begrundelserne for den. Detaljerne st
 | Kryptering | Ingen kryptering af arkivet i første omgang. Diskkryptering (BitLocker) anbefales | Det er enklest at starte sådan. Se begrænsningerne nedenfor. |
 | AI | Lokal MCP-server med læse- og søgeværktøjer og adgang til bilag. Ændringer bliver lavet som kladder, der skal godkendes i appen | AI kan foreslå, men kan ikke ændre data uden at brugeren godkender det. |
 | Import | Træk og slip, en overvåget indbakkemappe og import via AI-chat | Lokal OCR kommer senere. |
-| Bank | CSV-import fra Sparekassen Kronjylland og en generisk kolonnemapping | Bankformatet skal verificeres med en anonymiseret eksempelfil. |
+| Bank | CSV-import fra Sparekassen Kronjylland og en generisk kolonnemapping | Formatet er tre kolonner: Dato, Posteringstekst og Beløb. |
 | Dashboard | Frister og opgaver øverst, økonomi nedenunder | Det er fristerne, der er grunden til at åbne appen. |
 | Forsikringsrapport | PDF med genstande, fotos, priser og kvitteringer | Bruges efter indbrud eller brand. |
 
@@ -133,5 +133,4 @@ Regler for data:
 - Hvordan mobilen sender data til desktop (lokalt netværk, en delt mappe eller QR-parring).
 - Hvornår og hvordan kryptering indføres, og hvordan en mistet nøgle håndteres.
 - Valg af lokal OCR-motor (for eksempel Tesseract med dansk sprogdata).
-- Præcist format for CSV-eksport fra Sparekassen Kronjylland. Det kræver en anonymiseret eksempelfil.
 - Kodesignering af Windows-installationen.
