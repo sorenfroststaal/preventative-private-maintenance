@@ -136,16 +136,20 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
     setPurchase(String(row?.purchase_date ?? ''));
     setTargetType(String(row?.target_type ?? ''));
     setAux([]);
-    if (!row) return;
-    if (type === 'vehicle') void run(async () => {
-      const costs = await local<{ currency: string; amount: number }[]>('vehicleCosts', { id: row.id, year: new Date().getFullYear() });
-      setAux(costs.map(c => new Intl.NumberFormat('da-DK', { style: 'currency', currency: c.currency }).format(c.amount / 100)));
-    });
-    if (['vehicle', 'item', 'building_part', 'work_order'].includes(type)) void run(async () => {
-      const history = await local<{ caption: string; date: string }[]>('history', { type, id: row.id });
-      setAux(previous => [...previous, ...history.map(e => e.date + ' · ' + e.caption)]);
-    });
   }
+
+  useEffect(() => {
+    let active = true;
+    setAux([]);
+    if (selected && ['property', 'vehicle', 'item', 'building_part', 'work_order'].includes(type)) void run(async () => {
+      const entries = await local<{ caption: string; date: string }[]>('history', { type, id: selected.id });
+      const costs = type === 'vehicle' ? await local<{ currency: string; amount: number }[]>('vehicleCosts',
+        { id: selected.id, year: new Date().getFullYear() }) : [];
+      if (active) setAux([...costs.map(c => 'Driftsomkostninger i år · ' + new Intl.NumberFormat('da-DK',
+        { style: 'currency', currency: c.currency }).format(c.amount / 100)), ...entries.map(e => e.date + ' · ' + e.caption)]);
+    });
+    return () => { active = false; };
+  }, [type, selected]);
 
   function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -237,7 +241,8 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
           {plot.map(([x, y], index) => <circle key={index} cx={x} cy={y} r="4" fill="#28674d" />)}
         </svg></section>;
     })}
-    {aux.length > 0 && <ul>{aux.map((value, i) => <li key={i}>{value}</li>)}</ul>}
+     {selected && ['property', 'vehicle', 'item', 'building_part', 'work_order'].includes(type) &&
+      <details key={selected.id}><summary>Historik</summary>{aux.length ? <ul>{aux.map((value, i) => <li key={i}>{value}</li>)}</ul> : <p>Ingen historik.</p>}</details>}
     {selected && <button onClick={() => edit()}>Ny post</button>}
     <h2>{selected ? 'Redigér post' : 'Ny post'}</h2>
     <form key={type + (selected?.id ?? '')} onSubmit={save}>

@@ -172,7 +172,7 @@ async function call(action: string, data: unknown) {
       return vehicleCosts(db, id, year);
     }
     case 'history': {
-      const { type, id } = z.object({ type: z.enum(['vehicle', 'item', 'building_part', 'work_order']), id: z.uuid() }).parse(data);
+      const { type, id } = z.object({ type: z.enum(['property', 'vehicle', 'item', 'building_part', 'work_order']), id: z.uuid() }).parse(data);
       return history(db, type, id);
     }
     case 'search': return searchRecords(db, data, userId);
