@@ -8,6 +8,8 @@
 | Brugerflade | React 18+, TypeScript (strict), Vite |
 | Routing og state | React Router. Server-state via TanStack Query mod core-laget |
 | Validering | Zod. Skemaerne deles mellem UI, core og MCP |
+| Ikoner | `lucide-react` (ISC-licens), pakket med appen. Der hentes ingen ikoner, skrifttyper eller billeder fra nettet |
+| Grafer | Egne små SVG-komponenter. Der bruges ikke et tungt graf-bibliotek |
 | Database i appen | SQLite med FTS5. Valget af driver er frit, men det SKAL opfylde kravene under "Database-adgang i appen" nedenfor |
 | Database i MCP | `better-sqlite3` |
 | Filer | Native dialoger (`@tauri-apps/plugin-dialog` eller tilsvarende). Filadgangen SKAL opfylde kravene under "Filadgang" nedenfor |
@@ -27,7 +29,7 @@ apps/
     src-tauri/        Rust: vinduer, filrettigheder, arkivlås og zip
 packages/
   core/
-    migrations/       0001_init.sql … (kopi af docs/spec/schema.sql ved v1)
+    migrations/       0001_init.sql (= docs/spec/schema.sql), 0002_meal_plan.sql (= docs/spec/schema-0002.sql)
     src/
       db/             DbAdapter-interface, migration-runner
       domain/         Zod-skemaer pr. entitet

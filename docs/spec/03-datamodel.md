@@ -1,6 +1,6 @@
 # 03 Datamodel
 
-[schema.sql](schema.sql) er det normative skema for `schemaVersion 1`. Dokumentet her forklarer regler, som skemaet ikke selv kan håndhæve.
+[schema.sql](schema.sql) er det normative skema for `schemaVersion 1`, og [schema-0002.sql](schema-0002.sql) bringer det til `schemaVersion 2` (madplan). Dokumentet her forklarer regler, som skemaet ikke selv kan håndhæve.
 
 ## Polymorfe koblinger
 
@@ -24,7 +24,7 @@ Kravene gælder for alle handlinger: oprettelse, ændring, arkivering, gendannel
 | --- | --- | --- |
 | Audit | Alle tabeller i skemaet, inklusive koblingstabeller (`document_link`, `policy_coverage`, `transaction_link`, `entity_tag`), `setting` (entity_id = nøglen) og afgørelser på `ai_draft` (status ændres i appen) | `schema_migrations`, `search_index`, `audit_log`, `ai_access_log` og MCP-serverens oprettelse af `ai_draft` (den logges i `ai_access_log`) |
 | `created_at` | Sættes ved oprettelse på de tabeller, som har kolonnen i schema.sql | Der tilføjes ingen kolonner |
-| `updated_at` | Sættes ved hver ændring på de tabeller, som har kolonnen (`item`, `work_order`, `task`) | Andre tabeller |
+| `updated_at` | Sættes ved hver ændring på de tabeller, som har kolonnen (`item`, `work_order`, `task`, `recipe`) | Andre tabeller |
 | Søgeindeks | Kun de typer, som står i tabellen "Søgeindeks" nedenfor | Alle andre typer |
 
 - Ved koblingstabeller er `audit_log.entity_id` primærnøglens værdier sat sammen med `:` i kolonnernes rækkefølge.
@@ -46,6 +46,7 @@ Kravene gælder for alle handlinger: oprettelse, ændring, arkivering, gendannel
 | contact | name | notes, email, phone |
 | bank_transaction | text | note, kategorinavn |
 | health_* | name, vaccine eller reason | notes, result |
+| recipe | name | description, ingrediensnavne, instructions, tags |
 
 `module` sættes, så søgningen kan filtreres pr. modul og respektere AI-adgangen.
 
@@ -78,8 +79,25 @@ Når `purchase_date` udfyldes, og `complaint_until` er tom, SKAL UI foreslå (me
 
 | key | værdi |
 | --- | --- |
-| `ai.modules` | `{"home":true,"maintenance":true,"vehicle":true,"finance":true,"insurance":true,"health":false,"documents":true}` |
+| `ai.modules` | `{"home":true,"maintenance":true,"vehicle":true,"finance":true,"insurance":true,"health":false,"documents":true,"food":true}` |
 | `ai.as_user_id` | id på den bruger, MCP agerer som (styrer synligheden af helbredsdata) |
 | `backup.last_at` | ISO-tidspunkt |
 | `dashboard.horizon_days` | `30` |
 | `import.inbox_enabled` | `true` |
+
+## Moduler pr. entitetstype
+
+Moduler bruges i `search_index.module`, til AI-adgang (06) og til filtrering. Madplanens tabeller hører til modulet `food`:
+
+| Modul | Typer |
+| --- | --- |
+| `food` | recipe, recipe_ingredient, meal_plan_entry, shopping_list, shopping_item |
+
+Øvrige typer er beskrevet i [06](06-ai-mcp.md).
+
+## Madplan (schemaVersion 2)
+
+- En opskrifts ingredienser gemmes som rækker i `recipe_ingredient`, ordnet efter `position`. Ved hver gemning erstattes hele listen i samme transaktion (sletning og indsættelse af koblingsrækker auditeres som for andre koblinger).
+- `meal_plan_entry` har enten en opskrift eller en fri titel. `servings` overstyrer opskriftens antal portioner for den dag.
+- Foto af en opskrift er et `document`, som `recipe.photo_document_id` peger på.
+- `shopping_item.source = 'plan'` betyder, at varen er genereret fra madplanen. Den genereres igen, når madplanen ændres (se 04).
