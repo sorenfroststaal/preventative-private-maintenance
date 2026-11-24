@@ -72,7 +72,7 @@ Fundet og rettet under E2E: "Udløber snart" viste reklamationsret, der var udl�
 | Backup og gendannelse via Rust (zip og udpakning), 500 MB | Højst 4,4 MB RSS, 4,8 s | `cargo test --release large_archive_zip_streams -- --ignored` med `/usr/bin/time -v` |
 | Backup og gendannelse via core (Node), 500 MB | Højst 159 MB RSS (132 MB før backuppen). Backup 4,1 s, gendannelse 10,0 s. | `packages/core/scripts/bench-backup.ts 500` |
 | Det samme, 100 MB | Højst 148 MB RSS (115 MB før backuppen) | Hukommelsen vokser ikke med arkivets størrelse |
-| Installerstørrelse, Windows (NSIS) | ca. 2,9 MB (tilnærmelse) | CI-kørsel 45497726521 (commit 384d135): artefaktets zip er 3.046.919 byte. Selve `*-setup.exe` kunne ikke hentes fra dette miljø. NSIS-filen er allerede komprimeret, så zip-størrelsen ligger tæt på exe-filens. |
+| Installerstørrelse, Windows (NSIS) | 2,92 MiB (`PPM_0.1.0_x64-setup.exe`) | CI-kørsel 45497726521 (commit 384d135), jobbet `build-windows`. Tauri-bundlerens log viser størrelsen på selve exe-filen. Artefaktets zip er 3.046.919 byte. |
 | Opstartstid til login-skærm | ca. 0,95 s (fase 1-måling) | Median af 3, release-build, Linux i Xvfb |
 
 ## Manuel test på Windows (spec 07)
