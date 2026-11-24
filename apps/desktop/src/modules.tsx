@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { z } from 'zod';
 import { fields, archivedTables, type RecordType } from '../../../packages/core/src/domain/records';
 import { AccountTransactions, BankImport, FinanceSummary, PolicyCoverage, RelatedDocuments, SaveOutput, VehicleTemplates } from './module-actions';
@@ -69,6 +69,24 @@ function shape(field: z.ZodType): Shape {
   return variants[0];
 }
 
+function InventoryPhoto({ id, local }: { id: string; local: Local }) {
+  const host = useRef<HTMLSpanElement>(null);
+  const [source, setSource] = useState('');
+  useEffect(() => {
+    let active = true;
+    const observer = new IntersectionObserver(entries => {
+      if (!entries.some(entry => entry.isIntersecting)) return;
+      observer.disconnect();
+      void local<{ mime?: string; base64?: string }>('previewDocument', id).then(photo => {
+        if (active && photo.mime?.startsWith('image/') && photo.base64) setSource('data:' + photo.mime + ';base64,' + photo.base64);
+      }).catch(() => { /* The item remains accessible if its photo is missing. */ });
+    });
+    if (host.current) observer.observe(host.current);
+    return () => { active = false; observer.disconnect(); };
+  }, [id]);
+  return <span ref={host} className="item-photo">{source && <img src={source} alt="Genstandens første foto" />}</span>;
+}
+
 type Housing = Record<'property' | 'location' | 'building_part' | 'item', Row[]>;
 
 function HousingTree({ data, open }: { data: Housing; open: (type: RecordType, row: Row) => void }) {
@@ -110,7 +128,7 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
   const referenceFor = (key: string) => key === 'target_id' ? targetType : key === 'parent_id' ? type : references[key];
 
   async function load() {
-    setRows(await local<Row[]>('records', type));
+    setRows(await local<Row[]>(type === 'item' ? 'inventory' : 'records', type));
     if (name === 'Bolig og inventar' && type === 'property') {
       const [property, location, building_part, item] = await Promise.all(
         ['property', 'location', 'building_part', 'item'].map(table => local<Row[]>('records', table)));
@@ -202,7 +220,7 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
     </div>
     <ul className="records">{rows.filter(r => (showArchived || !r.archived_at) && (!personFilter || name !== 'Helbred' || r.person_id === personFilter) &&
       display(r).toLocaleLowerCase('da').includes(filter.toLocaleLowerCase('da'))).map(row =>
-      <li key={row.id}><button onClick={() => edit(row)}>{display(row)}</button>
+      <li key={row.id}>{type === 'item' && typeof row.photo_id === 'string' && <InventoryPhoto key={row.photo_id} id={row.photo_id} local={local} />}<button onClick={() => edit(row)}>{display(row)}</button>
         {archivedTables.has(type) && <button onClick={() => void run(async () => {
           await local('archiveRecord', { type, id: row.id, archive: !row.archived_at });
           edit();

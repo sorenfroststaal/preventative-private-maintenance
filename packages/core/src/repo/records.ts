@@ -187,3 +187,11 @@ export async function listRecords(db: DbAdapter, rawType: unknown, ctx: WriteCon
   }
   return db.select<Row>(`SELECT * FROM ${type} ORDER BY rowid DESC`);
 }
+
+export function listInventory(db: DbAdapter) {
+  return db.select<Row>(`SELECT i.*, (SELECT d.id FROM document_link l JOIN document d ON d.id = l.document_id
+    WHERE l.target_type = 'item' AND l.target_id = i.id AND l.role = 'photo' AND d.mime IN ('image/png','image/jpeg')
+      AND NOT EXISTS(SELECT 1 FROM document_link x WHERE x.document_id=d.id AND
+        x.target_type IN ('person','task_occurrence','health_visit','health_screening','health_vaccination','health_medication'))
+    ORDER BY l.rowid LIMIT 1) AS photo_id FROM item i ORDER BY i.rowid DESC`);
+}

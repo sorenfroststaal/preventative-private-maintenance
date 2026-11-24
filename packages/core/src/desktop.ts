@@ -9,7 +9,7 @@ import { today } from './domain/dates';
 import { importArchiveDocument } from './node-documents';
 import { documentLimit, documentPath, listDocuments } from './repo/documents';
 import { addVehicleTemplate, completeTask, createTask, openTasks, postponeTask, vehicleTemplates } from './repo/tasks';
-import { listRecords, saveRecord, setArchived } from './repo/records';
+import { listInventory, listRecords, saveRecord, setArchived } from './repo/records';
 import { writeLink } from './repo/links';
 import { dashboard, financeYear, history, vehicleCosts } from './repo/overview';
 import { searchRecords } from './repo/search';
@@ -164,6 +164,7 @@ async function call(action: string, data: unknown) {
       return result;
     }
     case 'tasks': return openTasks(db, userId);
+    case 'inventory': return listInventory(db);
     case 'records': return data === 'person'
       ? db.select('SELECT id, name FROM person WHERE archived_at IS NULL ORDER BY name')
       : listRecords(db, data, ctx);
