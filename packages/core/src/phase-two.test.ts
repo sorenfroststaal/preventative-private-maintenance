@@ -9,11 +9,11 @@ import { searchRecords } from './repo/search';
 import { dashboard, history, vehicleCosts } from './repo/overview';
 import { importArchiveDocument } from './node-documents';
 import { importBank, parseBank, previewBank, danishMinor } from './import/bank';
-import { calendar } from './report/export';
+import { calendar, exportFile } from './report/export';
 import { insuranceItems, insuranceReport } from './report/insurance';
 import { PDFDocument } from 'pdf-lib';
 import { trackInbox } from './import/inbox';
-import { createUser } from './repo/users';
+import { createUser, setHealthPrivacy } from './repo/users';
 import { createTask } from './repo/tasks';
 
 const ctx = { via: 'ui' } as const;
@@ -158,4 +158,20 @@ it('exports all-day ICS without notes or private health titles and escapes separ
   expect(result).toContain('SUMMARY:Helbred: påmindelse');
   expect(result).toContain('SUMMARY:Tag\\; mur');
   expect(result).not.toMatch(/Eksempelmedicin|Syntetisk note/);
+});
+
+it('exports the public schema metadata with private PIN hashes omitted and checks household permissions', async () => {
+  const { db } = archive;
+  const admin = await createUser(db, { name: 'Demo-admin', personName: 'Eksempel', pin: '1234' });
+  const household = await createUser(db, { name: 'Demo-bruger', personName: 'Eksempelperson' }, admin);
+  await expect(exportFile(archive, { format: 'json', table: 'all' }, household)).rejects.toThrow('administratoren');
+  const output = await exportFile(archive, { format: 'json', table: 'all' }, admin);
+  const data = JSON.parse(await readFile(output, 'utf8'));
+  expect(data.schemaVersion).toBe(1);
+  expect(data.tables.app_user).toMatchObject([{ pin_hash: null }, { pin_hash: null }]);
+  expect(data.tables.search_index).toEqual([]);
+  expect(data.tables.search_index_data).toBeUndefined();
+  const [person] = await db.select<{ id: string }>('SELECT id FROM person WHERE app_user_id = ?', [household]);
+  await setHealthPrivacy(db, admin, person.id, household);
+  await expect(exportFile(archive, { format: 'json', table: 'all' }, admin)).rejects.toThrow('helbredsdata');
 });

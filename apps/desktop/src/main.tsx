@@ -8,7 +8,7 @@ import { ModuleView, sections } from './modules';
 
 type User = { id: string; name: string; has_pin: number; is_admin: number };
 type Task = { id: string; title: string; due_date: string | null };
-type Document = { id: string; title: string; filename: string };
+type Document = { id: string; title: string; filename: string; source?: string; linked?: number; roles?: string };
 type Opened = { cloud?: boolean; readonly?: boolean; users?: User[]; lastUserId?: string };
 
 const chooseFiles = (purpose: string) => invoke<string[]>('choose_files', { purpose });
@@ -47,6 +47,11 @@ function App() {
   const [section, setSection] = useState('Overblik');
   const [searchOpen, setSearchOpen] = useState(false);
   const [results, setResults] = useState<{ entity_id: string; title: string; module: string; entity_type: string }[]>([]);
+  const [calendarIds, setCalendarIds] = useState<string[]>([]);
+  const [fullHealthTitle, setFullHealthTitle] = useState(false);
+  const [docSource, setDocSource] = useState('');
+  const [docRole, setDocRole] = useState('');
+  const [onlyQueued, setOnlyQueued] = useState(false);
   const [preview, setPreview] = useState<{ mime?: string; base64?: string; text?: string }>();
   const [inboxWarnings, setInboxWarnings] = useState<string[]>([]);
   const [repeat, setRepeat] = useState('');
@@ -224,7 +229,21 @@ function App() {
       })}>Importér bilag</button>
       <button onClick={() => void run(async () => { await refresh(); setInboxWarnings(await local('inbox')); })}>Opdatér importkø</button>
       {inboxWarnings.length > 0 && <ul>{inboxWarnings.map(warning => <li key={warning}>{warning}</li>)}</ul>}
-      <h2>Bilag</h2><ul className="records">{documents.map(({ id, filename, title }) => <li key={id}>
+      <div className="actions">
+        <label>Kilde<select value={docSource} onChange={e => setDocSource(e.target.value)}>
+          <option value="">Alle kilder</option><option value="drop">Manuel</option><option value="inbox">Indbakke</option>
+          <option value="bank_import">Bankimport</option><option value="ai">AI</option>
+        </select></label>
+        <label>Rolle<select value={docRole} onChange={e => setDocRole(e.target.value)}>
+          <option value="">Alle roller</option><option value="receipt">Kvittering</option><option value="photo">Foto</option>
+          <option value="quote">Tilbud</option><option value="invoice">Faktura</option><option value="photo_before">Førfoto</option>
+          <option value="photo_after">Efterfoto</option><option value="manual">Manual</option><option value="policy_terms">Policevilkår</option>
+          <option value="report">Rapport</option><option value="letter">Brev</option><option value="other">Andet</option>
+        </select></label>
+        <label><input type="checkbox" checked={onlyQueued} onChange={e => setOnlyQueued(e.target.checked)} />Kun uden kobling (importkø)</label>
+      </div>
+      <h2>Bilag</h2><ul className="records">{documents.filter(d => (!docSource || d.source === docSource) &&
+        (!docRole || d.roles?.split(',').includes(docRole)) && (!onlyQueued || !d.linked)).map(({ id, filename, title }) => <li key={id}>
         <button onClick={() => void run(async () => setPreview(await local('previewDocument', id)))}>{title}</button><span>{filename}</span>
       </li>)}</ul>
       {preview && <section aria-label="Forhåndsvisning">
@@ -256,7 +275,9 @@ function App() {
         }
       })}>Gendan fra backup</button>
     </div>
-    {Boolean(current.is_admin) && <><h2>Brugere og personer</h2><UserForm submit={newUser} first={false} />
+    {Boolean(current.is_admin) && <><h2>Eksport</h2>
+      <SaveOutput action="export" payload={{ format: 'json', table: 'all' }} label="Gem hele arkivet som JSON" local={local} run={run} />
+      <h2>Brugere og personer</h2><UserForm submit={newUser} first={false} />
       <HealthPrivacy local={local} run={run} />
       <h3>Person uden eget login</h3>
       <form onSubmit={(event) => {
@@ -274,8 +295,11 @@ function App() {
         <button>Opret person</button>
       </form></>}</>;
   } else {
-    content = <><h1>Opgaver</h1><SaveOutput action="export" payload={{ format: 'ics' }} label="Gem åbne opgaver som kalenderfil" local={local} run={run} />
-      <ul className="records">{tasks.map(({ id, title, due_date }) => <li key={id}><strong>{title}</strong>
+    content = <><h1>Opgaver</h1>
+      <label><input type="checkbox" checked={fullHealthTitle} onChange={e => setFullHealthTitle(e.target.checked)} />Medtag fulde helbredstitler</label>
+      <SaveOutput action="export" payload={{ format: 'ics', ids: calendarIds.length ? calendarIds : undefined, fullHealthTitle }}
+        label={calendarIds.length ? 'Gem markerede opgaver som kalenderfil' : 'Gem åbne opgaver som kalenderfil'} local={local} run={run} />
+      <ul className="records">{tasks.map(({ id, title, due_date }) => <li key={id}><label><input type="checkbox" checked={calendarIds.includes(id)} onChange={() => setCalendarIds(ids => ids.includes(id) ? ids.filter(key => key !== id) : [...ids, id])} />{title}</label>
         <span>{due_date ? due_date.split('-').reverse().join('.') : 'Ingen dato'}</span>
         <div className="actions">{(['done', 'skipped'] as const).map((status) => <button key={status}
           onClick={() => void run(async () => { await local('completeTask', { id, status }); await refresh(); })}>
@@ -307,6 +331,10 @@ function App() {
       <button onClick={() => setSearchOpen(true)}>Søg (Ctrl+K)</button>
       <button onClick={() => void run(async () => {
         await local('logout');
+        setCalendarIds([]);
+        setFullHealthTitle(false);
+        setPreview(undefined);
+        setResults([]);
         setCurrent(undefined);
       })}>Skift bruger</button>
     </nav>}</aside>

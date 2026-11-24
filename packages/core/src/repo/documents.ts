@@ -12,7 +12,7 @@ const documentInput = z.object({
   filename: z.string().min(1).max(255).regex(/^[^/\\\x00-\x1f]+$/),
   source: z.enum(['drop', 'inbox', 'ai', 'bank_import']),
 });
-export type DocumentRow = { id: string; sha256: string; ext: string; filename: string; title: string };
+export type DocumentRow = { id: string; sha256: string; ext: string; filename: string; title: string; source?: string; linked?: number; roles?: string };
 export const documentPath = (sha: string, ext: string) => `bilag/${sha.slice(0, 2)}/${sha}.${ext}`;
 
 export async function sha256(bytes: Uint8Array<ArrayBuffer>) {
@@ -50,7 +50,9 @@ export async function importDocument(
 }
 
 export function listDocuments(db: DbAdapter) {
-  return db.select<DocumentRow>(`SELECT id, sha256, ext, filename, title FROM document d
+  return db.select<DocumentRow>(`SELECT id, sha256, ext, filename, title, source,
+    EXISTS(SELECT 1 FROM document_link l WHERE l.document_id = d.id) AS linked,
+    (SELECT GROUP_CONCAT(DISTINCT l.role) FROM document_link l WHERE l.document_id = d.id) AS roles FROM document d
     WHERE NOT EXISTS (SELECT 1 FROM document_link l WHERE l.document_id = d.id AND l.target_type IN
       ('person', 'task_occurrence', 'health_visit', 'health_screening', 'health_vaccination', 'health_medication'))
     ORDER BY created_at DESC, id`);
