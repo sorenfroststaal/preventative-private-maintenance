@@ -50,11 +50,12 @@ const derived = {
   health_medication: [['prescription_renewal_date', 'health_medication.renewal', 'Forny recept: ', 'health']],
 } as Record<string, string[][]>;
 
-async function deriveTasks(tx: DbAdapter, type: RecordType, row: Row, ctx: WriteContext) {
+async function deriveTasks(tx: DbAdapter, type: RecordType, row: Row, ctx: WriteContext, previous?: Row) {
   for (const [column, prefix, label, module] of derived[type] ?? []) {
     const reference = prefix + ':' + row.id;
     const [before] = await tx.select<Row>('SELECT * FROM task WHERE system_ref = ?', [reference]);
     const due = row.archived_at ? null : row[column];
+    const dateChanged = !previous || previous[column] !== row[column] || Boolean(previous.archived_at) !== Boolean(row.archived_at);
     if (!due && (!before || before.status === 'archived')) continue;
     const personId = module === 'health' ? row.person_id : null;
     const [person] = personId ? await tx.select<{ name: string }>('SELECT name FROM person WHERE id = ?', [personId]) : [];
@@ -65,7 +66,7 @@ async function deriveTasks(tx: DbAdapter, type: RecordType, row: Row, ctx: Write
     const id = before?.id ?? crypto.randomUUID();
     const [open] = await tx.select<Row>("SELECT * FROM task_occurrence WHERE task_id = ? AND status = 'open'", [id]);
     if (before) {
-      if (before.title === title && before.status === changes.status && open?.due_date === due) continue;
+      if (before.title === title && before.status === changes.status && (!dateChanged || open?.due_date === due)) continue;
       await tx.execute('UPDATE task SET title = ?, module = ?, target_type = ?, target_id = ?, status = ?, updated_at = ? WHERE id = ?', [...Object.values(changes), id]);
     } else {
       await tx.execute("INSERT INTO task (title, module, target_type, target_id, status, updated_at, id, created_at, source, system_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'system', ?)", [...Object.values(changes), id, now(), reference]);
@@ -73,7 +74,7 @@ async function deriveTasks(tx: DbAdapter, type: RecordType, row: Row, ctx: Write
     const [after] = await tx.select<Row>('SELECT * FROM task WHERE id = ?', [id]);
     const action = before?.status === 'archived' ? 'restore' : before && !due ? 'archive' : undefined;
     await synchronizeIndex(tx, 'task', after, ctx, before ?? null, action);
-    if (due && open?.due_date !== due) {
+    if (due && (open || dateChanged || !before) && open?.due_date !== due) {
       const occurrenceId = open?.id ?? crypto.randomUUID();
       if (open) await tx.execute('UPDATE task_occurrence SET due_date = ? WHERE id = ?', [due, occurrenceId]);
       else await tx.execute('INSERT INTO task_occurrence (id, task_id, due_date) VALUES (?, ?, ?)', [occurrenceId, id, due]);
@@ -129,7 +130,7 @@ export async function saveRecord(db: DbAdapter, rawType: unknown, values: unknow
     const [after] = await tx.select<Row>(`SELECT * FROM ${type} WHERE id = ?`, [id]);
     if (type === 'work_order') await recordWorkOrderEffects(tx, before, after, ctx);
     await synchronizeIndex(tx, type, after, ctx, before ?? null);
-    await deriveTasks(tx, type, after, ctx);
+    await deriveTasks(tx, type, after, ctx, before);
     return after;
   });
 }
@@ -170,7 +171,7 @@ export async function setArchived(db: DbAdapter, rawType: unknown, rawId: unknow
     }
     const [after] = await tx.select<Row>(`SELECT * FROM ${type} WHERE id = ?`, [id]);
     await synchronizeIndex(tx, type, after, ctx, before, archive ? 'archive' : 'restore');
-    if (type !== 'task') await deriveTasks(tx, type, after, ctx);
+    if (type !== 'task') await deriveTasks(tx, type, after, ctx, before);
   });
 }
 

@@ -14,7 +14,7 @@ import { insuranceItems, insuranceReport } from './report/insurance';
 import { PDFDocument } from 'pdf-lib';
 import { trackInbox } from './import/inbox';
 import { createUser, setHealthPrivacy } from './repo/users';
-import { createTask } from './repo/tasks';
+import { completeTask, createTask } from './repo/tasks';
 
 const ctx = { via: 'ui' } as const;
 let root: string;
@@ -199,4 +199,15 @@ it('persists generic CSV mappings and calculates annual and monthly budget total
   const summary = await financeYear(db, 2026);
   expect(summary.categories[0].months.map(month => month.budget)).toEqual(Array(12).fill(2000));
   expect(summary.fixed).toEqual([{ currency: 'DKK', annual: 49380 }]);
+});
+
+it('preserves a completed automatic reminder until the source deadline changes', async () => {
+  const { db } = archive;
+  const item = await saveRecord(db, 'item', { name: 'Demomaskine', warranty_until: '2027-01-02' }, ctx);
+  const [occurrence] = await db.select<{ id: string }>("SELECT id FROM task_occurrence WHERE status = 'open'");
+  await completeTask(db, occurrence.id, 'done', '2027-01-02', ctx);
+  await saveRecord(db, 'item', { name: 'Ændret navn', notes: 'Syntetisk note' }, ctx, item.id);
+  expect(await db.select("SELECT id FROM task_occurrence WHERE status = 'open'")).toEqual([]);
+  await saveRecord(db, 'item', { warranty_until: '2027-02-01' }, ctx, item.id);
+  expect(await db.select("SELECT due_date FROM task_occurrence WHERE status = 'open'")).toEqual([{ due_date: '2027-02-01' }]);
 });
