@@ -102,7 +102,7 @@ Fundet og rettet under E2E: "Udløber snart" viste reklamationsret, der var udl�
 | Opstartstid til login-skærm | ca. 0,95 s (fase 1-måling) | Median af 3, release-build, Linux i Xvfb |
 | Linux-pakke (`.deb`) efter fase 2b | 3,34 MiB | `pnpm build` lokalt (release) |
 | Frontend-bundle efter fase 2b | 1,30 MB JavaScript (minificeret, før komprimering) | `vite build`. Kun de brugte Lucide-ikoner kommer med (tree-shaking). |
-| Installerstørrelse, Windows efter fase 2b | Måles i CI på denne commit | `*-setup.exe` (spec 07, målemetoder) |
+| Installerstørrelse, Windows efter fase 2b | 2,94 MiB (`PPM_0.1.0_x64-setup.exe`, +0,02 MiB i forhold til fase 2) | CI-kørsel 45512953033 (commit ff6c794), jobbet `build-windows`. Både `lint-test` og `build-windows` er grønne. |
 
 ## Manuel test på Windows (spec 07)
 
