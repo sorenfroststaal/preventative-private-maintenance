@@ -130,3 +130,23 @@ export async function categorizeBank(db: DbAdapter, transaction: string, categor
     }
   });
 }
+
+const savedProfiles = z.record(z.string(), generic);
+export async function listBankProfiles(db: DbAdapter) {
+  const [row] = await db.select<{ value_json: string }>('SELECT value_json FROM setting WHERE key = ?', ['import.profiles']);
+  return row ? savedProfiles.parse(JSON.parse(row.value_json)) : {};
+}
+
+export async function saveBankProfile(db: DbAdapter, name: string, input: unknown, ctx: WriteContext) {
+  const key = 'import.profiles';
+  const label = z.string().trim().min(1, 'Giv profilen et navn.').max(80).parse(name);
+  const profile = generic.parse(input);
+  return db.transaction(async tx => {
+    const [before] = await tx.select<{ value_json: string }>('SELECT value_json FROM setting WHERE key = ?', [key]);
+    const profiles = await listBankProfiles(tx);
+    const value_json = JSON.stringify({ ...profiles, [label]: profile });
+    await tx.execute('INSERT INTO setting VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json', [key, value_json]);
+    await recordChange(tx, ctx, 'setting', key, before ?? null, { value_json });
+    return listBankProfiles(tx);
+  });
+}

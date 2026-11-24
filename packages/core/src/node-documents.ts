@@ -1,5 +1,6 @@
 import { link, lstat, mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { PDFDocument } from 'pdf-lib';
+import { extractText, getDocumentProxy } from 'unpdf';
 import PostalMime from 'postal-mime';
 import { dirname, join } from 'node:path';
 import { importDocument, sha256 } from './repo/documents';
@@ -18,6 +19,16 @@ export async function importArchiveDocument(archive: Archive, filename: string, 
     } else if (/\.pdf$/i.test(filename)) {
       const pdf = await PDFDocument.load(bytes, { updateMetadata: false });
       metadata = { doc_date: pdf.getCreationDate()?.toISOString().slice(0, 10) };
+      if (pdf.getPageCount() <= 500) {
+        const proxy = await getDocumentProxy(new Uint8Array(bytes), { useWorkerFetch: false, useWasm: false,
+          useSystemFonts: false, verbosity: 0, maxImageSize: 16_777_216, enableXfa: false });
+        try {
+          const { text } = await extractText(proxy, { mergePages: true });
+          metadata.extracted_text = text.slice(0, 250_000);
+        } finally {
+          await proxy.loadingTask.destroy();
+        }
+      }
     }
   } catch {
     // The original document is still useful when its optional metadata cannot be parsed.

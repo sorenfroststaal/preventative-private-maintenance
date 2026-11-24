@@ -6,9 +6,9 @@ import { openArchive, type Archive } from './archive';
 import { writeLink } from './repo/links';
 import { saveRecord, setArchived, listRecords } from './repo/records';
 import { searchRecords } from './repo/search';
-import { dashboard, history, vehicleCosts } from './repo/overview';
+import { dashboard, financeYear, history, vehicleCosts } from './repo/overview';
 import { importArchiveDocument } from './node-documents';
-import { importBank, parseBank, previewBank, danishMinor } from './import/bank';
+import { importBank, parseBank, previewBank, danishMinor, saveBankProfile } from './import/bank';
 import { calendar, exportFile } from './report/export';
 import { insuranceItems, insuranceReport } from './report/insurance';
 import { PDFDocument } from 'pdf-lib';
@@ -174,4 +174,29 @@ it('exports the public schema metadata with private PIN hashes omitted and check
   const [person] = await db.select<{ id: string }>('SELECT id FROM person WHERE app_user_id = ?', [household]);
   await setHealthPrivacy(db, admin, person.id, household);
   await expect(exportFile(archive, { format: 'json', table: 'all' }, admin)).rejects.toThrow('helbredsdata');
+});
+
+it('extracts and indexes PDF text locally with its creation date', async () => {
+  const pdf = await PDFDocument.create();
+  pdf.setCreationDate(new Date('2026-11-24T12:00:00Z'));
+  pdf.addPage().drawText('Syntetisk fakturatekst');
+  const doc = await importArchiveDocument(archive, 'testbilag.pdf', new Uint8Array(await pdf.save()), ctx);
+  const facts = await archive.db.select<{ doc_date: string; extracted_text: string }>('SELECT doc_date, extracted_text FROM document WHERE id = ?', [doc.id]);
+  expect(facts).toEqual([{ doc_date: '2026-11-24', extracted_text: 'Syntetisk fakturatekst' }]);
+  expect(await searchRecords(archive.db, 'fakturatek')).toMatchObject([{ entity_id: doc.id }]);
+});
+
+it('persists generic CSV mappings and calculates annual and monthly budget totals', async () => {
+  const { db } = archive;
+  const profile = { delimiter: ';', header: false, dateFormat: 'iso', date: 0, text: 1, amount: 2 };
+  expect(await saveBankProfile(db, 'Demoformat', profile, ctx)).toMatchObject({ Demoformat: profile });
+  const source = Buffer.from('2026-01-10;Syntetisk post;-10,50');
+  expect(parseBank(source, profile, crypto.randomUUID())).toMatchObject([{ booking_date: '2026-01-10', amount_minor: -1050 }]);
+  const budget = await saveRecord(db, 'budget', { name: 'Budget 2026', year: 2026 }, ctx);
+  const category = await saveRecord(db, 'category', { name: 'Demokategori', kind: 'expense' }, ctx);
+  await saveRecord(db, 'budget_line', { budget_id: budget.id, category_id: category.id, amount_minor: 2000 }, ctx);
+  await saveRecord(db, 'recurring_expense', { name: 'Demoudgift', amount_minor: 12345, period: 'quarter' }, ctx);
+  const summary = await financeYear(db, 2026);
+  expect(summary.categories[0].months.map(month => month.budget)).toEqual(Array(12).fill(2000));
+  expect(summary.fixed).toEqual([{ currency: 'DKK', annual: 49380 }]);
 });

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { z } from 'zod';
 import { fields, archivedTables, type RecordType } from '../../../packages/core/src/domain/records';
-import { AccountTransactions, BankImport, PolicyCoverage, RelatedDocuments, SaveOutput, VehicleTemplates } from './module-actions';
+import { AccountTransactions, BankImport, FinanceSummary, PolicyCoverage, RelatedDocuments, SaveOutput, VehicleTemplates } from './module-actions';
 import { nextDate } from '../../../packages/core/src/recurrence/next';
 
 type Row = { id: string } & Record<string, unknown>;
@@ -180,6 +180,7 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
       <SaveOutput action="report" payload={{ policy: type === 'policy' ? selected?.id : undefined, property: type === 'property' ? selected?.id : undefined,
         location: type === 'location' ? selected?.id : undefined, archived: showArchived, receipts }} label="Gem forsikringsrapport" local={local} run={run} />
     </section>}
+    {name === 'Økonomi' && (type === 'budget' || type === 'recurring_expense') && <FinanceSummary local={local} run={run} />}
     {selected && type === 'account' && <><BankImport key={selected.id} account={selected.id} local={local} run={run} />
       <AccountTransactions id={selected.id} local={local} run={run} /></>}
     {selected && type === 'vehicle' && <VehicleTemplates id={selected.id} local={local} run={run} />}

@@ -1,3 +1,4 @@
+import { Console } from 'node:console';
 import { lstat, mkdir, readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -10,15 +11,17 @@ import { documentLimit, documentPath, listDocuments } from './repo/documents';
 import { addVehicleTemplate, completeTask, createTask, openTasks, postponeTask, vehicleTemplates } from './repo/tasks';
 import { listRecords, saveRecord, setArchived } from './repo/records';
 import { writeLink } from './repo/links';
-import { dashboard, history, vehicleCosts } from './repo/overview';
+import { dashboard, financeYear, history, vehicleCosts } from './repo/overview';
 import { searchRecords } from './repo/search';
-import { categorizeBank, importBank, parseBank, previewBank, profileSchema, type Profile } from './import/bank';
+import { categorizeBank, importBank, listBankProfiles, parseBank, previewBank, profileSchema, saveBankProfile, type Profile } from './import/bank';
 import { insideArchive } from './scoped-path';
 import { insuranceItems, insuranceReport } from './report/insurance';
 import { startInbox } from './import/inbox';
 import { exportFile } from './report/export';
 import { authenticate, createPerson, createUser, listUsers, setHealthPrivacy } from './repo/users';
 
+// Keep stdout reserved for request replies, including when document libraries log.
+globalThis.console = new Console(process.stderr, process.stderr);
 const configDir = process.argv[2];
 if (!configDir) throw new Error('Konfigurationsmappen mangler.');
 const configPath = join(configDir, 'config.json');
@@ -118,6 +121,12 @@ async function call(action: string, data: unknown) {
       const coverage = await db.select('SELECT target_type, target_id FROM policy_coverage WHERE policy_id = ?', [id]);
       return { totals: summary.totals, coverage };
     }
+    case 'bankProfiles': return listBankProfiles(db);
+    case 'saveBankProfile': {
+      const { name, profile } = z.object({ name: z.string(), profile: z.unknown() }).parse(data);
+      return saveBankProfile(db, name, profile, ctx);
+    }
+    case 'financeYear': return financeYear(db, z.number().int().min(1900).max(9999).parse(data));
     case 'dashboard': return dashboard(db, userId, today());
     case 'report': return insuranceReport(archive, data);
     case 'inbox': return inbox?.warnings() ?? [];
@@ -225,12 +234,12 @@ try {
     try {
       const { action, data } = request.parse(JSON.parse(line));
       const result = await call(action, data);
-      console.log(JSON.stringify({ result: result ?? null }));
+      process.stdout.write(JSON.stringify({ result: result ?? null }) + '\n');
     } catch (error) {
       const message = error instanceof z.ZodError
         ? error.issues.map(({ path, message }) => `${path.join('.')}: ${message}`).join(' · ')
         : error instanceof Error ? error.message : 'Handlingen mislykkedes.';
-      console.log(JSON.stringify({ error: message }));
+      process.stdout.write(JSON.stringify({ error: message }) + '\n');
     }
   }
 } finally {

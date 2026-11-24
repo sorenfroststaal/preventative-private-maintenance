@@ -63,3 +63,27 @@ export async function dashboard(db: DbAdapter, userId: string, current: string) 
     drafts: drafts.count, finances, uncategorized: uncategorized.count,
   };
 }
+
+export async function financeYear(db: DbAdapter, year: number) {
+  const start = year + '-01-01';
+  const end = year + '-12-31';
+  const categories = await db.select<{ id: string; name: string; kind: string }>("SELECT id, name, kind FROM category WHERE archived_at IS NULL AND kind != 'transfer' ORDER BY name");
+  const budget = await db.select<{ category_id: string; month: number | null; amount_minor: number }>(
+    'SELECT l.category_id, l.month, l.amount_minor FROM budget_line l JOIN budget b ON b.id = l.budget_id WHERE b.year = ?', [year]);
+  const actual = await db.select<{ category_id: string; month: number; amount_minor: number }>(`
+    SELECT category_id, CAST(substr(booking_date, 6, 2) AS INTEGER) AS month, SUM(amount_minor) AS amount_minor
+    FROM bank_transaction WHERE booking_date BETWEEN ? AND ? AND currency = 'DKK' AND category_id IS NOT NULL GROUP BY category_id, month`, [start, end]);
+  const fixed = await db.select<{ currency: string; annual: number }>(`
+    SELECT currency, SUM(amount_minor * CASE period WHEN 'month' THEN 12 WHEN 'quarter' THEN 4 WHEN 'half_year' THEN 2 ELSE 1 END) AS annual
+    FROM recurring_expense WHERE archived_at IS NULL GROUP BY currency ORDER BY currency`);
+  return {
+    categories: categories.map(category => {
+      const categoryActual = actual.filter(row => row.category_id === category.id);
+      const categoryBudget = budget.filter(row => row.category_id === category.id);
+      return { name: category.name, months: Array.from({ length: 12 }, (_, index) => ({
+        budget: categoryBudget.filter(row => row.month === null || row.month === index + 1).reduce((sum, row) => sum + row.amount_minor, 0),
+        actual: (categoryActual.find(row => row.month === index + 1)?.amount_minor ?? 0) * (category.kind === 'expense' ? -1 : 1),
+      })) };
+    }), fixed,
+  };
+}

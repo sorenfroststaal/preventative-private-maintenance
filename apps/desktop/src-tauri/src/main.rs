@@ -51,7 +51,7 @@ fn authorize(request: &Value, grants: &Mutex<FileGrants>) -> Result<(), String> 
         "backup" | "restore" | "import" => request["data"].as_str(),
         "config" | "openRecent" | "login" | "logout" | "createUser" | "createPerson" | "backupDue" |
         "tasks" | "createTask" | "completeTask" | "documents" | "search" | "records" | "saveRecord" |
-        "archiveRecord" | "linkRecord" | "unlinkRecord" | "dashboard" | "vehicleCosts" | "history" | "bankApply" | "export" | "report" | "previewDocument" | "inbox" | "postponeTask" | "documentLinks" | "policyInfo" | "bankTransactions" | "categorize" | "vehicleTemplates" | "addVehicleTemplate" | "privacy" | "setPrivacy" => return Ok(()),
+        "archiveRecord" | "linkRecord" | "unlinkRecord" | "dashboard" | "vehicleCosts" | "history" | "bankApply" | "export" | "report" | "previewDocument" | "inbox" | "postponeTask" | "documentLinks" | "policyInfo" | "bankTransactions" | "categorize" | "vehicleTemplates" | "addVehicleTemplate" | "privacy" | "setPrivacy" | "bankProfiles" | "saveBankProfile" | "financeYear" => return Ok(()),
         _ => return Err("Ukendt lokal handling.".into()),
     }.ok_or("Der mangler en godkendt sti.")?;
     let guard = grants.lock().map_err(|e| e.to_string())?;

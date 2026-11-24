@@ -7,7 +7,13 @@ const money = (amount: number) => new Intl.NumberFormat('da-DK', { style: 'curre
 
 type BankPreview = { added: number; duplicates: number; rows: { booking_date: string; text: string; amount_minor: number }[] };
 export function BankImport({ account, local, run }: { account: string; local: Local; run: Run }) {
-  const [custom, setCustom] = useState(false);
+  const [selection, setSelection] = useState('sparkron');
+  type Profile = { delimiter: string; header: boolean; dateFormat: string; date: number; text: number; amount: number; balance?: number };
+  const [profiles, setProfiles] = useState<Record<string, Profile>>({});
+  const custom = selection !== 'sparkron';
+  const selected = selection.startsWith('saved:') ? profiles[selection.slice(6)] : undefined;
+  useEffect(() => { void run(async () => setProfiles(await local('bankProfiles'))); }, []);
+
   const [preview, setPreview] = useState<BankPreview>();
   const [result, setResult] = useState('');
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -19,6 +25,8 @@ export function BankImport({ account, local, run }: { account: string; local: Lo
       amount: Number(values.get('amount')) - 1, balance: values.get('balance') ? Number(values.get('balance')) - 1 : undefined,
     } : 'sparkron';
     void run(async () => {
+      const name = values.get('profileName');
+      if (custom && typeof name === 'string' && name.trim()) setProfiles(await local('saveBankProfile', { name, profile }));
       const [path] = await local<string[]>('choose_files', { purpose: 'bankPreview' });
       if (!path) return;
       setResult('');
@@ -27,17 +35,18 @@ export function BankImport({ account, local, run }: { account: string; local: Lo
     });
   }
   return <section><h2>Importér kontoudtog</h2><form onSubmit={submit}>
-    <label>CSV-profil<select value={custom ? 'generic' : 'sparkron'} onChange={e => { setCustom(e.target.value === 'generic'); setPreview(undefined); }}>
-      <option value="sparkron">Sparekassen Kronjylland</option><option value="generic">Manuel kolonneopsætning</option>
+    <label>CSV-profil<select value={selection} onChange={e => { setSelection(e.target.value); setPreview(undefined); }}>
+      <option value="sparkron">Sparekassen Kronjylland</option><option value="generic">Manuel kolonneopsætning</option>{Object.keys(profiles).map(name => <option key={name} value={"saved:" + name}>{name}</option>)}
     </select></label>
-    {custom && <>
-      <label>Skilletegn<select name="delimiter"><option value=";">Semikolon</option><option value=",">Komma</option><option value={'\t'}>Tabulator</option></select></label>
-      <label><input name="header" type="checkbox" defaultChecked />Første række er overskrifter</label>
-      <label>Datoformat<select name="dateFormat"><option value="danish">Dag, måned, år</option><option value="iso">År, måned, dag</option></select></label>
+    {custom && <div key={selection}>
+      <label>Skilletegn<select name="delimiter" defaultValue={selected?.delimiter ?? ";"}><option value=";">Semikolon</option><option value=",">Komma</option><option value={'\t'}>Tabulator</option></select></label>
+      <label><input name="header" type="checkbox" defaultChecked={selected?.header ?? true} />Første række er overskrifter</label>
+      <label>Datoformat<select name="dateFormat" defaultValue={selected?.dateFormat ?? "danish"}><option value="danish">Dag, måned, år</option><option value="iso">År, måned, dag</option></select></label>
       <div className="actions">{[['date', 'Dato'], ['text', 'Tekst'], ['amount', 'Beløb'], ['balance', 'Saldo']].map(([key, label], index) =>
-        <label key={key}>{label} (kolonne)<input name={key} type="number" required={index < 3} min="1" max="101" defaultValue={index < 3 ? index + 1 : undefined} /></label>)}
+        <label key={key}>{label} (kolonne)<input name={key} type="number" required={index < 3} min="1" max="101" defaultValue={typeof selected?.[key as "date" | "text" | "amount" | "balance"] === "number" ? selected[key as "date" | "text" | "amount" | "balance"]! + 1 : index < 3 ? index + 1 : undefined} /></label>)}
       </div>
-    </>}
+      <label>Gem opsætningen under navn (valgfrit)<input name="profileName" maxLength={80} /></label>
+    </div>}
     <button>Vælg CSV og vis forhåndsvisning</button>
   </form>
   {preview && <>
@@ -227,4 +236,29 @@ export function HealthPrivacy({ local, run }: { local: Local; run: Run }) {
         <option value="">Alle brugere</option>{data.users.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
       </select></label><button>Gem synlighed</button>
     </form>)}</section>;
+}
+
+export function FinanceSummary({ local, run }: { local: Local; run: Run }) {
+  type Summary = { categories: { name: string; months: { budget: number; actual: number }[] }[]; fixed: { currency: string; annual: number }[] };
+  const [data, setData] = useState<Summary>();
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [month, setMonth] = useState(-1);
+  async function load() { setData(await local('financeYear', year)); }
+  useEffect(() => { void run(load); }, []);
+  const amount = (code: string, value: number) => new Intl.NumberFormat('da-DK', { style: 'currency', currency: code }).format(value / 100);
+  return <section><h2>Budget og faste udgifter</h2>
+    <form onSubmit={e => { e.preventDefault(); void run(load); }}>
+      <label>År<input type="number" min="1900" max="9999" value={year} onChange={e => setYear(Number(e.target.value))} required /></label>
+      <label>Periode<select value={month} onChange={e => setMonth(Number(e.target.value))}>
+        <option value={-1}>Hele året</option>{Array.from({ length: 12 }, (_, i) =>
+          <option key={i} value={i}>{new Intl.DateTimeFormat('da-DK', { month: 'long' }).format(new Date(2026, i, 15))}</option>)}</select></label>
+      <button>Vis budget</button>
+    </form>
+    <table><thead><tr><th>Kategori</th><th>Budget</th><th>Faktisk (DKK)</th></tr></thead><tbody>{data?.categories.map(row => {
+      const months = month === -1 ? row.months : row.months.slice(month, month + 1);
+      return <tr key={row.name}><td>{row.name}</td><td>{money(months.reduce((total, entry) => total + entry.budget, 0))}</td>
+        <td>{money(months.reduce((total, entry) => total + entry.actual, 0))}</td></tr>;
+    })}</tbody></table>
+    <h3>Faste udgifter</h3><ul>{data?.fixed.map(row => <li key={row.currency}>{amount(row.currency, Math.round(row.annual / 12))} i gennemsnit pr. måned · {amount(row.currency, row.annual)} pr. år</li>)}</ul>
+  </section>;
 }
