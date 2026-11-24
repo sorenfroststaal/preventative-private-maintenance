@@ -1,0 +1,93 @@
+[
+  {
+    "id": "home.gutters.clean", "version": 1, "title": "Rens tagrender",
+    "description": "Fjern blade og skidt, og kontrollér nedløb.",
+    "module": "maintenance", "applies_to": "property",
+    "recurrence": { "kind": "fixed", "unit": "year", "every": 1, "month": 11, "day": 1 },
+    "basis": "suggestion", "source": null
+  },
+  {
+    "id": "home.rainwater_well.clean", "version": 1, "title": "Rens brønd",
+    "description": "Tøm sandfang og fjern slam i regnvandsbrønde og eventuelle tagbrønde.",
+    "module": "maintenance", "applies_to": "building_part",
+    "recurrence": { "kind": "interval", "unit": "year", "every": 1 },
+    "basis": "suggestion", "source": null
+  },
+  {
+    "id": "home.smoke_alarm.test", "version": 1, "title": "Test røgalarmer",
+    "description": "Tryk på testknappen i alle røgalarmer, og skift batteri, hvis det er nødvendigt.",
+    "module": "maintenance", "applies_to": "property",
+    "recurrence": { "kind": "interval", "unit": "month", "every": 3 },
+    "basis": "suggestion", "source": null
+  },
+  {
+    "id": "home.heat_pump.service", "version": 1, "title": "Service af varmepumpe",
+    "description": "Book et serviceeftersyn, og rens filtre efter producentens anvisning.",
+    "module": "maintenance", "applies_to": "building_part",
+    "recurrence": { "kind": "interval", "unit": "year", "every": 1 },
+    "basis": "suggestion", "source": null
+  },
+  {
+    "id": "home.hood_filter.replace", "version": 1, "title": "Rens eller skift emhættefilter",
+    "description": "Rens fedtfilteret, og skift kulfilteret, hvis der er et.",
+    "module": "maintenance", "applies_to": "item",
+    "recurrence": { "kind": "interval", "unit": "month", "every": 3 },
+    "basis": "suggestion", "source": null
+  },
+  {
+    "id": "home.water_heater.check", "version": 1, "title": "Kontrollér sikkerhedsventil på varmtvandsbeholder",
+    "description": "Drej sikkerhedsventilen, så den skyller igennem.",
+    "module": "maintenance", "applies_to": "building_part",
+    "recurrence": { "kind": "interval", "unit": "month", "every": 6 },
+    "basis": "suggestion", "source": null
+  },
+  {
+    "id": "vehicle.tires.summer", "version": 1, "title": "Skift til sommerdæk",
+    "description": "Kontrollér samtidig mønsterdybde og dæktryk.",
+    "module": "vehicle", "applies_to": "vehicle",
+    "recurrence": { "kind": "fixed", "unit": "year", "every": 1, "month": 4, "day": 1 },
+    "basis": "suggestion", "source": null
+  },
+  {
+    "id": "vehicle.tires.winter", "version": 1, "title": "Skift til vinterdæk",
+    "description": "Kontrollér samtidig mønsterdybde og dæktryk.",
+    "module": "vehicle", "applies_to": "vehicle",
+    "recurrence": { "kind": "fixed", "unit": "year", "every": 1, "month": 10, "day": 15 },
+    "basis": "suggestion", "source": null
+  },
+  {
+    "id": "vehicle.service", "version": 1, "title": "Service af bil",
+    "description": "Følg bilens serviceinterval (km eller tid). Justér intervallet til bilens servicebog.",
+    "module": "vehicle", "applies_to": "vehicle",
+    "recurrence": { "kind": "interval", "unit": "year", "every": 1 },
+    "basis": "suggestion", "source": null
+  },
+  {
+    "id": "vehicle.inspection", "version": 1, "title": "Syn af bil",
+    "description": "Angiv datoen for næste syn ud fra indkaldelsen eller bilens registreringsoplysninger.",
+    "module": "vehicle", "applies_to": "vehicle",
+    "recurrence": null,
+    "basis": "suggestion", "source": null
+  },
+  {
+    "id": "health.dentist", "version": 1, "title": "Tandlægetjek",
+    "description": "Justér intervallet til det, din tandlæge anbefaler.",
+    "module": "health", "applies_to": "person",
+    "recurrence": { "kind": "interval", "unit": "year", "every": 1 },
+    "basis": "suggestion", "source": null
+  },
+  {
+    "id": "finance.budget.review", "version": 1, "title": "Gennemgå budget og faste udgifter",
+    "description": "Kontrollér abonnementer, bindinger og om budgettet passer.",
+    "module": "finance", "applies_to": "person",
+    "recurrence": { "kind": "fixed", "unit": "year", "every": 1, "month": 1, "day": 15 },
+    "basis": "suggestion", "source": null
+  },
+  {
+    "id": "insurance.review", "version": 1, "title": "Gennemgå forsikringer",
+    "description": "Kontrollér dækningssummer mod inventarets værdi, og sammenlign priser.",
+    "module": "insurance", "applies_to": "property",
+    "recurrence": { "kind": "interval", "unit": "year", "every": 1 },
+    "basis": "suggestion", "source": null
+  }
+]

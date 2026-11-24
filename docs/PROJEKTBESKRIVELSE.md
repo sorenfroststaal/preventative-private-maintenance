@@ -2,52 +2,82 @@
 
 ## Problem og formål
 
-Hverdagens ansvar er fordelt mellem breve, mails, kalendere, offentlige portaler, leverandører og egen hukommelse. Opgaver opstår ved livsbegivenheder, gentages med forskellige intervaller og kræver ofte dokumentation, som er svær at finde igen.
+Hjemmets ansvar og dokumentation er fordelt mellem skuffer, mails, kalendere, offentlige portaler, leverandører og egen hukommelse. Opgaver gentages med forskellige intervaller. Når noget går i stykker, når forsikringen skal bruges, eller når man taler med lægen, er dokumentationen svær at finde.
 
-Formålet er at samle et personligt handlingsorienteret overblik: Hvad er relevant for mig? Hvad skal jeg gøre? Hvornår? Hvorfor? Hvor ligger dokumentationen?
+Formålet er et lokalt, personligt arkiv, der svarer på: Hvad ejer vi? Hvad er gjort? Hvad skal gøres, og hvornår? Hvad koster det? Hvor ligger dokumentationen? Arkivet kan også bruges af en AI-assistent, som brugeren selv vælger.
 
-## Målgrupper
+## Målgruppe
 
-Privatpersoner med mange praktiske forpligtelser, boligejere, lejere, børnefamilier og mindre selvstændige. Danmark er første indholdsmarked; systemets struktur skal give plads til andre lande og sprog gennem separate indholdspakker.
+Boligejere, lejere og børnefamilier i Danmark. Skabeloner og tekster struktureres, så der senere er plads til andre lande og sprog.
 
-## Spørgeforløb og anbefalinger
+## Moduler
 
-Opsætningen spørger først bredt og følger kun op på relevante områder. Eksempler: ejer eller lejer du din bolig, findes der en skorsten, har du børn, bil eller selvstændig virksomhed? Følsomme og unødvendige oplysninger skal undgås. Aldersgruppe kan eksempelvis være tilstrækkelig frem for et barns fulde fødselsdato.
+### Bolig og inventar
 
-Svar kobles til gennemskuelige regler og skabeloner. Et forslag har begrundelse, kilde når relevant, skabelonversion, usikkerhed og eventuelle manglende oplysninger. Brugeren accepterer, ændrer eller afviser det. Ukendte datoer markeres som manglende frem for at blive gættet.
+En genstand har navn, kategori, placering (rum eller område), fotos, model og serienummer. Den har også købsdato, pris, forhandler, kvittering, garanti- og reklamationsfrist med påmindelse, manual samt reservedele og forbrugsdele (filtre, pærer og lignende). Genstanden kan knyttes til den forsikringspolice, der dækker den, så den samlede værdi kan sammenlignes med policens dækningssum.
 
-Ændrede svar udløser en forhåndsvisning af nye og ændrede forslag. Eksisterende historik og egne rettelser overskrives ikke. Ophørte opgaver kan arkiveres.
+Bygningsdele (tag, brønd, kloak, skorsten, varmepumpe og lignende) får gentagne opgaver og egen historik.
 
-## Opgaver og dokumentation
+### Vedligehold og arbejdsordrer
 
-En opgave har titel, område, ansvarlig, status, forfaldsdato eller datointerval, påmindelser og gentagelsesregel. Gentagelse skelner mellem fast kalenderdato og interval fra faktisk udførelse. En afsluttet forekomst får egen historik og bilag.
+Hver reparation, service eller skade er en arbejdsordre med status: registreret, tilbud indhentet, bestilt, udført, faktureret og afsluttet. Den har beskrivelse, fotos før og efter, håndværker, tilbud, faktura og omkostning. Arbejdsordren knyttes til en genstand, en bygningsdel eller en bil og kan kobles til en skadesag hos forsikringen.
 
-Bilag kan være kvittering, serviceaftale, foto, rapport eller en importeret mail. Samme bilag kan knyttes til flere opgaver. Import af mails starter med manuel filimport; løbende postkasseadgang er en senere, frivillig integration.
+Gentagne opgaver skelner mellem en fast kalenderdato og et interval fra seneste udførelse. Når en opgave er udført, kan den blive til en historikpost eller arbejdsordre med bilag.
 
-OCR og automatisk forslag til datoer er mulige udvidelser. Forslag skal godkendes, og lokal behandling prioriteres. Ingen dokumenter sendes til en ekstern AI-tjeneste som standard.
+### Bil
+
+Køretøj med nummerplade, stelnummer og model. Servicebog og reparationer håndteres som arbejdsordrer med km-stand. Frister for syn, dækskifte, afgifter, forsikring og vejhjælp er opgaver.
+
+### Økonomi og budget
+
+Familiebudget pr. kategori og måned, faste udgifter og abonnementer med fornyelsesdatoer. Kontoudtog importeres som CSV-filer fra banken. Rækker, der allerede er importeret, genkendes, og kategoriseringsregler kan læres af brugerens rettelser. Transaktioner kan knyttes til kvitteringer og arbejdsordrer, så man for eksempel kan se de samlede driftsomkostninger for bilen eller huset.
+
+### Forsikring
+
+Policer med selskab, policenummer, type, præmie, fornyelse, selvrisiko, dækningssummer, kontakt og policedokument. De er koblet til de genstande, biler og personer, de dækker. Skadesager registreres med kobling til arbejdsordrer og bilag.
+
+### Helbred
+
+For hvert familiemedlem: besøg hos læge, tandlæge, speciallæge og hospital med noter og henvisninger. Desuden screeninger og vaccinationer med påmindelser, aktiv og tidligere medicin med fornyelse af recept, allergier og målinger over tid (blodtryk, vægt, blodprøvesvar).
+
+Programmet er ens egne notater og påmindelser. Det er ikke en patientjournal og giver ikke medicinsk rådgivning. Anbefalede screeninger og vaccinationer i skabeloner skal have en officiel kilde.
+
+## AI-assistance
+
+Med en lokal MCP-server kan en AI-klient:
+
+- søge og læse på tværs af de moduler, brugeren har givet adgang til
+- læse bilag som kvitteringer og policer
+- foreslå nye genstande, opgaver, arbejdsordrer og udgifter, for eksempel ud fra en kvittering i chatten.
+
+Forslagene lander i appens AI-indbakke og skrives først, når brugeren godkender dem. Brugeren styrer AI-adgangen for hvert modul. Helbred er slået fra som standard. Al AI-adgang bliver logget. Med en lokal model forlader ingen data maskinen. Med Claude eller OpenAI sendes de data, værktøjerne returnerer, til udbyderen, og det forklares tydeligt i appen.
+
+## Brugere og husstand
+
+Flere lokale brugere kan bruge samme computer. Personer (for eksempel børn) kan registreres uden eget login. Adskillelse mellem brugere er en praktisk adskillelse og ingen sikkerhedsgrænse, så længe arkivet ikke er krypteret.
+
+## Import af bilag
+
+- Træk og slip PDF-filer, billeder og mailfiler i appen.
+- En overvåget indbakkemappe, for eksempel til scannede eller downloadede kvitteringer.
+- Via AI-chat, hvor assistenten foreslår registreringen.
+
+Lokal OCR og billeder af kvitteringer taget med mobilen er senere udvidelser.
 
 ## Dansk indhold
 
-Skabeloner skelner mellem brugerens egne intervaller, generelle anbefalinger og myndighedsbestemte frister. Relevante myndighedsoplysninger skal have kilde, anvendelsesområde og seneste kontroldato før offentliggørelse. Kommunale, personlige og virksomhedsspecifikke forhold kan kræve brugerens input.
+Skabeloner skelner mellem brugerens egne intervaller, generelle anbefalinger og frister fastsat af myndigheder. Indhold om frister og pligter skal have kilde, anvendelsesområde og dato for seneste kontrol. Skabelonopdateringer overskriver aldrig brugerens egne rettelser.
 
-Skat, moms, byggetilladelser og lignende skal i første omgang håndteres som opgaver med officielle kildehenvisninger og brugerbekræftede frister. Automatisk indberetning, myndighedsadgang og fuldstændig økonomisk rådgivning er ikke del af første version.
+## Succeskriterier for første brugbare version
 
-## Kalender og deling
-
-Første trin er lokal kalendervisning og eksport af valgte opgaver til ICS. En importeret ICS-fil giver ikke automatisk løbende synkronisering. Senere integrationer skal definere retning, konflikthåndtering, sletning og hvilke felter der deles. Brugeren skal kunne vælge neutrale kalendertekster uden bilag og private noter.
-
-Husstandsdeling kræver særskilt design for invitationer, læse- og skriverettigheder, tilbagekaldelse og konflikter. Det indebærer transport af data mellem enheder og kan ikke beskrives som rent lokal lagring.
-
-## Succeskriterier for en første prototype
-
-- En ny bruger kan danne og tilrette en relevant plan uden at starte med en tom opgaveliste.
-- Brugeren kan se, hvorfor hver foreslået opgave er relevant.
-- En opgave kan oprettes, afsluttes og genfindes med bilag og historik.
-- Et lokalt arkiv kan sikkerhedskopieres og gendannes uden datatab.
-- Egne ændringer bevares, når skabeloner opdateres.
-- Valgte opgaver kan eksporteres til kalender uden utilsigtede private felter.
-- Kerneforløbet kan betjenes med tastatur og forståelige danske tekster.
+- En genstand kan oprettes med kvittering og garanti og findes igen.
+- En reparation kan registreres som arbejdsordre med bilag og ses i genstandens historik.
+- Gentagne opgaver (for eksempel at rense brønden) vises på dashboardet og beregner næste forekomst.
+- Et kontoudtog kan importeres og holdes op mod budgettet.
+- Policer, bil og helbredspåmindelser kan registreres og ses på dashboardet.
+- Claude kan svare på spørgsmål ud fra arkivet og foreslå en registrering, som brugeren godkender.
+- Hele arkivet kan sikkerhedskopieres og gendannes uden datatab.
 
 ## Afgrænsning
 
-Projektet starter som et åbent projektgrundlag, ikke et færdigt produkt. Der er endnu ikke valgt endelig teknologistak, hosting eller integrationsudbydere. En lille brugbar kerne prioriteres før landsdækkende regelsæt, konti og integrationer.
+Ingen onlinekonto, fuld bogføring, skatteberegning, automatisk indberetning, adgang til Digital Post eller sundhed.dk, bank-API eller medicinsk rådgivning.
