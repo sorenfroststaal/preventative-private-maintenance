@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+**/src-tauri/target
+**/src-tauri/gen
+**/dist
+docs
+*.sql

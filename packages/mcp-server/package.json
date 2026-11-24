@@ -1,0 +1,9 @@
+{
+  "name": "@ppm/mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "ppm-mcp": "./src/cli.ts" },
+  "scripts": { "start": "tsx src/cli.ts" },
+  "dependencies": { "@ppm/core": "workspace:*" }
+}
