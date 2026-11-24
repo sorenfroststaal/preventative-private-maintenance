@@ -18,6 +18,7 @@ import { Empty, includesText, Modal, rowProps, SearchBox, Tabs } from "../compon
 import { CLAIM_STATUS, fieldsFor, optionLabel, WO_KIND, WO_STATUS } from "../lib/entityFields";
 import { formatDate, formatDateTime, formatMoney } from "../lib/format";
 import { useToast } from "../layout/Shell";
+import { EmptyState, PageTitle } from "../components/visual";
 
 const TARGET_LABEL: Record<string, string> = { property: "Bolig", building_part: "Bygningsdel", item: "Genstand", vehicle: "Bil" };
 const TARGET_LABEL_COL: Record<string, string> = { property: "name", building_part: "name", item: "name", vehicle: "name" };
@@ -60,8 +61,8 @@ export function WorkOrders() {
 
   return (
     <section>
-      <div className="header-row">
-        <h1>Arbejdsordrer</h1>
+      <div className="page-header">
+        <PageTitle module="maintenance" />
         <button className="primary" onClick={() => setCreating(true)} disabled={archive.readOnly}>
           Ny arbejdsordre
         </button>
@@ -122,8 +123,8 @@ export function WorkOrders() {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="muted">
-                  Ingen arbejdsordrer.
+                <td colSpan={5}>
+                  <EmptyState module="maintenance" text="Registrér reparationer, service og skader med tilbud, fakturaer og fotos." action="Opret din første arbejdsordre" onAction={() => setCreating(true)} disabled={archive.readOnly} />
                 </td>
               </tr>
             )}

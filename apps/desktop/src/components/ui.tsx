@@ -1,7 +1,23 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-export function Tabs({ tabs, initial }: { tabs: { id: string; label: string; content: () => ReactNode }[]; initial?: string }) {
-  const [active, setActive] = useState(initial ?? tabs[0]?.id);
+/** Tabs; uncontrolled by default, or controlled with `active`/`onChange` (e.g. from the URL). */
+export function Tabs({
+  tabs,
+  initial,
+  active: controlled,
+  onChange,
+}: {
+  tabs: { id: string; label: string; content: () => ReactNode }[];
+  initial?: string;
+  active?: string;
+  onChange?(id: string): void;
+}) {
+  const [own, setOwn] = useState(initial ?? tabs[0]?.id);
+  const active = controlled ?? own;
+  const setActive = (id: string) => {
+    setOwn(id);
+    onChange?.(id);
+  };
   const current = tabs.find((t) => t.id === active) ?? tabs[0];
   return (
     <div>

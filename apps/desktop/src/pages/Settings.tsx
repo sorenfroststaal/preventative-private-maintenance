@@ -15,6 +15,11 @@ import {
   listEntities,
   listUsers,
   setPin,
+  setSetting,
+  foodSettings,
+  MEAL_LABELS,
+  MEALS,
+  type Meal,
 } from "@ppm/core";
 import { errorText, useSession } from "../app/session";
 import { pickDirectory, pickFiles } from "../platform/tauri";
@@ -22,17 +27,19 @@ import { formatDateTime } from "../lib/format";
 import { useToast } from "../layout/Shell";
 import { PinFields, validatePin } from "../components/PinFields";
 import { EntityForm } from "../components/EntityForm";
+import { PageHeader } from "../components/visual";
 
 export function Settings() {
   return (
     <section>
-      <h1>Indstillinger</h1>
+      <PageHeader module="settings" />
       <ArchivePanel />
       <BackupPanel />
       <UsersPanel />
       <PersonsPanel />
       <ExportPanel />
       <CategoriesPanel />
+      <FoodPanel />
       <p className="small muted">AI-adgang og opsætning af AI-klienter kommer i fase 3.</p>
     </section>
   );
@@ -387,6 +394,61 @@ function CategoriesPanel() {
         ))}
       </ul>
       <EntityForm key={ruleKey} type="category_rule" title="Ny regel" submitLabel="Tilføj" defaults={{ priority: 100 }} invalidate={[["category_rule"]]} onSaved={() => setRuleKey((k) => k + 1)} />
+    </div>
+  );
+}
+
+/** Meal plan settings (spec 04 "Uge"): which meals have slots and the default number of servings. */
+function FoodPanel() {
+  const session = useSession();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const q = useQuery({ queryKey: ["setting", "food"], queryFn: () => foodSettings(session.archive.db) });
+  const [servings, setServings] = useState<string | null>(null);
+  const save = async (key: string, value: unknown) => {
+    try {
+      await setSetting(session.ctx(), key, value);
+      await qc.invalidateQueries({ queryKey: ["setting"] });
+      await qc.invalidateQueries({ queryKey: ["meal_plan_entry"] });
+      toast("Gemt");
+    } catch (e) {
+      toast(errorText(e), "error");
+    }
+  };
+  if (!q.data) return null;
+  const meals = q.data.meals;
+  const toggle = (m: Meal, on: boolean) => {
+    const next = MEALS.filter((x) => (x === m ? on : meals.includes(x)));
+    void save("food.meals", next.length ? next : ["dinner"]);
+  };
+  return (
+    <div className="panel">
+      <h2>Madplan</h2>
+      <fieldset>
+        <legend>Måltider i ugeplanen</legend>
+        {MEALS.map((m) => (
+          <label key={m} className="inline">
+            <input type="checkbox" checked={meals.includes(m)} disabled={session.archive.readOnly} onChange={(e) => toggle(m, e.target.checked)} /> {MEAL_LABELS[m]}
+          </label>
+        ))}
+      </fieldset>
+      <div className="row">
+        <label>
+          Husstandens størrelse (standard antal portioner)
+          <input
+            className="short"
+            inputMode="numeric"
+            value={servings ?? String(q.data.defaultServings)}
+            onChange={(e) => setServings(e.target.value)}
+          />
+        </label>
+        <button
+          disabled={session.archive.readOnly || servings === null || !(Number(servings) >= 1)}
+          onClick={() => void save("food.default_servings", Math.round(Number(servings))).then(() => setServings(null))}
+        >
+          Gem
+        </button>
+      </div>
     </div>
   );
 }

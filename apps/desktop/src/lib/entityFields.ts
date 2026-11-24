@@ -226,6 +226,14 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
     r("category_id", "Kategori", "category", "name", { required: true }),
     n("priority", "Prioritet (lavest vinder)"),
   ],
+  recipe: [
+    t("name", "Navn", { required: true }),
+    n("servings", "Portioner", { required: true }),
+    n("prep_minutes", "Tid (minutter)"),
+    m("estimated_cost_minor", "Anslået pris (hele opskriften)"),
+    ta("description", "Beskrivelse"),
+    ta("instructions", "Fremgangsmåde"),
+  ],
   category: [t("name", "Navn", { required: true }), s("kind", "Type", [["expense", "Udgift"], ["income", "Indtægt"], ["transfer", "Overførsel"]], { required: true }), r("parent_id", "Underkategori af", "category")],
 };
 

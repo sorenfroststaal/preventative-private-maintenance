@@ -14,6 +14,7 @@ import { errorText, useSession } from "../app/session";
 import { describeRecurrence, formatDate, MODULE_LABELS, MONTH_NAMES } from "../lib/format";
 import { emptyRecurrenceForm, toRecurrence, type RecurrenceFormState } from "../lib/recurrenceForm";
 import { useToast } from "../layout/Shell";
+import { EmptyState, PageTitle } from "../components/visual";
 
 export function Tasks() {
   const { archive } = useSession();
@@ -27,8 +28,8 @@ export function Tasks() {
 
   return (
     <section>
-      <div className="header-row">
-        <h1>Opgaver</h1>
+      <div className="page-header">
+        <PageTitle module="tasks" />
         <button className="primary" onClick={() => setShowNew(true)} disabled={archive.readOnly}>
           Ny opgave
         </button>
@@ -74,8 +75,8 @@ export function Tasks() {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={4} className="muted">
-                  Ingen opgaver endnu.
+                <td colSpan={4}>
+                  <EmptyState module="tasks" text="Saml tilbagevendende opgaver med påmindelser ét sted." action="Opret din første opgave" onAction={() => setShowNew(true)} disabled={archive.readOnly} />
                 </td>
               </tr>
             )}

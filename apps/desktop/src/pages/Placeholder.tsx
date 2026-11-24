@@ -1,8 +1,11 @@
-export function Placeholder({ title, phase = 2 }: { title: string; phase?: number }) {
+import { EmptyState, PageHeader } from "../components/visual";
+import type { ModuleId } from "../lib/modules";
+
+export function Placeholder({ title, module, phase = 2 }: { title: string; module: ModuleId; phase?: number }) {
   return (
     <section>
-      <h1>{title}</h1>
-      <p className="muted">Modulet bygges i fase {phase} (se docs/spec/07-faser-og-accept.md).</p>
+      <PageHeader module={module} title={title} />
+      <EmptyState module={module} text={`Modulet bygges i fase ${phase} (se docs/spec/07-faser-og-accept.md).`} />
     </section>
   );
 }

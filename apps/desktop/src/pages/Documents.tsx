@@ -10,6 +10,7 @@ import { RefSelect } from "../components/EntityForm";
 import { includesText, rowProps, SearchBox } from "../components/ui";
 import { DOC_ROLES, optionLabel } from "../lib/entityFields";
 import { useInbox, useToast } from "../layout/Shell";
+import { FileTypeIcon, PageTitle, StatusBadge } from "../components/visual";
 
 const SOURCE_LABEL: Record<string, string> = { drop: "Træk og slip", inbox: "Indbakke", ai: "AI", bank_import: "Bankimport" };
 
@@ -56,8 +57,8 @@ export function Documents({ onImport }: { onImport(paths: string[]): Promise<voi
 
   return (
     <section>
-      <div className="header-row">
-        <h1>Dokumenter</h1>
+      <div className="page-header">
+        <PageTitle module="documents" />
         <button className="primary" onClick={choose} disabled={archive.readOnly}>
           Importér filer…
         </button>
@@ -107,13 +108,13 @@ export function Documents({ onImport }: { onImport(paths: string[]): Promise<voi
             {rows.map((d) => (
               <tr key={String(d.id)} {...rowProps(d.id === selectedId, () => setParams({ id: String(d.id), ...(unlinkedOnly ? { queue: "1" } : {}) }))}>
                 <td>
-                  {String(d.title ?? d.filename)}
+                  <FileTypeIcon ext={String(d.ext)} /> {String(d.title ?? d.filename)}
                   <div className="small muted">{String(d.filename)}</div>
                 </td>
                 <td>{formatBytes(Number(d.size_bytes))}</td>
                 <td>{SOURCE_LABEL[String(d.source)] ?? String(d.source)}</td>
                 <td>{formatDateTime(String(d.created_at))}</td>
-                <td>{Number(d.link_count) || <span className="muted">Ingen</span>}</td>
+                <td>{Number(d.link_count) || <StatusBadge kind="missing">Ingen</StatusBadge>}</td>
               </tr>
             ))}
             {rows.length === 0 && (

@@ -10,11 +10,12 @@ import { formatDate, formatMoney } from "../lib/format";
 import { annualAmount } from "@ppm/core";
 import { useToast } from "../layout/Shell";
 import { ArchiveButton } from "../components/ArchiveButton";
+import { EmptyState, PageHeader } from "../components/visual";
 
 export function Home() {
   return (
     <section>
-      <h1>Bolig og inventar</h1>
+      <PageHeader module="home" />
       <Tabs
         tabs={[
           { id: "items", label: "Genstande", content: () => <Items /> },
@@ -98,8 +99,8 @@ function Items() {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="muted">
-                  Ingen genstande.
+                <td colSpan={5}>
+                  <EmptyState module="home" text="Hold styr på genstande med kvitteringer, garantier og reklamationsret." action="Opret din første genstand" onAction={() => setCreating(true)} disabled={archive.readOnly} />
                 </td>
               </tr>
             )}

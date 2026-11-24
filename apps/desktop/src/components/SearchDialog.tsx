@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { search, type SearchHit } from "@ppm/core";
 import { useSession } from "../app/session";
 import { Modal } from "./ui";
+import { ModuleIcon } from "./visual";
+import { uiModuleOf } from "../lib/modules";
 
 const MODULE_LABEL: Record<string, string> = {
   home: "Bolig og inventar",
@@ -13,6 +15,7 @@ const MODULE_LABEL: Record<string, string> = {
   insurance: "Forsikring",
   health: "Helbred",
   documents: "Dokumenter",
+  food: "Madplan",
   core: "Kontakter",
 };
 
@@ -32,6 +35,8 @@ function route(hit: SearchHit): string {
       return `/dokumenter?id=${hit.id}`;
     case "bank_transaction":
       return `/okonomi`;
+    case "recipe":
+      return `/madplan?tab=recipes&opskrift=${hit.id}`;
     default:
       return hit.module === "health" ? "/helbred" : "/indstillinger";
   }
@@ -59,7 +64,7 @@ export function SearchDialog({ onClose }: { onClose(): void }) {
       <input
         type="search"
         aria-label="Søg i hele arkivet"
-        placeholder="Søg i genstande, opgaver, dokumenter, posteringer…"
+        placeholder="Søg i genstande, opgaver, dokumenter, opskrifter…"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         onKeyDown={(e) => {
@@ -69,7 +74,9 @@ export function SearchDialog({ onClose }: { onClose(): void }) {
       {debounced && hits.data?.length === 0 && <p className="muted">Ingen resultater.</p>}
       {[...groups.entries()].map(([module, list]) => (
         <div key={module}>
-          <h3>{MODULE_LABEL[module] ?? module}</h3>
+          <h3 className="with-icon">
+            <ModuleIcon id={uiModuleOf(module)} /> {MODULE_LABEL[module] ?? module}
+          </h3>
           <ul className="plain">
             {list.map((h) => (
               <li key={`${h.type}:${h.id}`}>

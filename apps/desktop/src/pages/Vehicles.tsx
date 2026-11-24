@@ -9,6 +9,7 @@ import { Empty, Modal, rowProps, Tabs } from "../components/ui";
 import { formatDate, formatMoney } from "../lib/format";
 import { NewWorkOrder } from "./WorkOrders";
 import { ArchiveButton } from "../components/ArchiveButton";
+import { EmptyState, PageTitle } from "../components/visual";
 
 export function Vehicles() {
   const { archive } = useSession();
@@ -26,8 +27,8 @@ export function Vehicles() {
   const selected = list.data?.find((v) => v.id === selectedId);
   return (
     <section>
-      <div className="header-row">
-        <h1>Bil</h1>
+      <div className="page-header">
+        <PageTitle module="vehicle" />
         <button className="primary" onClick={() => setCreating(true)} disabled={archive.readOnly}>
           Ny bil
         </button>
@@ -51,8 +52,8 @@ export function Vehicles() {
             ))}
             {list.data?.length === 0 && (
               <tr>
-                <td colSpan={3} className="muted">
-                  Ingen biler.
+                <td colSpan={3}>
+                  <EmptyState module="vehicle" text="Registrér bilen for at få servicebog, km-stand og påmindelser om syn og dækskifte." action="Opret din første bil" onAction={() => setCreating(true)} disabled={archive.readOnly} />
                 </td>
               </tr>
             )}

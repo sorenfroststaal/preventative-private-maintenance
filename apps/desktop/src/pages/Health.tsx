@@ -8,6 +8,7 @@ import { DocumentsTab } from "../components/DetailTabs";
 import { Empty, Modal, Tabs } from "../components/ui";
 import { fieldsFor, optionLabel } from "../lib/entityFields";
 import { formatDate, formatDateTime } from "../lib/format";
+import { PageHeader } from "../components/visual";
 
 const TABS: { id: HealthTable; label: string; columns: string[] }[] = [
   { id: "health_visit", label: "Besøg", columns: ["visit_date", "kind", "reason", "notes"] },
@@ -26,7 +27,7 @@ export function Health() {
   const current = persons.data?.find((p) => p.id === personId) ?? persons.data?.[0];
   return (
     <section>
-      <h1>Helbred</h1>
+      <PageHeader module="health" />
       <p className="notice">Dine egne noter og påmindelser. Erstatter ikke journal eller rådgivning fra sundhedspersonale.</p>
       <div className="row">
         <label className="inline-label">

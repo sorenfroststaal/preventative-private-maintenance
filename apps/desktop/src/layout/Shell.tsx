@@ -16,20 +16,12 @@ import { Finance } from "../pages/Finance";
 import { Insurance } from "../pages/Insurance";
 import { Health } from "../pages/Health";
 import { SearchDialog } from "../components/SearchDialog";
+import { Food } from "../pages/Food";
+import { MODULES } from "../lib/modules";
+import { ModuleIcon } from "../components/visual";
+import { Search } from "lucide-react";
 
-const NAV = [
-  { to: "/", label: "Overblik", end: true },
-  { to: "/opgaver", label: "Opgaver" },
-  { to: "/bolig", label: "Bolig og inventar" },
-  { to: "/arbejdsordrer", label: "Arbejdsordrer" },
-  { to: "/bil", label: "Bil" },
-  { to: "/okonomi", label: "Økonomi" },
-  { to: "/forsikring", label: "Forsikring" },
-  { to: "/helbred", label: "Helbred" },
-  { to: "/dokumenter", label: "Dokumenter" },
-  { to: "/ai", label: "AI-indbakke", ai: true },
-  { to: "/indstillinger", label: "Indstillinger" },
-] as const;
+const NAV = MODULES;
 
 interface Toast {
   id: number;
@@ -140,14 +132,22 @@ export function Shell() {
           <nav className="sidebar" aria-label="Hovedmenu">
             <div className="brand">PPM</div>
             <button className="search-button" onClick={() => setSearching(true)}>
-              Søg… <kbd>Ctrl+K</kbd>
+              <span className="with-icon">
+                <Search size={16} aria-hidden="true" /> Søg…
+              </span>
+              <kbd>Ctrl+K</kbd>
             </button>
             <ul>
               {NAV.map((n) => (
                 <li key={n.to}>
-                  <NavLink to={n.to} end={"end" in n ? n.end : false}>
+                  <NavLink to={n.to} end={n.to === "/"}>
+                    <ModuleIcon id={n.id} />
                     {n.label}
-                    {"ai" in n && aiPending.data ? <span className="badge">{aiPending.data}</span> : null}
+                    {n.id === "ai" && aiPending.data ? (
+                      <span className="badge" aria-label={`${aiPending.data} forslag venter`}>
+                        {aiPending.data}
+                      </span>
+                    ) : null}
                   </NavLink>
                 </li>
               ))}
@@ -172,11 +172,12 @@ export function Shell() {
               <Route path="/arbejdsordrer" element={<WorkOrders />} />
               <Route path="/bil" element={<Vehicles />} />
               <Route path="/okonomi" element={<Finance />} />
+              <Route path="/madplan" element={<Food />} />
               <Route path="/forsikring" element={<Insurance />} />
               <Route path="/helbred" element={<Health />} />
               <Route path="/dokumenter" element={<Documents onImport={importFiles} />} />
               <Route path="/indstillinger" element={<Settings />} />
-              <Route path="/ai" element={<Placeholder title="AI-indbakke" phase={3} />} />
+              <Route path="/ai" element={<Placeholder title="AI-indbakke" module="ai" phase={3} />} />
             </Routes>
           </main>
           <div className="toasts" aria-live="polite">

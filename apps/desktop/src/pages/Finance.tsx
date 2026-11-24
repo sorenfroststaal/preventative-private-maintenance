@@ -31,11 +31,12 @@ import { Empty, Modal, SearchBox, Tabs } from "../components/ui";
 import { formatDate, formatMoney, MONTH_NAMES } from "../lib/format";
 import { optionLabel, PERIODS } from "../lib/entityFields";
 import { useToast } from "../layout/Shell";
+import { PageHeader } from "../components/visual";
 
 export function Finance() {
   return (
     <section>
-      <h1>Økonomi</h1>
+      <PageHeader module="finance" />
       <Tabs
         tabs={[
           { id: "tx", label: "Posteringer", content: () => <Transactions /> },

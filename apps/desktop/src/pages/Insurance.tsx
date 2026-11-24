@@ -18,6 +18,7 @@ import { CLAIM_STATUS, optionLabel, POLICY_KIND } from "../lib/entityFields";
 import { formatDate, formatMoney } from "../lib/format";
 import { useToast } from "../layout/Shell";
 import { ArchiveButton } from "../components/ArchiveButton";
+import { EmptyState, PageTitle } from "../components/visual";
 
 export function Insurance() {
   const { archive } = useSession();
@@ -30,8 +31,8 @@ export function Insurance() {
   const selected = list.data?.find((p) => p.id === selectedId);
   return (
     <section>
-      <div className="header-row">
-        <h1>Forsikring</h1>
+      <div className="page-header">
+        <PageTitle module="insurance" />
         <div className="row">
           <button onClick={() => setReport(true)}>Forsikringsrapport…</button>
           <button className="primary" onClick={() => setCreating(true)} disabled={archive.readOnly}>
@@ -73,7 +74,7 @@ export function Insurance() {
         </table>
         {selected && <PolicyDetail key={String(selected.id)} policy={selected} />}
       </div>
-      {list.data?.length === 0 && <Empty>Ingen policer registreret.</Empty>}
+      {list.data?.length === 0 && <EmptyState module="insurance" text="Saml policer med præmie, dækning og fornyelse, så du kan se, om noget er underforsikret." action="Opret din første police" onAction={() => setCreating(true)} disabled={archive.readOnly} />}
       {creating && (
         <Modal title="Ny police" onClose={() => setCreating(false)} wide>
           <EntityForm
