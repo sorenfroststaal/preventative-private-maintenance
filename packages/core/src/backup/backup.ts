@@ -6,7 +6,7 @@ import { pipeline } from 'node:stream/promises';
 import { ZipFile } from 'yazl';
 import { openPromise } from 'yauzl';
 import { z } from 'zod';
-import { archiveDirectories, manifestSchema, type Archive } from '../archive';
+import { acquireLock, archiveDirectories, manifestSchema, type Archive } from '../archive';
 import { BetterSqliteAdapter } from '../db/better-sqlite';
 import { databaseVersion, now } from '../db/migrate';
 import { insideArchive } from '../scoped-path';
@@ -135,25 +135,36 @@ export async function restoreBackup(zipPath: string, targetPath: string) {
     });
     let old: string | undefined;
     let removedEmpty = false;
+    let release: Awaited<ReturnType<typeof acquireLock>> | undefined;
     if (exists) {
       if (!exists.isDirectory()) throw new Error('Målet skal være en mappe.');
       const contents = await readdir(target);
-      if (contents.includes('.lock')) throw new Error('Luk arkivet inden gendannelse.');
       if (contents.length === 0) {
         await rmdir(target);
         removedEmpty = true;
       } else {
-        old = target + '.old-' + now().replace(/:/g, '') + '-' + crypto.randomUUID();
-        await rename(target, old);
+        release = await acquireLock(target);
+        const destination = target + '.old-' + now().replace(/:/g, '') + '-' + crypto.randomUUID();
+        try {
+          await rename(target, destination);
+          old = destination;
+        } catch (error) {
+          await release();
+          throw error;
+        }
       }
     }
     try {
       await rename(temp, target);
     } catch (error) {
-      if (old) await rename(old, target);
+      if (old) {
+        await rename(old, target);
+        await release?.();
+      }
       else if (removedEmpty) await mkdir(target);
       throw error;
     }
+    if (old) await release?.(old);
     return old;
   } finally {
     await rm(temp, { recursive: true, force: true });

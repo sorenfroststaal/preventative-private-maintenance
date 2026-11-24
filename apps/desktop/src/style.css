@@ -33,3 +33,4 @@ th, td { text-align: left; padding: .45rem .65rem; border-bottom: 1px solid #bac
 section + section { margin-top: 1.25rem; }
 .preview { display: block; width: min(100%, 48rem); min-height: 16rem; object-fit: contain; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.measurement { display: block; width: min(100%, 30rem); }

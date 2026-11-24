@@ -202,9 +202,16 @@ function App() {
     }}>
       <label>Søg<input name="query" autoFocus /></label><div className="actions"><button>Søg</button>
         <button type="button" onClick={() => setSearchOpen(false)}>Luk</button></div>
-    </form><ul className="records">{results.map(r => <li key={r.entity_id}><strong>{r.title}</strong>
-      <span>{Object.entries(sections).find(([, types]) => types.some(([t]) => t === r.entity_type))?.[0] ?? (r.module === 'documents' ? 'Dokumenter' : 'Opgaver')}</span>
-    </li>)}</ul></>;
+    </form>{Object.entries(results.reduce<Record<string, typeof results>>((groups, row) => {
+      const group = Object.entries(sections).find(([, types]) => types.some(([type]) => type === row.entity_type))?.[0] ??
+        (row.module === 'documents' ? 'Dokumenter' : 'Opgaver');
+      (groups[group] ??= []).push(row);
+      return groups;
+    }, {})).map(([group, hits]) =>
+        <section key={group}><h2>{group}</h2><ul className="records">{hits?.map(hit =>
+          <li key={hit.entity_type + hit.entity_id}><strong>{hit.title}</strong></li>)}</ul>
+          <button onClick={() => { setSection(group); setSearchOpen(false); }}>Åbn {group.toLocaleLowerCase('da')}</button>
+        </section>)}</>;
   } else if (section === 'Overblik') {
     content = <Overview local={local} run={run} backup={backupDue} openTasks={() => setSection('Opgaver')} />;
   } else if (sections[section]) {

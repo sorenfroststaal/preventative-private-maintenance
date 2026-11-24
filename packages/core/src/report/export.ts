@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { writeFile } from 'node:fs/promises';
+import { writeOutput } from './output';
 import { join } from 'node:path';
 import type { Archive } from '../archive';
 import { now } from '../db/migrate';
@@ -61,7 +61,5 @@ export async function exportFile(archive: Archive, input: unknown, userId: strin
     filename = table + '.' + request.format;
   }
   const directory = await insideArchive(archive.root, join(archive.root, 'eksport'));
-  const path = join(directory, filename);
-  await writeFile(path, content, { flag: 'wx' });
-  return path;
+  return writeOutput(directory, filename, content);
 }

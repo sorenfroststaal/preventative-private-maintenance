@@ -1,11 +1,12 @@
 import { PDFDocument, StandardFonts } from 'pdf-lib';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { Archive } from '../archive';
 import type { DbAdapter } from '../db/adapter';
 import { today } from '../domain/dates';
 import { insideArchive } from '../scoped-path';
+import { writeOutput } from './output';
 import { documentPath } from '../repo/documents';
 
 type Item = { id: string; name: string; brand: string | null; model: string | null; serial_number: string | null;
@@ -87,7 +88,9 @@ export async function insuranceReport(archive: Archive, raw: unknown) {
   for (const item of items) {
     const docs = await archive.db.select<{ id: string; sha256: string; role: string; ext: string }>(`
       SELECT d.id, d.sha256, d.ext, l.role FROM document_link l JOIN document d ON d.id = l.document_id
-      WHERE l.target_type = 'item' AND l.target_id = ? AND l.role IN ('receipt', 'photo') ORDER BY d.created_at`, [item.id]);
+      WHERE l.target_type = 'item' AND l.target_id = ? AND l.role IN ('receipt', 'photo')
+      AND NOT EXISTS (SELECT 1 FROM document_link other WHERE other.document_id = d.id AND other.target_type IN
+        ('person', 'task_occurrence', 'health_visit', 'health_screening', 'health_vaccination', 'health_medication')) ORDER BY d.created_at`, [item.id]);
     if (y < 130) next();
     line(item.name, true);
     line([item.brand, item.model, item.serial_number, item.location].filter(Boolean).join(' · '));
@@ -123,7 +126,6 @@ export async function insuranceReport(archive: Archive, raw: unknown) {
       } catch { next(); line('Et kvitteringsbilag kunne ikke medtages.'); }
     }
   }
-  const path = join(await insideArchive(archive.root, join(archive.root, 'eksport')), 'forsikringsrapport-' + today().replaceAll('-', '') + '.pdf');
-  await writeFile(path, await pdf.save(), { flag: 'wx' });
-  return path;
+  const directory = await insideArchive(archive.root, join(archive.root, 'eksport'));
+  return writeOutput(directory, 'forsikringsrapport-' + today().replaceAll('-', '') + '.pdf', await pdf.save());
 }

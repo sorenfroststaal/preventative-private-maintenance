@@ -141,6 +141,14 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
     });
   }
 
+  const metrics = new Map<string, { value: number; at: string }[]>();
+  if (type === 'health_measurement' && personFilter) for (const row of rows) {
+    if (row.person_id !== personFilter || typeof row.value !== 'number') continue;
+    const name = String(row.type) + ' (' + String(row.unit) + ')';
+    const points = metrics.get(name) ?? [];
+    points.push({ value: row.value, at: String(row.measured_at) });
+    metrics.set(name, points);
+  }
   const required = new Set(z.toJSONSchema(z.object(tableFields), { io: 'input' }).required as string[] ?? []);
   const suggestion = type === 'item' && purchase && !selected?.complaint_until
     ? nextDate({ kind: 'interval', unit: 'year', every: 2 }, purchase, purchase) : null;
@@ -185,6 +193,19 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
       <SaveOutput action="export" payload={{ format: 'csv', table: type }} label="Gem tabel som CSV" local={local} run={run} />
       <SaveOutput action="export" payload={{ format: 'json', table: type }} label="Gem tabel som JSON" local={local} run={run} />
     </div>
+    {[...metrics].map(([label, entries]) => {
+      const points = entries.sort((a, b) => a.at.localeCompare(b.at));
+      if (!points.length) return null;
+      const min = Math.min(...points.map(p => p.value));
+      const max = Math.max(...points.map(p => p.value));
+      const plot = points.map((point, index) => [24 + index * 430 / Math.max(1, points.length - 1), 124 - (point.value - min) * 98 / (max - min || 1)]);
+      return <section key={label}><h3>{label}</h3><p>Fra {points[0].at.slice(0, 10)} til {points.at(-1)?.at.slice(0, 10)}. Laveste {min}, højeste {max}.</p>
+        <svg className="measurement" role="img" aria-label={'Udvikling i ' + label} viewBox="0 0 480 145">
+          <path d="M24 22V125H455" stroke="#64786a" fill="none" />
+          <polyline points={plot.map(p => p.join(',')).join(' ')} fill="none" stroke="#28674d" strokeWidth="3" />
+          {plot.map(([x, y], index) => <circle key={index} cx={x} cy={y} r="4" fill="#28674d" />)}
+        </svg></section>;
+    })}
     {aux.length > 0 && <ul>{aux.map((value, i) => <li key={i}>{value}</li>)}</ul>}
     {selected && <button onClick={() => edit()}>Ny post</button>}
     <h2>{selected ? 'Redigér post' : 'Ny post'}</h2>

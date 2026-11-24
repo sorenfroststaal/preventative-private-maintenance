@@ -46,8 +46,9 @@ export async function acquireLock(root: string, confirmStale?: () => Promise<boo
   while (true) {
     try {
       await writeFile(path, contents, { flag: 'wx' });
-      return async () => {
-        if (await readFile(path, 'utf8') === contents) await unlink(path);
+      return async (directory = root) => {
+        const lock = join(directory, '.lock');
+        if (await readFile(lock, 'utf8') === contents) await unlink(lock);
       };
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;

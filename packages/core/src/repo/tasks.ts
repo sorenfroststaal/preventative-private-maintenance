@@ -17,7 +17,8 @@ const taskInput = z.object({
 async function occurrence(tx: DbAdapter, taskId: string, due: string | null, ctx: WriteContext) {
   const id = crypto.randomUUID();
   await tx.execute('INSERT INTO task_occurrence (id, task_id, due_date) VALUES (?, ?, ?)', [id, taskId, due]);
-  await recordChange(tx, ctx, 'task_occurrence', id, null, { task_id: taskId, due_date: due, status: 'open' });
+  const [created] = await tx.select<Record<string, unknown>>('SELECT * FROM task_occurrence WHERE id = ?', [id]);
+  await recordChange(tx, ctx, 'task_occurrence', id, null, created);
   return id;
 }
 
@@ -27,9 +28,11 @@ export async function createTask(db: DbAdapter, input: unknown, ctx: WriteContex
     const id = crypto.randomUUID();
     const { title, description, module } = task;
     const recurrenceJson = task.recurrence ? JSON.stringify(task.recurrence) : null;
+    const timestamp = now();
     await tx.execute('INSERT INTO task (id, title, description, module, recurrence_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, title, description, module, recurrenceJson, now(), now()]);
-    await recordChange(tx, ctx, 'task', id, null, { title, description, module, recurrence_json: recurrenceJson },
+      [id, title, description, module, recurrenceJson, timestamp, timestamp]);
+    const [created] = await tx.select<Record<string, unknown>>('SELECT * FROM task WHERE id = ?', [id]);
+    await recordChange(tx, ctx, 'task', id, null, created,
       { title, body: description, module });
     return { id, occurrenceId: await occurrence(tx, id, task.due_date ?? firstDate(task.recurrence, today()), ctx) };
   });
