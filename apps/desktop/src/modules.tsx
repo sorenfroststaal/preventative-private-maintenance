@@ -87,6 +87,24 @@ function InventoryPhoto({ id, local }: { id: string; local: Local }) {
   return <span ref={host} className="item-photo">{source && <img src={source} alt="Genstandens første foto" />}</span>;
 }
 
+function ItemParts({ itemId, local, run }: { itemId: string; local: Local; run: Run }) {
+  const [parts, setParts] = useState<Row[]>([]);
+  useEffect(() => {
+    let active = true;
+    void run(async () => {
+      const rows = await local<Row[]>('records', 'item_part');
+      if (active) setParts(rows.filter(part => part.item_id === itemId));
+    });
+    return () => { active = false; };
+  }, [itemId]);
+  return <section><h2>Reservedele</h2>{parts.length ? <ul>{parts.map(part =>
+    <li key={part.id}>{String(part.name)} <button onClick={() => void run(async () => {
+      if (!window.confirm('Slet reservedelen ' + part.name + '?')) return;
+      await local('deleteItemPart', { itemId, partId: part.id });
+      setParts(previous => previous.filter(row => row.id !== part.id));
+    })}>Slet {String(part.name)}</button></li>)}</ul> : <p>Ingen reservedele.</p>}</section>;
+}
+
 type Housing = Record<'property' | 'location' | 'building_part' | 'item', Row[]>;
 
 function HousingTree({ data, open }: { data: Housing; open: (type: RecordType, row: Row) => void }) {
@@ -235,6 +253,7 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
     {name === 'Økonomi' && (type === 'budget' || type === 'recurring_expense') && <FinanceSummary local={local} run={run} />}
     {selected && type === 'account' && <><BankImport key={selected.id} account={selected.id} local={local} run={run} />
       <AccountTransactions id={selected.id} local={local} run={run} /></>}
+    {selected && type === 'item' && <ItemParts key={selected.id} itemId={selected.id} local={local} run={run} />}
     {selected && type === 'work_order' && <section><h2>Tidslinje</h2><form onSubmit={event => {
       event.preventDefault(); const form = event.currentTarget;
       const note = new FormData(form).get('note');

@@ -9,7 +9,7 @@ import { today } from './domain/dates';
 import { importArchiveDocument } from './node-documents';
 import { documentLimit, documentPath, listDocuments } from './repo/documents';
 import { addVehicleTemplate, completeTask, createTask, openTasks, postponeTask, vehicleTemplates } from './repo/tasks';
-import { addOrderNote, claimForOrder, listInventory, listRecords, saveRecord, setArchived } from './repo/records';
+import { deleteItemPart, addOrderNote, claimForOrder, listInventory, listRecords, saveRecord, setArchived } from './repo/records';
 import { writeLink } from './repo/links';
 import { dashboard, financeYear, history, vehicleCosts } from './repo/overview';
 import { searchRecords } from './repo/search';
@@ -164,6 +164,7 @@ async function call(action: string, data: unknown) {
       return result;
     }
     case 'tasks': return openTasks(db, userId);
+    case 'deleteItemPart': return deleteItemPart(db, data, ctx);
     case 'orderNote': return addOrderNote(db, data, ctx);
     case 'orderClaim': return claimForOrder(db, data, ctx);
     case 'inventory': return listInventory(db);

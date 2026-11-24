@@ -217,3 +217,13 @@ export async function claimForOrder(db: DbAdapter, raw: unknown, ctx: WriteConte
     return saveRecord(tx, 'work_order', { claim_id: claim.id }, ctx, id);
   });
 }
+
+export async function deleteItemPart(db: DbAdapter, input: unknown, ctx: WriteContext) {
+  const { itemId, partId } = z.object({ itemId: z.uuid(), partId: z.uuid() }).parse(input);
+  await db.transaction(async tx => {
+    const [part] = await tx.select<Row>('SELECT * FROM item_part WHERE id = ? AND item_id = ?', [partId, itemId]);
+    if (!part) throw new Error('Reservedelen findes ikke på genstanden.');
+    await tx.execute('DELETE FROM item_part WHERE id = ? AND item_id = ?', [partId, itemId]);
+    await recordChange(tx, ctx, 'item_part', partId, part, null);
+  });
+}

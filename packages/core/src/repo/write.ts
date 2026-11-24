@@ -14,7 +14,7 @@ export async function recordChange(
   const diff = Object.fromEntries([...keys].flatMap((key) => {
     const oldValue = before?.[key] ?? null;
     const newValue = after?.[key] ?? null;
-    if (Object.is(oldValue, newValue)) return [];
+    if (!(type === 'item_part' && action === 'delete') && Object.is(oldValue, newValue)) return [];
     return [[key, key === 'pin_hash'
       ? [oldValue === null ? null : '[skjult]', newValue === null ? null : '[skjult]']
       : [oldValue, newValue]]];

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { openArchive, type Archive } from './archive';
 import { writeLink } from './repo/links';
-import { addOrderNote, claimForOrder, saveRecord, setArchived, listRecords } from './repo/records';
+import { deleteItemPart, addOrderNote, claimForOrder, saveRecord, setArchived, listRecords } from './repo/records';
 import { searchRecords } from './repo/search';
 import { dashboard, financeYear, history, vehicleCosts } from './repo/overview';
 import { importArchiveDocument } from './node-documents';
@@ -247,4 +247,22 @@ it('indexes work order notes and links a damage claim once', async () => {
   await claimForOrder(db, { id: order.id, policy: policy.id }, ctx);
   await expect(claimForOrder(db, { id: order.id, policy: policy.id }, ctx)).rejects.toThrow();
   expect(await listRecords(db, 'claim', ctx)).toHaveLength(1);
+});
+
+it('deletes an owned item part and audits every previous field atomically', async () => {
+  const { db } = archive;
+  const item = await saveRecord(db, 'item', { name: 'Testpumpe' }, ctx);
+  const part = await saveRecord(db, 'item_part', { item_id: item.id, name: 'Pakning', part_number: 'TEST-1' }, ctx);
+  const input = { itemId: item.id, partId: part.id };
+  await expect(deleteItemPart(db, { ...input, itemId: crypto.randomUUID() }, ctx)).rejects.toThrow();
+  await db.executeScript("CREATE TRIGGER fail_delete_log BEFORE INSERT ON audit_log WHEN NEW.action='delete' BEGIN SELECT RAISE(ABORT, 'audit failed'); END;");
+  await expect(deleteItemPart(db, input, ctx)).rejects.toThrow('audit failed');
+  expect(await listRecords(db, 'item_part', ctx)).toEqual([part]);
+  await db.executeScript('DROP TRIGGER fail_delete_log');
+  await deleteItemPart(db, input, ctx);
+  expect(await listRecords(db, 'item_part', ctx)).toEqual([]);
+  const logs = await db.select<{ diff_json: string }>("SELECT diff_json FROM audit_log WHERE entity_type='item_part' AND entity_id=? AND action='delete'", [part.id]);
+  expect(logs.map(log => JSON.parse(log.diff_json))).toEqual([
+    Object.fromEntries(Object.entries(part).map(([field, value]) => [field, [value, null]])),
+  ]);
 });

@@ -20,8 +20,8 @@ Branchen indeholder merge af `main` efter PR #3. Migration 0001 er byteidentisk 
 
 | Nr. | Status | Verifikation og udestående |
 | --- | --- | --- |
-| 1 | Delvist | Bolig, rum, inventar, reservedele og bygningsdele kan oprettes og redigeres. Kvitteringer, fotos og reklamationsforslag. Automatiske opgaver og livscyklus er testet. Boligoversigten viser rum, underrum, genstande og bygningsdele. Livscyklusser uden arkivfelt er beskrevet i A3. |
-| 2 | Delvist | Statusflow, tidslinje, bilag med roller, km-stand og historik på inventar, bygningsdele og biler. Statusflow, km-stand, noter og oprettelse af en enkelt skadesag fra en arbejdsordre er testet. Se A3 og A4. |
+| 1 | Implementeret | Bolig, rum, inventar, reservedele og bygningsdele kan oprettes og redigeres. Kvitteringer, fotos og reklamationsforslag. Automatiske opgaver og livscyklus er testet. Boligoversigten viser rum, underrum, genstande og bygningsdele. Sletning af en reservedel, audit og tilbagerulning ved auditfejl er testet. Se A3. |
+| 2 | Implementeret | Statusflow, tidslinje, bilag med roller, km-stand og historik på inventar, bygningsdele og biler. Statusflow, km-stand, noter og oprettelse af en enkelt skadesag fra en arbejdsordre er testet. Se A3 og A4. |
 | 3 | Implementeret | Biler, km-stand, historik og skabelonforslag. Årsopgørelsen pr. valuta er testet. Visningen bruger indeværende år. |
 | 4 | Implementeret | To CSV-profiler, forhåndsvisning, dubletter, råfil, genbrugelige profiler, kategorisering, lærte regler og månedligt og årligt budget. Regex-regler og afvisning af ugyldige mønstre er testet. Dubletter, danske beløb og Windows-1252 er testet. Se A5 og A8. |
 | 5 | Implementeret | Policer, dækning, skadesager, prisnormalisering og advarsel om underforsikring. Dækning og automatisk fornyelsesopgave er dækket af tests. |
@@ -37,11 +37,14 @@ Branchen indeholder merge af `main` efter PR #3. Migration 0001 er byteidentisk 
 | 15 | Opfyldt | Round-trip med 566.231.040 bytes (540 MiB) syntetiske bilag. Maksimal RSS 168.244 KiB (ca. 164 MiB) på Linux x64 med Node 24. Måling for hele processen med seks filer på 90 MiB via `node --import tsx scripts/measure-backup.ts`. |
 | 16 | Opfyldt | Windows CI startede release-appen tre gange, åbnede et syntetisk arkiv fra velkomstskærmen, konstaterede låsen og lukkede vinduet normalt. Låsen forsvandt ved hver lukning. [Kørsel](https://github.com/sorenfroststaal/preventative-private-maintenance/actions/runs/45500495916) |
 
+**Udestår til Søren:** Det manuelle Windows 10/11-forløb (07, trin 1–7) og det samlede tastaturforløb (kriterium 12).
+
 ## Byg og manuel afprøvning
 
-- **Efter PR #3**. Ved commit 5340f6c bestod Windows-vinduestesten. Installeren var 27.422.944 bytes. Efterfølgende ændringer kræver en ny måling.
+- **CI for `9e4d923`**. Linux og Windows bestod. 45 Vitest-tests og én Rust-test på Windows. Selve `PPM_0.1.0_x64-setup.exe` var **27.410.343 byte**. På Windows x64 tog de tre starter af release-appen **6.518, 993 og 1.002 ms** fra processtart til den aktive knap på velkomstskærmen. Median **1.002 ms**. [CI-kørsel](https://github.com/sorenfroststaal/preventative-private-maintenance/actions/runs/45501675854)
 
-- **Lokalt på Linux**. `pnpm lint`, `pnpm test` og `pnpm build` bestod. **45 Vitest-tests** efter PR #3. Den pakkede arkivproces er desuden afprøvet med PIN, inventar, FTS, PDF, backup og frigivelse af låsen.
+
+- **Lokalt på Linux**. `pnpm lint`, `pnpm test` og `pnpm build` bestod. **46 Vitest-tests** med reservedelstesten. Den pakkede arkivproces er desuden afprøvet med PIN, inventar, FTS, PDF, backup og frigivelse af låsen.
 - **Fase 1 i CI**. Linux og Windows bestod med **29 Vitest-tests**, og Windows bestod **1 Rust-test**. Installeren er **26.673.571 bytes**. [CI-kørsel](https://github.com/sorenfroststaal/preventative-private-maintenance/actions/runs/45493196529)
 - **Fase 2 i CI**. Linux bestod lint, test og build. Windows bestod **42 Vitest-tests** og **1 Rust-test**, og Tauri byggede NSIS-installeren. [CI-kørsel for e9369ec](https://github.com/sorenfroststaal/preventative-private-maintenance/actions/runs/45496642246)
 - **Installerstørrelse**. `PPM_0.1.0_x64-setup.exe` er **27.418.476 bytes (26,15 MiB)**. [Windows x64-installer](https://github.com/sorenfroststaal/preventative-private-maintenance/actions/runs/45496642246/artifacts/14968972020)
