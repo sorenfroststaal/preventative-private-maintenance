@@ -141,6 +141,9 @@ export async function restoreBackup(env: Env, zipPath: string, target: string): 
     throw err;
   }
   let previousMovedTo: string | null = null;
+  if ((await fs.exists(target)) && (await fs.listDir(target)).length === 0) {
+    await fs.remove(target); // an empty folder picked as target is simply replaced
+  }
   if (await fs.exists(target)) {
     previousMovedTo = `${target}.old-${stamp}`;
     await fs.rename(target, previousMovedTo);

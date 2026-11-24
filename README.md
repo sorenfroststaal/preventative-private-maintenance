@@ -4,7 +4,7 @@ Et open source-desktopprogram, der samler hjemmets dokumentation, tilbagevendend
 
 Projektet er inspireret af vedligeholdelsessystemer som Sertica, men henvender sig til privatpersoner og familier i Danmark. Det har ingen tilknytning til Sertica.
 
-**Status: Idé og projektgrundlag. Der findes endnu ikke en fungerende applikation.**
+**Status (branch `claude/app`): Fase 1 (Fundament) er bygget. Se [docs/STATUS.md](docs/STATUS.md).**
 
 ## Vision
 
@@ -46,6 +46,27 @@ Første version krypterer ikke arkivet. Brug diskkryptering (BitLocker), og plac
 Tauri med React/TypeScript, SQLite og en MCP-server i Node/TypeScript. Windows er det første styresystem, der understøttes.
 
 Læs [projektbeskrivelsen](docs/PROJEKTBESKRIVELSE.md), [arkitekturen](docs/ARKITEKTUR.md) og [udviklingsplanen](docs/ROADMAP.md). Den normative [specifikation](docs/spec/README.md) beskriver datamodel, skærmbilleder, MCP-værktøjer og acceptkriterier. Kodeagenter og bidragydere følger [AGENTS.md](AGENTS.md).
+
+## Kom i gang (udvikling)
+
+Krav: Node 20+, pnpm 10, Rust (stable). På Windows kræves WebView2 (følger med Windows 10/11). På Linux kræves WebKitGTK 4.1 og GTK 3 (se CI-filen).
+
+```
+pnpm install
+pnpm dev                                    # start desktop-appen
+pnpm test                                   # alle TypeScript-tests
+pnpm lint                                   # ESLint, typecheck, kontrol af migrationer
+pnpm build                                  # release-build og installer (NSIS på Windows)
+pnpm seed -- --archive ./local-data/demo    # demoarkiv med syntetiske data
+```
+
+Rust-tests køres med `cargo test` i `apps/desktop/src-tauri`. Til et demoarkiv vælger du "Åbn eksisterende arkiv" og peger på `local-data/demo`. Brugerne er "Anna Eksempel" (uden PIN) og "Bo Eksempel" (PIN 1234).
+
+| Mappe | Indhold |
+| --- | --- |
+| `packages/core` | Al forretningslogik: arkiv, migrationer, lås, entiteter, opgaver, dokumenter og backup |
+| `apps/desktop` | Tauri-app: React-UI (`src`) og afgrænsede Rust-kommandoer (`src-tauri`) |
+| `packages/mcp-server` | MCP-server (fase 3) |
 
 ## Open source
 
