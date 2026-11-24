@@ -4,7 +4,7 @@ Et open source-desktopprogram, der samler hjemmets dokumentation, tilbagevendend
 
 Projektet er inspireret af vedligeholdelsessystemer som Sertica, men henvender sig til privatpersoner og familier i Danmark. Det har ingen tilknytning til Sertica.
 
-**Status: Idé og projektgrundlag. Der findes endnu ikke en fungerende applikation.**
+**Status på codex/app** · Fundamentet omfatter lokale arkiver, brugere, opgaver, bilagsimport og backup. Se [test- og fasestatus](docs/STATUS.md).
 
 ## Vision
 
@@ -46,6 +46,21 @@ Første version krypterer ikke arkivet. Brug diskkryptering (BitLocker), og plac
 Tauri med React/TypeScript, SQLite og en MCP-server i Node/TypeScript. Windows er det første styresystem, der understøttes.
 
 Læs [projektbeskrivelsen](docs/PROJEKTBESKRIVELSE.md), [arkitekturen](docs/ARKITEKTUR.md) og [udviklingsplanen](docs/ROADMAP.md). Den normative [specifikation](docs/spec/README.md) beskriver datamodel, skærmbilleder, MCP-værktøjer og acceptkriterier. Kodeagenter og bidragydere følger [AGENTS.md](AGENTS.md).
+
+## Kør fundamentet
+
+Brug Node 24, pnpm 11.25.0 og de native Tauri 2-forudsætninger for dit styresystem. Windows x64 er målplatformen for installeren.
+
+```shell
+pnpm install
+pnpm seed -- --archive ./local-data/demo
+pnpm dev
+pnpm lint
+pnpm test
+pnpm build
+```
+
+Vælg **Åbn eksisterende arkiv** i appen, og peg på `local-data/demo`. Vælg **Demo** ved opstart. Gentagelse af seed-kommandoen kræver en ny tom mappe. Windows-builden konfigurerer en NSIS-installer under `apps/desktop/src-tauri/target/release/bundle/nsis/`. Linux-builden genererer frontend og lokal arkivproces.
 
 ## Open source
 
