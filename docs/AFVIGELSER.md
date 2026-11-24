@@ -9,7 +9,7 @@
 | A5 | 04 og 05, økonomi | Begge CSV-profiler kan forhåndsvises og importeres. Generiske bankprofiler kan gemmes og genbruges. Regler af typen `contains`, `starts_with` og `regex` understøttes. Budgetvisningen sammenligner budget og faktiske DKK-posteringer. |
 | A6 | 04 og 05, dokumenter og eksport | Indbakken scannes hvert sekund og stabiliseres i mindst to sekunder. EML-tekst, PDF-tekstlag og PDF-oprettelsesdato udtrækkes lokalt. PDF-tekstudtræk bruger PDF.js via unpdf og er afgrænset til 500 sider og 250.000 tegn. Billeder og PDF får en webview-forhåndsvisning op til 10 MB. For at beskytte helbredsoplysninger vises bilag med person-, helbreds- eller opgaveforekomstkoblinger ikke i den fælles dokumentliste. Kobling foretages fra målets detaljevisning. Interne tabeller kan eksporteres enkeltvis under samme adgangskontrol som samlet eksport. Samlet JSON kræver administratoradgang til alle personers helbredsdata og udelader PIN-hashes. |
 | A7 | 07, manuel Windows-test | Tastaturforløb, tiden til første interaktive skærm og fjernelse af låsen ved lukning af det installerede vindue er ikke efterprøvet på en Windows 10/11-maskine. Den pakkede arkivproces blev startet lokalt, og låsen blev fjernet ved normal afslutning via stdin. |
-| A8 | 04, overblik | Opgavegenvejen Åbn går til opgavelisten. Månedsvisningen sammenligner DKK-poster og budgetlinjer for udgiftskategorier. Sammenrulning af underkategorier og budgetafstemning i flere valutaer er udestående. |
+| A8 | 04, overblik | Opgavegenvejen Åbn går til opgavelisten. Månedsvisningen sammenligner DKK-poster og budgetlinjer for udgiftskategorier. Underkategorier summeres på hovedkategorien. Budgetter har intet valutafelt og behandles som DKK. |
 
 ## Forslag til præcisering på main
 

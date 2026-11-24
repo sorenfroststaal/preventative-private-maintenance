@@ -227,3 +227,12 @@ it('completes an occurrence with exactly one linked work order', async () => {
   expect(await db.select('SELECT w.status, w.title FROM work_order w JOIN task_occurrence o ON w.id = o.work_order_id WHERE o.id = ?', [task.occurrenceId]))
     .toEqual([{ status: 'done', title: 'Syntetisk eftersyn' }]);
 });
+
+it('rolls monthly child budgets up to their main category', async () => {
+  const { db } = archive;
+  const parent = await saveRecord(db, 'category', { name: 'Syntetisk hovedkategori', kind: 'expense' }, ctx);
+  const child = await saveRecord(db, 'category', { name: 'Syntetisk underkategori', parent_id: parent.id, kind: 'expense' }, ctx);
+  const budget = await saveRecord(db, 'budget', { name: 'Testbudget', year: 2026 }, ctx);
+  await saveRecord(db, 'budget_line', { category_id: child.id, budget_id: budget.id, amount_minor: 12000, month: 11 }, ctx);
+  expect((await dashboard(db, '', '2026-11-24')).finances).toEqual([{ category: 'Syntetisk hovedkategori', budget: 12000, actual: 0 }]);
+});

@@ -47,11 +47,15 @@ export async function dashboard(db: DbAdapter, userId: string, current: string) 
       (SELECT 1 FROM odometer_reading r WHERE r.vehicle_id = v.id AND date(r.reading_date, '+12 months') >= date(?))`, [current]);
   const [drafts] = await db.select<{ count: number }>("SELECT COUNT(*) AS count FROM ai_draft WHERE status = 'pending'");
   const finances = await db.select<{ category: string; actual: number; budget: number }>(`
+    WITH RECURSIVE members(root, id) AS (
+      SELECT id, id FROM category WHERE parent_id IS NULL AND archived_at IS NULL AND kind = 'expense'
+      UNION SELECT m.root, c.id FROM members m JOIN category c ON c.parent_id = m.id
+    )
     SELECT c.name AS category,
-      COALESCE((SELECT -SUM(t.amount_minor) FROM bank_transaction t WHERE t.category_id = c.id AND substr(t.booking_date, 1, 7) = ? AND t.currency = 'DKK'), 0) AS actual,
+      COALESCE((SELECT -SUM(t.amount_minor) FROM bank_transaction t WHERE t.category_id IN (SELECT id FROM members WHERE root = c.id) AND substr(t.booking_date, 1, 7) = ? AND t.currency = 'DKK'), 0) AS actual,
       COALESCE((SELECT SUM(l.amount_minor) FROM budget_line l JOIN budget b ON b.id = l.budget_id
-        WHERE l.category_id = c.id AND b.year = ? AND (l.month IS NULL OR l.month = ?)), 0) AS budget
-    FROM category c WHERE c.archived_at IS NULL AND c.kind = 'expense' ORDER BY c.name`,
+        WHERE l.category_id IN (SELECT id FROM members WHERE root = c.id) AND b.year = ? AND (l.month IS NULL OR l.month = ?)), 0) AS budget
+    FROM category c WHERE c.parent_id IS NULL AND c.archived_at IS NULL AND c.kind = 'expense' ORDER BY c.name`,
     [month, Number(current.slice(0, 4)), Number(current.slice(5, 7))]);
   const [uncategorized] = await db.select<{ count: number }>('SELECT COUNT(*) AS count FROM bank_transaction WHERE category_id IS NULL AND substr(booking_date, 1, 7) = ?', [month]);
   return {
