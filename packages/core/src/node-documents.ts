@@ -1,13 +1,28 @@
 import { link, lstat, mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { PDFDocument } from 'pdf-lib';
+import PostalMime from 'postal-mime';
 import { dirname, join } from 'node:path';
 import { importDocument, sha256 } from './repo/documents';
 import { insideArchive } from './scoped-path';
 import type { Archive } from './archive';
 import type { WriteContext } from './repo/write';
 
-export function importArchiveDocument(archive: Archive, filename: string, bytes: Uint8Array<ArrayBuffer>, ctx: WriteContext) {
+export async function importArchiveDocument(archive: Archive, filename: string, bytes: Uint8Array<ArrayBuffer>, ctx: WriteContext, source: 'drop' | 'inbox' | 'bank_import' = 'drop', db = archive.db as import('./db/adapter').DbAdapter) {
   if (archive.readonly) throw new Error('Arkivet er skrivebeskyttet.');
-  return importDocument(archive.db, { filename, source: 'drop' }, bytes, ctx, async (relative, content, hash) => {
+  let metadata: { title?: string; extracted_text?: string; doc_date?: string } | undefined;
+  try {
+    if (/\.eml$/i.test(filename)) {
+      const message = await PostalMime.parse(bytes);
+      metadata = { title: message.subject, extracted_text: [message.subject, message.from?.address, message.date, message.text].filter(Boolean).join('\n'),
+        doc_date: message.date && Number.isFinite(Date.parse(message.date)) ? new Date(message.date).toISOString().slice(0, 10) : undefined };
+    } else if (/\.pdf$/i.test(filename)) {
+      const pdf = await PDFDocument.load(bytes, { updateMetadata: false });
+      metadata = { doc_date: pdf.getCreationDate()?.toISOString().slice(0, 10) };
+    }
+  } catch {
+    // The original document is still useful when its optional metadata cannot be parsed.
+  }
+  return importDocument(db, { filename, source }, bytes, ctx, async (relative, content, hash) => {
     const path = join(archive.root, relative);
     await insideArchive(archive.root, join(archive.root, 'bilag'));
     await mkdir(dirname(path), { recursive: true });
@@ -24,5 +39,5 @@ export function importArchiveDocument(archive: Archive, filename: string, bytes:
     } finally {
       await unlink(temp);
     }
-  });
+  }, metadata);
 }

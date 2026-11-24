@@ -34,9 +34,9 @@ export async function createTask(db: DbAdapter, input: unknown, ctx: WriteContex
   });
 }
 
-export function openTasks(db: DbAdapter) {
+export function openTasks(db: DbAdapter, userId?: string) {
   return db.select<{ id: string; title: string; due_date: string | null }>(
-    "SELECT o.id, t.title, o.due_date FROM task_occurrence o JOIN task t ON t.id = o.task_id WHERE o.status = 'open' AND t.status = 'active' ORDER BY o.due_date IS NULL, o.due_date",
+    "SELECT o.id, t.title, o.due_date FROM task_occurrence o JOIN task t ON t.id = o.task_id WHERE o.status = 'open' AND t.status = 'active' AND (t.module != 'health' OR EXISTS (SELECT 1 FROM person p WHERE p.id = t.target_id AND p.archived_at IS NULL AND (p.health_private_user_id IS NULL OR p.health_private_user_id = ?))) ORDER BY o.due_date IS NULL, o.due_date", [userId ?? null],
   );
 }
 
@@ -46,12 +46,24 @@ export async function completeTask(db: DbAdapter, id: string, status: 'done' | '
   date.parse(completed);
   return db.transaction(async (tx) => {
     const [row] = await tx.select<{ task_id: string; due_date: string | null; recurrence_json: string | null }>(
-      "SELECT o.task_id, o.due_date, t.recurrence_json FROM task_occurrence o JOIN task t ON t.id = o.task_id WHERE o.id = ? AND o.status = 'open' AND t.status = 'active'", [id]);
+      "SELECT o.task_id, o.due_date, t.recurrence_json FROM task_occurrence o JOIN task t ON t.id = o.task_id WHERE o.id = ? AND o.status = 'open' AND t.status = 'active' AND (t.module != 'health' OR EXISTS (SELECT 1 FROM person p WHERE p.id = t.target_id AND p.archived_at IS NULL AND (p.health_private_user_id IS NULL OR p.health_private_user_id = ?)))", [id, ctx.userId ?? null]);
     if (!row) throw new Error('Opgaven har ingen åben forekomst.');
     await tx.execute('UPDATE task_occurrence SET status = ?, completed_date = ?, completed_by = ? WHERE id = ?', [status, completed, ctx.userId ?? null, id]);
     await recordChange(tx, ctx, 'task_occurrence', id, { status: 'open' }, { status, completed_date: completed, completed_by: ctx.userId ?? null });
     if (row.recurrence_json) {
       await occurrence(tx, row.task_id, nextDate(recurrence.parse(JSON.parse(row.recurrence_json)), row.due_date, completed, status === 'skipped'), ctx);
     }
+  });
+}
+
+export async function postponeTask(db: DbAdapter, id: string, input: unknown, ctx: WriteContext) {
+  const due = date.parse(input);
+  return db.transaction(async tx => {
+    const [before] = await tx.select<Record<string, unknown>>(`SELECT o.* FROM task_occurrence o JOIN task t ON t.id = o.task_id
+      WHERE o.id = ? AND o.status = 'open' AND t.status = 'active' AND (t.module != 'health' OR EXISTS
+      (SELECT 1 FROM person p WHERE p.id = t.target_id AND p.archived_at IS NULL AND (p.health_private_user_id IS NULL OR p.health_private_user_id = ?)))`, [id, ctx.userId ?? null]);
+    if (!before) throw new Error('Opgaven har ingen åben forekomst.');
+    await tx.execute('UPDATE task_occurrence SET due_date = ? WHERE id = ?', [due, id]);
+    await recordChange(tx, ctx, 'task_occurrence', id, before, { ...before, due_date: due });
   });
 }

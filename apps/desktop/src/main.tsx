@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import './style.css';
+import { Overview, SaveOutput } from './module-actions';
+import { ModuleView, sections } from './modules';
 
 type User = { id: string; name: string; has_pin: number; is_admin: number };
 type Task = { id: string; title: string; due_date: string | null };
@@ -42,7 +44,11 @@ function App() {
   const [backupDue, setBackupDue] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [section, setSection] = useState('Opgaver');
+  const [section, setSection] = useState('Overblik');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [results, setResults] = useState<{ entity_id: string; title: string; module: string; entity_type: string }[]>([]);
+  const [preview, setPreview] = useState<{ mime?: string; base64?: string; text?: string }>();
+  const [inboxWarnings, setInboxWarnings] = useState<string[]>([]);
   const [repeat, setRepeat] = useState('');
   const [unit, setUnit] = useState('month');
 
@@ -95,6 +101,19 @@ function App() {
       if (config) setSavedPath(config.archivePath);
     }).catch((reason) => setError(String(reason)));
   }, []);
+
+  useEffect(() => {
+    if (!current) return;
+    const shortcut = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+      if (event.key === 'Escape') setSearchOpen(false);
+    };
+    window.addEventListener('keydown', shortcut);
+    return () => window.removeEventListener('keydown', shortcut);
+  }, [current]);
 
   async function importPaths(paths: string[]) {
     let duplicates = 0;
@@ -175,13 +194,39 @@ function App() {
       {Boolean(user?.has_pin) && <label>PIN<input key={selected} name="pin" type="password" inputMode="numeric" required /></label>}
       <div className="actions"><button>Fortsæt</button><button type="button" onClick={() => setUsers(null)}>Vælg andet arkiv</button></div>
     </form></>;
+  } else if (searchOpen) {
+    content = <><h1>Søg i arkivet</h1><form onSubmit={event => {
+      event.preventDefault();
+      const query = new FormData(event.currentTarget).get('query');
+      void run(async () => setResults(await local('search', query)));
+    }}>
+      <label>Søg<input name="query" autoFocus /></label><div className="actions"><button>Søg</button>
+        <button type="button" onClick={() => setSearchOpen(false)}>Luk</button></div>
+    </form><ul className="records">{results.map(r => <li key={r.entity_id}><strong>{r.title}</strong>
+      <span>{Object.entries(sections).find(([, types]) => types.some(([t]) => t === r.entity_type))?.[0] ?? (r.module === 'documents' ? 'Dokumenter' : 'Opgaver')}</span>
+    </li>)}</ul></>;
+  } else if (section === 'Overblik') {
+    content = <Overview local={local} run={run} backup={backupDue} openTasks={() => setSection('Opgaver')} />;
+  } else if (sections[section]) {
+    content = <ModuleView key={section} name={section} local={local} run={run} />;
   } else if (section === 'Dokumenter') {
     content = <><h1>Dokumenter</h1><p>Træk bilag ind i vinduet, eller vælg filer.</p>
       <button onClick={() => void run(async () => {
         const paths = await chooseFiles('import');
         if (Array.isArray(paths)) await importPaths(paths);
       })}>Importér bilag</button>
-      <ul className="records">{documents.map(({ id, filename, title }) => <li key={id}><strong>{title}</strong><span>{filename}</span></li>)}</ul>
+      <button onClick={() => void run(async () => { await refresh(); setInboxWarnings(await local('inbox')); })}>Opdatér importkø</button>
+      {inboxWarnings.length > 0 && <ul>{inboxWarnings.map(warning => <li key={warning}>{warning}</li>)}</ul>}
+      <h2>Bilag</h2><ul className="records">{documents.map(({ id, filename, title }) => <li key={id}>
+        <button onClick={() => void run(async () => setPreview(await local('previewDocument', id)))}>{title}</button><span>{filename}</span>
+      </li>)}</ul>
+      {preview && <section aria-label="Forhåndsvisning">
+        <button onClick={() => setPreview(undefined)}>Luk forhåndsvisning</button>
+        {preview.base64 && preview.mime?.startsWith('image/') && <img className="preview" alt="Forhåndsvisning af bilag" src={`data:${preview.mime};base64,${preview.base64}`} />}
+        {preview.base64 && preview.mime === 'application/pdf' && <iframe className="preview" title="PDF-bilag" src={`data:application/pdf;base64,${preview.base64}`} />}
+        {preview.text && <pre>{preview.text}</pre>}
+        {!preview.base64 && !preview.text && <p>Bilaget har ingen forhåndsvisning.</p>}
+      </section>}
     </>;
   } else if (section === 'Indstillinger') {
     content = <><h1>Indstillinger</h1><p className="path">{savedPath}</p><div className="actions">
@@ -221,7 +266,7 @@ function App() {
         <button>Opret person</button>
       </form></>}</>;
   } else {
-    content = <><h1>Opgaver</h1>
+    content = <><h1>Opgaver</h1><SaveOutput action="export" payload={{ format: 'ics' }} label="Gem åbne opgaver som kalenderfil" local={local} run={run} />
       <ul className="records">{tasks.map(({ id, title, due_date }) => <li key={id}><strong>{title}</strong>
         <span>{due_date ? due_date.split('-').reverse().join('.') : 'Ingen dato'}</span>
         <div className="actions">{(['done', 'skipped'] as const).map((status) => <button key={status}
@@ -249,8 +294,9 @@ function App() {
 
   return <div className="layout">
     <aside><div className="brand">PPM</div><p>Privat vedligeholdelse</p>{current && <nav>
-      {['Opgaver', 'Dokumenter', 'Indstillinger'].map((name) =>
-        <button key={name} aria-current={section === name ? 'page' : undefined} onClick={() => setSection(name)}>{name}</button>)}
+      {['Overblik', 'Opgaver', ...Object.keys(sections), 'Dokumenter', 'Indstillinger'].map((name) =>
+        <button key={name} aria-current={section === name ? 'page' : undefined} onClick={() => { setSearchOpen(false); setSection(name); }}>{name}</button>)}
+      <button onClick={() => setSearchOpen(true)}>Søg (Ctrl+K)</button>
       <button onClick={() => void run(async () => {
         await local('logout');
         setCurrent(undefined);
