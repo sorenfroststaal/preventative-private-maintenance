@@ -50,7 +50,7 @@ fn authorize(request: &Value, grants: &Mutex<FileGrants>) -> Result<(), String> 
         "open" | "bankPreview" => request["data"]["path"].as_str(),
         "backup" | "restore" | "import" => request["data"].as_str(),
         "config" | "openRecent" | "login" | "logout" | "createUser" | "createPerson" | "backupDue" |
-        "tasks" | "createTask" | "completeTask" | "documents" | "search" | "records" | "inventory" | "saveRecord" |
+        "tasks" | "createTask" | "completeTask" | "documents" | "search" | "records" | "inventory" | "orderNote" | "orderClaim" | "saveRecord" |
         "archiveRecord" | "linkRecord" | "unlinkRecord" | "dashboard" | "vehicleCosts" | "history" | "bankApply" | "export" | "report" | "previewDocument" | "inbox" | "postponeTask" | "documentLinks" | "policyInfo" | "bankTransactions" | "categorize" | "vehicleTemplates" | "addVehicleTemplate" | "privacy" | "setPrivacy" | "bankProfiles" | "saveBankProfile" | "financeYear" => return Ok(()),
         _ => return Err("Ukendt lokal handling.".into()),
     }.ok_or("Der mangler en godkendt sti.")?;

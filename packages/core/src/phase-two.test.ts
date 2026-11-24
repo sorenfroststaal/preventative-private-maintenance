@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { openArchive, type Archive } from './archive';
 import { writeLink } from './repo/links';
-import { saveRecord, setArchived, listRecords } from './repo/records';
+import { addOrderNote, claimForOrder, saveRecord, setArchived, listRecords } from './repo/records';
 import { searchRecords } from './repo/search';
 import { dashboard, financeYear, history, vehicleCosts } from './repo/overview';
 import { importArchiveDocument } from './node-documents';
@@ -235,4 +235,16 @@ it('rolls monthly child budgets up to their main category', async () => {
   const budget = await saveRecord(db, 'budget', { name: 'Testbudget', year: 2026 }, ctx);
   await saveRecord(db, 'budget_line', { category_id: child.id, budget_id: budget.id, amount_minor: 12000, month: 11 }, ctx);
   expect((await dashboard(db, '', '2026-11-24')).finances).toEqual([{ category: 'Syntetisk hovedkategori', budget: 12000, actual: 0 }]);
+});
+
+it('indexes work order notes and links a damage claim once', async () => {
+  const { db } = archive;
+  const order = await saveRecord(db, 'work_order', { title: 'Demoglas', kind: 'damage', reported_date: '2026-11-01' }, ctx);
+  const policy = await saveRecord(db, 'policy', { title: 'Demopolice', kind: 'home_contents' }, ctx);
+  await addOrderNote(db, { id: order.id, note: 'Syntetisk brudflade' }, ctx);
+  expect(await searchRecords(db, 'brudflade')).toHaveLength(1);
+  expect(await history(db, 'work_order', order.id)).toHaveLength(2);
+  await claimForOrder(db, { id: order.id, policy: policy.id }, ctx);
+  await expect(claimForOrder(db, { id: order.id, policy: policy.id }, ctx)).rejects.toThrow();
+  expect(await listRecords(db, 'claim', ctx)).toHaveLength(1);
 });

@@ -140,7 +140,7 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
     void run(async () => {
       await load();
       const referenced = new Set(Object.keys(tableFields).map(referenceFor).filter(Boolean));
-      if (type === 'work_order') for (const value of ['property', 'building_part', 'item', 'vehicle']) referenced.add(value);
+      if (type === 'work_order') for (const value of ['property', 'building_part', 'item', 'vehicle', 'policy']) referenced.add(value);
       const results = await Promise.all([...referenced].map(async table => {
         const entries = await local<Row[]>('records', table);
         return [table, entries.filter(row => !row.archived_at).map(entry => ({ id: entry.id, name: display(entry) }))] as const;
@@ -235,6 +235,17 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
     {name === 'Økonomi' && (type === 'budget' || type === 'recurring_expense') && <FinanceSummary local={local} run={run} />}
     {selected && type === 'account' && <><BankImport key={selected.id} account={selected.id} local={local} run={run} />
       <AccountTransactions id={selected.id} local={local} run={run} /></>}
+    {selected && type === 'work_order' && <section><h2>Tidslinje</h2><form onSubmit={event => {
+      event.preventDefault(); const form = event.currentTarget;
+      const note = new FormData(form).get('note');
+      void run(async () => { await local('orderNote', { id: selected.id, note }); form.reset(); edit({ ...selected }); });
+    }}><label>Ny note<input name="note" required maxLength={20000} /></label><button>Gem note</button></form>
+      {selected.kind === 'damage' && !selected.claim_id && <form onSubmit={event => {
+        event.preventDefault(); const policy = new FormData(event.currentTarget).get('policy');
+        void run(async () => { edit(await local<Row>('orderClaim', { id: selected.id, policy })); await load(); });
+      }}><label>Police<select required name="policy"><option value="">Vælg police</option>{options.policy?.map(policy =>
+        <option key={policy.id} value={policy.id}>{policy.name}</option>)}</select></label><button>Opret skadesag</button></form>}
+    </section>}
     {selected && type === 'vehicle' && <VehicleTemplates id={selected.id} local={local} run={run} />}
     {selected && type === 'policy' && <PolicyCoverage id={selected.id} currency={String(selected.currency)}
       limit={typeof selected.coverage_sum_minor === 'number' ? selected.coverage_sum_minor : null}

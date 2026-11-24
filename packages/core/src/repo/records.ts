@@ -195,3 +195,25 @@ export function listInventory(db: DbAdapter) {
         x.target_type IN ('person','task_occurrence','health_visit','health_screening','health_vaccination','health_medication'))
     ORDER BY l.rowid LIMIT 1) AS photo_id FROM item i ORDER BY i.rowid DESC`);
 }
+
+export async function addOrderNote(db: DbAdapter, raw: unknown, ctx: WriteContext) {
+  const { id, note } = z.object({ id: z.uuid(), note: z.string().trim().min(1).max(20000) }).parse(raw);
+  await db.transaction(async tx => {
+    const [order] = await tx.select<Row>('SELECT * FROM work_order WHERE id = ?', [id]);
+    if (!order) throw new Error('Arbejdsordren findes ikke.');
+    const event = { id: crypto.randomUUID(), work_order_id: id, at: now(), note, user_id: ctx.userId ?? null };
+    await tx.execute('INSERT INTO work_order_event (id,work_order_id,at,note,user_id) VALUES (?,?,?,?,?)', Object.values(event));
+    await recordChange(tx, ctx, 'work_order_event', event.id, null, event);
+    await saveRecord(tx, 'work_order', {}, ctx, id);
+  });
+}
+
+export async function claimForOrder(db: DbAdapter, raw: unknown, ctx: WriteContext) {
+  const { id, policy } = z.object({ id: z.uuid(), policy: z.uuid() }).parse(raw);
+  return db.transaction(async tx => {
+    const [order] = await tx.select<Row>('SELECT * FROM work_order WHERE id = ?', [id]);
+    if (!order || order.kind !== 'damage' || order.claim_id) throw new Error('Vælg en skade uden tilknyttet skadesag.');
+    const claim = await saveRecord(tx, 'claim', { policy_id: policy, incident_date: order.reported_date, description: order.title }, ctx);
+    return saveRecord(tx, 'work_order', { claim_id: claim.id }, ctx, id);
+  });
+}
