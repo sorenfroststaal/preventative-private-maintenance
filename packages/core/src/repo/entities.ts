@@ -247,10 +247,17 @@ async function setArchived(ctx: Ctx, type: EntityType, id: string, archived: boo
 export const archiveEntity = (ctx: Ctx, type: EntityType, id: string) => setArchived(ctx, type, id, true);
 export const restoreEntity = (ctx: Ctx, type: EntityType, id: string) => setArchived(ctx, type, id, false);
 
-/** Physically deletes a link row (only link tables and drafts may be deleted, spec README). */
+/** Deletes a `deletable` child row by id (see deleteLink). */
+export const deleteRow = (ctx: Ctx, type: EntityType, id: string) => deleteLink(ctx, type, { id });
+
+/**
+ * Physically deletes a link row (only link tables and drafts may be deleted, spec README).
+ * Child rows marked `deletable` in the registry (ingredients, plan entries, shopping items)
+ * are treated like links: they have no archived_at and are replaced as a whole.
+ */
 export async function deleteLink(ctx: Ctx, type: EntityType, key: Row): Promise<boolean> {
   const meta = registry[type];
-  if (meta.pk.length === 1) throw new Error(`${type} må ikke slettes; arkivér i stedet`);
+  if (meta.pk.length === 1 && !meta.deletable) throw new Error(`${type} må ikke slettes; arkivér i stedet`);
   return ctx.db.transaction(async (tx) => {
     const where = meta.pk.map((k) => `${k} = ?`).join(" AND ");
     const params = meta.pk.map((k) => toSql(key[k]));
@@ -260,6 +267,7 @@ export async function deleteLink(ctx: Ctx, type: EntityType, key: Row): Promise<
     const diff: Record<string, [unknown, unknown]> = {};
     for (const [k, v] of Object.entries(existing[0])) diff[k] = [v, null];
     await writeAudit(withDb(ctx, tx), type, entityKey(type, existing[0]), "delete", diff);
+    if (meta.search) await tx.execute("DELETE FROM search_index WHERE entity_type = ? AND entity_id = ?", [type, String(existing[0].id)]);
     return true;
   });
 }

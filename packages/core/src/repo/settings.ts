@@ -10,7 +10,10 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     insurance: true,
     health: false,
     documents: true,
+    food: true,
   },
+  "food.meals": ["dinner"],
+  "food.default_servings": 4,
   "dashboard.horizon_days": 30,
   "import.inbox_enabled": true,
 };

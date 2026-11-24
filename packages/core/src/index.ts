@@ -22,6 +22,7 @@ export * from "./repo/inbox";
 export * from "./repo/dashboard";
 export * from "./repo/export";
 export * from "./report/insurance";
+export * from "./food";
 export { DERIVED_RULES, syncSystemTask } from "./domain/derived";
 
 import { registerDerivedRules } from "./domain/derived";

@@ -9,6 +9,7 @@ export type Module =
   | "insurance"
   | "health"
   | "documents"
+  | "food"
   | "core";
 
 export type Row = Record<string, unknown>;
@@ -25,10 +26,21 @@ export interface EntityMeta {
   createdAt: boolean;
   updatedAt: boolean;
   archivable: boolean;
+  /** Child rows without archived_at that may be deleted physically (with audit). */
+  deletable?: boolean;
   search?: SearchConfig;
 }
 
 const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+const jsonList = (v: unknown): string[] => {
+  if (typeof v !== "string") return [];
+  try {
+    const a: unknown = JSON.parse(v);
+    return Array.isArray(a) ? a.map(String) : [];
+  } catch {
+    return [];
+  }
+};
 const join = (...parts: unknown[]) => parts.map(s).filter(Boolean).join(" ");
 
 async function nameOf(db: DbAdapter, table: string, id: unknown, col = "name"): Promise<string> {
@@ -167,6 +179,25 @@ export const registry: Record<EntityType, EntityMeta> = {
     },
   }),
   document_link: link("documents", ["document_id", "target_type", "target_id", "role"]),
+  recipe: plain("food", {
+    createdAt: true,
+    updatedAt: true,
+    archivable: true,
+    search: {
+      title: (r) => s(r.name),
+      body: async (r, db) => {
+        const ing = await db.select<{ name: string }>(
+          "SELECT name FROM recipe_ingredient WHERE recipe_id = ? ORDER BY position",
+          [String(r.id)],
+        );
+        return join(r.description, ...ing.map((i) => i.name), r.instructions, ...jsonList(r.tags_json));
+      },
+    },
+  }),
+  recipe_ingredient: plain("food", { deletable: true }),
+  meal_plan_entry: plain("food", { createdAt: true, deletable: true }),
+  shopping_list: plain("food", { createdAt: true, archivable: true }),
+  shopping_item: plain("food", { deletable: true }),
   tag: plain("core"),
   entity_tag: link("core", ["tag_id", "target_type", "target_id"]),
 };

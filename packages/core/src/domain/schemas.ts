@@ -20,6 +20,46 @@ export const zCurrency = z.string().regex(/^[A-Z]{3}$/, { message: "Valuta skal 
 const opt = <T extends z.ZodTypeAny>(t: T) => t.nullish();
 const zBool01 = z.union([z.literal(0), z.literal(1)]);
 
+// ---------- Madplan primitives ----------
+
+/** Allergen keys (spec 04 "Allergi-advarsler"). */
+export const ALLERGEN_KEYS = [
+  "gluten",
+  "milk",
+  "egg",
+  "nuts",
+  "peanut",
+  "fish",
+  "shellfish",
+  "soy",
+  "sesame",
+  "celery",
+  "mustard",
+] as const;
+export type AllergenKey = (typeof ALLERGEN_KEYS)[number];
+export const MEALS = ["breakfast", "lunch", "dinner", "snack"] as const;
+export type Meal = (typeof MEALS)[number];
+const zMeal = z.enum(MEALS);
+
+function jsonArrayOf(check: (v: unknown) => boolean, message: string) {
+  return z.string().refine(
+    (s) => {
+      try {
+        const v: unknown = JSON.parse(s);
+        return Array.isArray(v) && v.every(check);
+      } catch {
+        return false;
+      }
+    },
+    { message },
+  );
+}
+const zJsonStrings = jsonArrayOf((v) => typeof v === "string", "Skal være en JSON-liste af tekster");
+const zAllergenJson = jsonArrayOf(
+  (v) => typeof v === "string" && (ALLERGEN_KEYS as readonly string[]).includes(v),
+  "Ukendt allergen",
+);
+
 // ---------- Recurrence ----------
 
 const zUnit = z.enum(["day", "week", "month", "year"]);
@@ -387,6 +427,52 @@ export const fields = {
       "letter",
       "other",
     ]),
+  },
+  // ---------- Madplan (schemaVersion 2) ----------
+  recipe: {
+    name: zText,
+    description: opt(z.string()),
+    servings: z.number().int().min(1, { message: "Mindst 1 portion" }).default(4),
+    prep_minutes: opt(z.number().int().min(0)),
+    instructions: opt(z.string()),
+    tags_json: opt(zJsonStrings),
+    allergens_json: opt(zAllergenJson),
+    estimated_cost_minor: opt(zMoney.nonnegative()),
+    currency: zCurrency.default("DKK"),
+    source: z.enum(["user", "import", "ai", "template"]).default("user"),
+    source_ref: opt(z.string()),
+    photo_document_id: opt(zId),
+  },
+  recipe_ingredient: {
+    recipe_id: zId,
+    position: z.number().int().min(0),
+    amount: opt(z.number().finite().positive({ message: "Mængden skal være større end 0" })),
+    unit: opt(z.string()),
+    name: zText,
+    note: opt(z.string()),
+    raw_text: opt(z.string()),
+  },
+  meal_plan_entry: {
+    plan_date: zDate,
+    meal: zMeal.default("dinner"),
+    recipe_id: opt(zId),
+    title: opt(z.string()),
+    servings: opt(z.number().int().min(1, { message: "Mindst 1 portion" })),
+    note: opt(z.string()),
+  },
+  shopping_list: {
+    name: zText,
+    week_start: opt(zDate),
+  },
+  shopping_item: {
+    list_id: zId,
+    position: z.number().int().min(0),
+    name: zText,
+    amount: opt(z.number().finite().positive({ message: "Mængden skal være større end 0" })),
+    unit: opt(z.string()),
+    category: opt(z.string()),
+    checked: zBool01.default(0),
+    source: z.enum(["plan", "manual", "ai"]).default("manual"),
   },
   tag: { name: zText },
   entity_tag: { tag_id: zId, target_type: zText, target_id: zId },

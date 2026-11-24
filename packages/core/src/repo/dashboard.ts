@@ -1,6 +1,7 @@
 /** Queries behind each dashboard section (spec 04 "Overblik"). */
 import type { DbAdapter } from "../db/adapter";
-import { addDays } from "../recurrence/dates";
+import { addDays, addMonths } from "../recurrence/dates";
+import { mealsTodayTomorrow, type PlannedDish } from "../food/mealplan";
 import { monthFinance, type MonthFinance } from "./finance";
 import { getSetting } from "./settings";
 
@@ -27,8 +28,37 @@ export interface Dashboard {
   };
   aiPending: number;
   finance: MonthFinance;
+  /** Spending per month, oldest first, ending with the current month (spec 04 "Visuel stil"). */
+  spending: MonthSpending[];
+  /** Today's and tomorrow's dishes; null when this week's meal plan is empty. */
+  meals: { today: PlannedDish[]; tomorrow: PlannedDish[] } | null;
   backup: { lastAt: string | null; due: boolean };
   horizonDays: number;
+}
+
+export interface MonthSpending {
+  month: string;
+  expense_minor: number;
+}
+
+/**
+ * Spending for the last `months` months: all outgoing transactions except transfers
+ * (uncategorised ones included), as positive numbers.
+ */
+export async function monthlySpending(db: DbAdapter, today: string, months = 6): Promise<MonthSpending[]> {
+  const first = addMonths(`${today.slice(0, 7)}-01`, -(months - 1)).slice(0, 7);
+  const rows = await db.select<{ m: string; s: number }>(
+    `SELECT substr(t.booking_date, 1, 7) AS m, -SUM(t.amount_minor) AS s FROM bank_transaction t
+       LEFT JOIN category c ON c.id = t.category_id
+      WHERE t.amount_minor < 0 AND (c.kind IS NULL OR c.kind != 'transfer')
+        AND substr(t.booking_date, 1, 7) BETWEEN ? AND ? GROUP BY m`,
+    [first, today.slice(0, 7)],
+  );
+  const by = new Map(rows.map((r) => [r.m, r.s]));
+  return Array.from({ length: months }, (_, i) => {
+    const month = addMonths(`${first}-01`, i).slice(0, 7);
+    return { month, expense_minor: by.get(month) ?? 0 };
+  });
 }
 
 export const EXPIRING_DAYS = 60;
@@ -91,6 +121,8 @@ export async function dashboard(db: DbAdapter, opts: { today: string; userId: st
     },
     aiPending: ai[0]?.n ?? 0,
     finance: await monthFinance(db, today.slice(0, 7)),
+    spending: await monthlySpending(db, today),
+    meals: await mealsTodayTomorrow(db, today, opts.userId),
     backup: { lastAt, due: backupDue },
     horizonDays,
   };
