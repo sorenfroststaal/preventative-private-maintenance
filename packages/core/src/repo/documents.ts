@@ -152,14 +152,16 @@ export async function linkDocument(ctx: Ctx, input: LinkInput): Promise<void> {
   await createEntity(ctx, "document_link", input);
 }
 
+/**
+ * A recipe photo is referenced by recipe.photo_document_id, because document_link cannot
+ * point at recipes (schema CHECK). It counts as a link so it never sits in the import queue.
+ */
+const LINK_COUNT = `((SELECT count(*) FROM document_link l WHERE l.document_id = d.id)
+  + (SELECT count(*) FROM recipe r WHERE r.photo_document_id = d.id))`;
+
 export async function listDocuments(db: DbAdapter, opts: { unlinkedOnly?: boolean } = {}): Promise<Row[]> {
-  const where = opts.unlinkedOnly
-    ? "WHERE NOT EXISTS (SELECT 1 FROM document_link l WHERE l.document_id = d.id)"
-    : "";
-  return db.select<Row>(
-    `SELECT d.*, (SELECT count(*) FROM document_link l WHERE l.document_id = d.id) AS link_count
-       FROM document d ${where} ORDER BY d.created_at DESC`,
-  );
+  const where = opts.unlinkedOnly ? `WHERE ${LINK_COUNT} = 0` : "";
+  return db.select<Row>(`SELECT d.*, ${LINK_COUNT} AS link_count FROM document d ${where} ORDER BY d.created_at DESC`);
 }
 
 export async function documentsFor(db: DbAdapter, targetType: string, targetId: string): Promise<Row[]> {

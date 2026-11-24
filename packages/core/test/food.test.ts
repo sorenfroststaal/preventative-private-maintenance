@@ -22,6 +22,7 @@ import {
   guessCategory,
   importOpenPlanner,
   ingredientLines,
+  listDocuments,
   isoWeek,
   listRecipes,
   migrate,
@@ -363,6 +364,7 @@ describe("phase 2b.6 – shopping list", () => {
     expect(guessCategory("sødmælk")).toBe("Mejeri");
     expect(guessCategory("rugbrød")).toBe("Brød");
     expect(guessCategory("hakkede tomater")).toBe("Kolonial");
+    expect(guessCategory("grøntsagsbouillon")).toBe("Kolonial");
     expect(guessCategory("frosne ærter")).toBe("Frost");
     expect(guessCategory("opvaskemiddel")).toBe("Andet");
   });
@@ -423,6 +425,9 @@ describe("phase 2b.7 – Open Planner", () => {
     // No temporary files are left behind.
     expect((await env.fs.listDir(archive.path("bilag"))).filter((e) => e.name.startsWith("."))).toEqual([]);
     expect((await previewOpenPlanner(archive.db, v2)).counts).toEqual({ new: 0, changed: 0, unchanged: 2 });
+    // The photo is used by the recipe, so it is not in the import queue (documents without links).
+    expect((await listDocuments(archive.db, { unlinkedOnly: true })).map((d) => d.id)).not.toContain(p!.photo_document_id);
+    expect((await listDocuments(archive.db)).find((d) => d.id === p!.photo_document_id)?.link_count).toBe(1);
   });
 
   it("rejects invalid files and more than 200 dishes", () => {

@@ -22,8 +22,9 @@ const SECTION_KEYWORDS: [ShopCategory, string[]][] = [
 
 export function guessCategory(name: string): ShopCategory {
   const n = ` ${normalizeName(name)} `;
-  // "hakkede tomater" (canned) before "tomat" (fresh).
-  if (n.includes("hakkede tomater") || n.includes("flåede tomater")) return "Kolonial";
+  // Dry goods whose names contain a fresh-produce word: "hakkede tomater" (canned) before
+  // "tomat", "grøntsagsbouillon" before "grønt".
+  if (["hakkede tomater", "flåede tomater", "bouillon", "fond", "tomatpuré"].some((w) => n.includes(w))) return "Kolonial";
   for (const [cat, words] of SECTION_KEYWORDS) if (words.some((w) => n.includes(w))) return cat;
   return "Andet";
 }
