@@ -30,21 +30,35 @@ En fase er færdig, når alle kriterierne er opfyldt, `pnpm lint` og `pnpm test`
 11. **Eksport:** CSV, JSON og ICS. **[T]** ICS indeholder ikke noter, og helbredstitler er neutrale som standard.
 12. Kerneforløbene kan gennemføres alene med tastaturet.
 
+## Fase 2b: Madplan og visuel stil
+
+1. Migration 0002 er identisk med `docs/spec/schema-0002.sql`. Et arkiv på `schemaVersion 1` opgraderes til 2, og `ai.modules.food` sættes. **[T]**
+2. **Opskrifter:** CRUD med ingredienstabel, tags, pris, foto og allergener. Ingredienslisten erstattes i én transaktion med audit. **[T]**
+3. **Ingrediens-parser:** alle eksempler i spec 05 består. **[T]**
+4. **Uge:** retter og frie titler pr. dag, flyt, *Kopiér sidste uge*, anslået pris og budget for ugen (04). **[T]** for beregningerne.
+5. **Allergi-advarsler:** markerede og udledte allergener matches mod `health_allergy`. Privat helbred vises uden navn og stof for andre brugere. **[T]**
+6. **Indkøbsliste:** skalering, sammenlægning af g/kg og ml/dl/l, varer uden mængde, ny generering, der bevarer manuelle varer og afkrydsning, gruppering i afdelinger og kopiér som tekst. **[T]**
+7. **Open Planner:** import af version 1 og 2 (inklusive indlejrede fotos og opdatering via `source_ref`) og eksport af version 2. **[T]** med syntetiske testfiler i `fixtures/open-planner/`.
+8. **Startkatalog:** "Tilføj startkatalog" opretter de 40 retter fra `templates/da/retter.json` én gang. **[T]**
+9. **Visuel stil:** ikoner i menu, sidehoveder, lister, søgeresultater og status-badges som i tabellen i spec 04. Nøgletalskort og graf over 6 måneders forbrug på overblikket. Illustrerede tomme tilstande. Kontrast mindst 4,5:1 i lyst og mørkt tema. **[T]** Alle knapper med kun et ikon har `aria-label` (test, der gennemgår de renderede komponenter).
+10. Søgning (Ctrl+K) finder opskrifter, og overblikket viser dagens og morgendagens ret.
+
 ## Fase 3: AI og MCP
 
-1. `ppm-mcp` starter mod seed-arkivet og svarer på `initialize` med `instructions`.
-2. Alle læseværktøjer giver korrekte resultater mod seed-arkivet. **[T]**
-3. Moduler, der er slået fra, og privat helbredsdata filtreres i alle værktøjer, også i `search` og `get_document`. **[T]**
+1. `ppm-mcp` starter mod seed-arkivet og svarer på `initialize` med `instructions` (under 700 tegn).
+2. Alle værktøjer i spec 06 giver korrekte resultater mod seed-arkivet, også `overview`, `meal_plan` og `recipes`. **[T]**
+3. Moduler, der er slået fra, og privat helbredsdata filtreres i alle værktøjer, også i `search`, `document` og allergi-advarslerne i `meal_plan`. **[T]**
 4. Hvert kald logges i `ai_access_log`. **[T]**
-5. `propose_*` opretter kun kladder. Ugyldige data afvises. `file_path` uden for de tilladte mapper afvises. **[T]**
+5. `propose` opretter kun én kladdegruppe. Ugyldige data afvises med operationens indeks. `$n`-referencer virker. `file_path` uden for de tilladte mapper afvises. **[T]**
 6. MCP-serveren kan ikke skrive til andre tabeller. Det testes ved, at en test sammenligner indholdet af alle andre tabeller før og efter en række kald. **[T]**
-7. AI-indbakken: godkend, redigér og godkend, afvis, advarsel om en konflikt og håndtering af fejl. **[T]**
-8. Indstillingssiden viser en kopiérbar konfiguration til Claude Desktop, og den er afprøvet manuelt med Claude Desktop på Windows.
-9. Installeren indeholder `ppm-mcp.exe`, som virker uden at Node er installeret.
+7. AI-indbakken: godkend alle, godkend valgte, redigér, afvis, advarsel om en konflikt og fuld tilbagerulning, hvis én operation fejler. **[T]**
+8. **Få tokens:** højst 14 værktøjer, `tools/list` under 10.000 tegn, `overview` under 1.500 tegn for seed-arkivet, ingen `null`-felter i svar, og `ref` på 8 tegn virker i alle værktøjer. **[T]**
+9. **Færdigpakket:** `ppm.mcpb` bygges i CI. Claude Code-plugin og marketplace ligger i repoet. Indstillingssiden viser kommandoer og knapper for de tre kanaler. Hver kanal er afprøvet manuelt med en rigtig klient, og resultatet noteres i STATUS. Kanaler, der ikke kunne afprøves, markeres sådan.
+10. Installeren indeholder `ppm-mcp.exe`, som virker uden at Node er installeret, og lægger den i brugerens `PATH`.
 
 ## Tværgående krav (fra fase 2)
 
-Kravene her blev præciseret efter fase 1. De SKAL være opfyldt, når fase 2 er færdig.
+Kravene her blev præciseret efter fase 1. De SKAL være opfyldt, når fase 2 er færdig, og de gælder også for alle senere faser.
 
 13. **Filadgang** er afgrænset som beskrevet i [01](01-teknologi-og-struktur.md). Følgende SKAL afvises gennem den rigtige vej fra brugerfladen: læsning uden for scope, `..`-traversal, `ATTACH`, `VACUUM INTO` uden for arkivet og udvidelse af scope ud fra en sti, som brugerfladen sender. **[T]**
 14. **Appens database-driver** er testet som beskrevet i 01 (transaktioner, FTS5 og `VACUUM INTO`). **[T]**

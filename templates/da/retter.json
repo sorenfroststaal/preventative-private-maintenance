@@ -1,0 +1,168 @@
+{
+  "format": "ppm-recipe-templates",
+  "version": 1,
+  "sprog": "da",
+  "kilde": "Navne fra open-planner (standardkatalog). Ingen fotos eller opskrifter.",
+  "retter": [
+    {
+      "id": "pasta-med-kodsovs",
+      "navn": "Pasta med kødsovs"
+    },
+    {
+      "id": "karbonader",
+      "navn": "Karbonader"
+    },
+    {
+      "id": "boller-i-karry",
+      "navn": "Boller i karry"
+    },
+    {
+      "id": "tomatsuppe",
+      "navn": "Tomatsuppe"
+    },
+    {
+      "id": "frysepizza",
+      "navn": "Frysepizza"
+    },
+    {
+      "id": "pizzamands-pizza",
+      "navn": "Pizzamands pizza"
+    },
+    {
+      "id": "pasta-og-polser",
+      "navn": "Pasta og pølser"
+    },
+    {
+      "id": "lasagne",
+      "navn": "Lasagne"
+    },
+    {
+      "id": "kyllingelar",
+      "navn": "Kyllingelår"
+    },
+    {
+      "id": "kyllingeburgere",
+      "navn": "Kyllingeburgere"
+    },
+    {
+      "id": "rugbrod-toast",
+      "navn": "Rugbrød / toast"
+    },
+    {
+      "id": "pokeballs",
+      "navn": "Pokeballs"
+    },
+    {
+      "id": "risengrod",
+      "navn": "Risengrød"
+    },
+    {
+      "id": "hotdogs",
+      "navn": "Hotdogs"
+    },
+    {
+      "id": "panini",
+      "navn": "Panini"
+    },
+    {
+      "id": "flodekartofler",
+      "navn": "Flødekartofler"
+    },
+    {
+      "id": "tarteletter",
+      "navn": "Tarteletter"
+    },
+    {
+      "id": "braendende-kaerlighed",
+      "navn": "Brændende kærlighed"
+    },
+    {
+      "id": "kartoffelmos-med-bacon-polse-flodesovs",
+      "navn": "Kartoffelmos med bacon, pølse og flødesovs"
+    },
+    {
+      "id": "havregrod",
+      "navn": "Havregrød"
+    },
+    {
+      "id": "indbagte-rejer-med-ris",
+      "navn": "Indbagte rejer med ris"
+    },
+    {
+      "id": "vietnamesisk-oksekod-og-risret",
+      "navn": "Vietnamesisk oksekød og risret"
+    },
+    {
+      "id": "stegt-flaesk-og-persillesovs",
+      "navn": "Stegt flæsk og persillesovs"
+    },
+    {
+      "id": "frikadeller-med-kartofler",
+      "navn": "Frikadeller med kartofler"
+    },
+    {
+      "id": "forloren-hare",
+      "navn": "Forloren hare"
+    },
+    {
+      "id": "ristaffel",
+      "navn": "Ristaffel"
+    },
+    {
+      "id": "macaroni-pa-panden",
+      "navn": "Macaroni på panden"
+    },
+    {
+      "id": "frikadelle-burgere",
+      "navn": "Frikadelle burgere"
+    },
+    {
+      "id": "hakkebof-med-log",
+      "navn": "Hakkebøf med løg"
+    },
+    {
+      "id": "pastasalat",
+      "navn": "Pastasalat"
+    },
+    {
+      "id": "wraps",
+      "navn": "Wraps"
+    },
+    {
+      "id": "flaeskesteg",
+      "navn": "Flæskesteg"
+    },
+    {
+      "id": "millionbof",
+      "navn": "Millionbøf"
+    },
+    {
+      "id": "pasta-carbonara",
+      "navn": "Pasta carbonara"
+    },
+    {
+      "id": "hjemmelavede-burgere",
+      "navn": "Hjemmelavede burgere"
+    },
+    {
+      "id": "flaeskestegs-burgere",
+      "navn": "Flæskestegs burgere"
+    },
+    {
+      "id": "karrysuppe-med-ris-og-kylling",
+      "navn": "Karrysuppe med ris og kylling"
+    },
+    {
+      "id": "macaroni-cheese",
+      "navn": "Macaroni cheese"
+    },
+    {
+      "id": "ris-pa-panden",
+      "navn": "Ris på panden"
+    },
+    {
+      "id": "pommesfrites-og-nuggets",
+      "navn": "Pommesfrites og nuggets"
+    }
+  ]
+}

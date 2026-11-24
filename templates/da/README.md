@@ -25,3 +25,7 @@ Hver fil er et JSON-array med skabeloner i dette format:
 - Skabeloner med `basis` sat til `recommendation` eller `requirement` kræver kildekontrol (se CONTRIBUTING.md).
 
 Skabelonerne i `basis.json` er alle `suggestion`. De er praktiske standardintervaller og påstår ingen lovkrav.
+
+## Startkatalog til madplan
+
+`retter.json` indeholder 40 almindelige danske retter (`id` og `navn`) fra standardkataloget i Open Planner. Den indeholder ikke fotos eller opskrifter. `id` matcher Open Planners id, så en senere import af en Open Planner-database med fotos og ingredienser kobles til de samme opskrifter (`source_ref = 'open-planner:<id>'`).

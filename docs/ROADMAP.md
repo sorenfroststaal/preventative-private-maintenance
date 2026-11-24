@@ -32,12 +32,19 @@ Hvert modul får de få vigtigste felter, så helheden kan afprøves tidligt:
 - Fritekstsøgning på tværs af alle moduler.
 - Eksport som CSV, JSON og ICS.
 
+## 2b. Madplan og visuel stil
+
+- Madplan med uge, opskrifter, indkøbsliste, allergi-advarsler og pris mod budget.
+- Import og eksport af Open Planner-databaser og et startkatalog med 40 retter.
+- Ikoner, farver pr. modul, nøgletalskort og små grafer, der supplerer teksten.
+
 ## 3. AI-integration
 
 - MCP-server (stdio) med læse- og søgeværktøjer og adgang til bilag.
 - Kladdeværktøjer og en AI-indbakke i appen, hvor forslag godkendes.
 - Indstillinger for AI-adgang pr. modul (helbred er slået fra som standard) og en log over AI-adgang.
-- Vejledning til opsætning med Claude Desktop, OpenAI-klienter og en lokal model.
+- Færdigpakket til Claude Desktop (`.mcpb`), som Claude Code-plugin og til Codex/ChatGPT desktop. Vejledning til en lokal model.
+- Få værktøjer og kompakte svar, så AI-arbejdet kræver få tokens. Ændringer samles i kladdegrupper, som godkendes samlet.
 
 ## 4. Uddybning
 

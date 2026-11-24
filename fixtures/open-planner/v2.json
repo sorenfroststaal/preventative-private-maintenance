@@ -1,0 +1,36 @@
+{
+  "format": "extruda-open-planner-database",
+  "version": 2,
+  "sprog": "da",
+  "opdateret": "2026-11-24",
+  "standardkortMm": {
+    "bredde": 69,
+    "hoejde": 66
+  },
+  "retter": [
+    {
+      "id": "pasta-med-kodsovs",
+      "navn": "Pasta med kødsovs",
+      "billede": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "ingredienser": [
+        "500 g hakket oksekød",
+        "1 dåse hakkede tomater",
+        "2 løg",
+        "400 g pasta",
+        "2 dl fløde, kan udelades"
+      ],
+      "fremgangsmaade": "Ændret fremgangsmåde i version 2. (syntetisk)"
+    },
+    {
+      "id": "rejer-med-ris",
+      "navn": "Indbagte rejer med ris",
+      "ingredienser": [
+        "300 g rejer",
+        "250 g ris",
+        "2 æg",
+        "1 dl hvedemel"
+      ],
+      "fremgangsmaade": "Syntetisk eksempel."
+    }
+  ]
+}
