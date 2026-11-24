@@ -38,6 +38,7 @@ function App() {
   const [current, setCurrent] = useState<User>();
   const [readonly, setReadonly] = useState(false);
   const [savedPath, setSavedPath] = useState('');
+  const [focusedTask, setFocusedTask] = useState('');
   const [exportTable, setExportTable] = useState('audit_log');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -70,6 +71,13 @@ function App() {
       setBusy(false);
     }
   }
+
+  useEffect(() => {
+    if (section === 'Opgaver' && focusedTask) {
+      document.getElementById('occurrence-' + focusedTask)?.focus();
+      setFocusedTask('');
+    }
+  }, [section, focusedTask, tasks]);
 
   async function refresh() {
     const [nextTasks, nextDocuments, due] = await Promise.all([local<Task[]>('tasks'), local<Document[]>('documents'), local<boolean>('backupDue')]);
@@ -219,7 +227,9 @@ function App() {
           <button onClick={() => { setSection(group); setSearchOpen(false); }}>Åbn {group.toLocaleLowerCase('da')}</button>
         </section>)}</>;
   } else if (section === 'Overblik') {
-    content = <Overview local={local} run={run} backup={backupDue} openTasks={() => setSection('Opgaver')} />;
+    content = <Overview local={local} run={run} backup={backupDue} openTasks={id => void run(async () => {
+      await refresh(); setFocusedTask(id); setSection('Opgaver');
+    })} />;
   } else if (sections[section]) {
     content = <ModuleView key={section} name={section} local={local} run={run} />;
   } else if (section === 'Dokumenter') {
@@ -306,7 +316,7 @@ function App() {
       <label><input type="checkbox" checked={fullHealthTitle} onChange={e => setFullHealthTitle(e.target.checked)} />Medtag fulde helbredstitler</label>
       <SaveOutput action="export" payload={{ format: 'ics', ids: calendarIds.length ? calendarIds : undefined, fullHealthTitle }}
         label={calendarIds.length ? 'Gem markerede opgaver som kalenderfil' : 'Gem åbne opgaver som kalenderfil'} local={local} run={run} />
-      <ul className="records">{tasks.map(({ id, title, due_date, module }) => <li key={id}><label><input type="checkbox" checked={calendarIds.includes(id)} onChange={() => setCalendarIds(ids => ids.includes(id) ? ids.filter(key => key !== id) : [...ids, id])} />{title}</label>
+      <ul className="records">{tasks.map(({ id, title, due_date, module }) => <li key={id} id={'occurrence-' + id} tabIndex={-1}><label><input type="checkbox" checked={calendarIds.includes(id)} onChange={() => setCalendarIds(ids => ids.includes(id) ? ids.filter(key => key !== id) : [...ids, id])} />{title}</label>
         <span>{due_date ? due_date.split('-').reverse().join('.') : 'Ingen dato'}</span>
         <div className="actions">{(['done', 'skipped'] as const).map((status) => <button key={status}
           onClick={() => void run(async () => { await local('completeTask', { id, status }); await refresh(); })}>

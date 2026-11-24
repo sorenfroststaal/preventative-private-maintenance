@@ -68,7 +68,7 @@ type Task = { id: string; title: string; due_date: string | null };
 type Summary = { overdue: Task[]; upcoming: Task[]; expires: Task[]; horizon: number; missing: string[]; drafts: number; uncategorized: number;
   finances: { category: string; actual: number; budget: number }[] };
 
-export function Overview({ local, run, backup, openTasks }: { local: Local; run: Run; backup: boolean; openTasks: () => void }) {
+export function Overview({ local, run, backup, openTasks }: { local: Local; run: Run; backup: boolean; openTasks: (id: string) => void }) {
   const [summary, setSummary] = useState<Summary>();
   const [postpone, setPostpone] = useState('');
   async function load() { setSummary(await local('dashboard')); }
@@ -81,7 +81,7 @@ export function Overview({ local, run, backup, openTasks }: { local: Local; run:
       <div className="actions">
         <button onClick={() => void run(async () => { await local('completeTask', { id: task.id, status: 'done' }); await load(); })}>Udført</button>
         <button onClick={() => setPostpone(postpone === task.id ? '' : task.id)}>Udskyd</button>
-        <button onClick={openTasks}>Åbn</button>
+        <button onClick={() => openTasks(task.id)}>Åbn</button>
       </div>
       {postpone === task.id && <form onSubmit={event => {
         event.preventDefault();
