@@ -4,7 +4,7 @@ Et open source-desktopprogram, der samler hjemmets dokumentation, tilbagevendend
 
 Projektet er inspireret af vedligeholdelsessystemer som Sertica, men henvender sig til privatpersoner og familier i Danmark. Det har ingen tilknytning til Sertica.
 
-**Status (branch `claude/app`): Fase 2 (alle moduler i en tynd udgave) er bygget. Se [docs/STATUS.md](docs/STATUS.md).**
+**Status (branch `claude/app`): Fase 2 (alle moduler i en tynd udgave) og fase 2b (madplan og visuel stil) er bygget. Se [docs/STATUS.md](docs/STATUS.md).**
 
 ## Vision
 
@@ -61,7 +61,18 @@ pnpm build                                  # release-build og installer (NSIS p
 pnpm seed -- --archive ./local-data/demo    # demoarkiv med syntetiske data
 ```
 
-Rust-tests køres med `cargo test` i `apps/desktop/src-tauri`. Til et demoarkiv vælger du "Åbn eksisterende arkiv" og peger på `local-data/demo`. Brugerne er "Anna Eksempel" (uden PIN) og "Bo Eksempel" (PIN 1234).
+Rust-tests køres med `cargo test` i `apps/desktop/src-tauri`.
+
+E2E mod den rigtige app (Linux, release-build) bruger `tauri-driver` og `WebKitWebDriver` i Xvfb:
+
+```
+cargo install tauri-driver --locked          # og apt: webkit2gtk-driver xvfb openbox
+pnpm build && pnpm seed -- --archive ./local-data/e2e
+Xvfb :99 & DISPLAY=:99 openbox & DISPLAY=:99 tauri-driver &
+DISPLAY=:99 node apps/desktop/e2e/phase2b.mjs ./local-data/e2e ./local-data/screens
+```
+
+Scriptet skriver appens `config.json`, så arkivet åbnes ved start, og gemmer skærmbilleder i `local-data/screens`. Til et demoarkiv vælger du "Åbn eksisterende arkiv" og peger på `local-data/demo`. Brugerne er "Anna Eksempel" (uden PIN) og "Bo Eksempel" (PIN 1234).
 
 | Mappe | Indhold |
 | --- | --- |

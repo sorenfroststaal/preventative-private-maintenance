@@ -14,6 +14,13 @@ import {
   importDocument,
   linkDocument,
   makeCtx,
+  addDays,
+  addMonths,
+  createRecipe,
+  generateShoppingList,
+  planMeal,
+  updateRecipe,
+  weekStart,
   type Ctx,
   type Row,
 } from "../src";
@@ -227,6 +234,27 @@ async function main() {
       dedupe_hash: `seed-${i}`,
     });
   }
+  // Earlier months, so the dashboard shows 6 months of spending.
+  const firstOfMonth = `${env.clock.today().slice(0, 7)}-01`;
+  for (let m = 1; m <= 5; m++) {
+    const month = addMonths(firstOfMonth, -m);
+    for (const [j, [day, text, amount, cat]] of ([
+      ["03", "Netto 1234 Eksempelby", -1450 - m * 85, "Mad og dagligvarer"],
+      ["12", "Rema 1000 Eksempelby", -980 + m * 40, "Mad og dagligvarer"],
+      ["15", "Benzin Q8 Eksempelby", -550 - m * 20, "Transport"],
+      ["20", "Husleje og fællesudgifter (eksempel)", -6200, "Bolig"],
+    ] as const).entries()) {
+      await createEntity(ctx, "bank_transaction", {
+        account_id: String(acc.id),
+        booking_date: `${month.slice(0, 7)}-${day}`,
+        text,
+        amount_minor: kr(amount),
+        category_id: cats[cat],
+        category_source: "rule",
+        dedupe_hash: `seed-m${m}-${j}`,
+      });
+    }
+  }
   await createEntity(ctx, "category_rule", { match_type: "contains", pattern: "netto", category_id: cats["Mad og dagligvarer"]!, created_from: "learned" });
   const budget = await createEntity(ctx, "budget", { year: 2026, name: "Familiebudget" });
   for (const [cat, amount] of [["Mad og dagligvarer", 6000], ["Bolig", 9500], ["Transport", 2000], ["Forsikring", 1200], ["Abonnementer", 400]] as const) {
@@ -241,6 +269,8 @@ async function main() {
   await createEntity(ctx, "health_vaccination", { person_id: String(ida.id), vaccine: "Eksempelvaccine", dose: "2. dosis", given_date: "2026-01-15" });
   await createEntity(ctx, "health_medication", { person_id: String(boP!.id), name: "Eksempelmedicin", strength: "10 mg", dosage: "1 dagligt", start_date: "2026-01-01", prescription_renewal_date: "2026-12-15" });
   await createEntity(ctx, "health_allergy", { person_id: String(ida.id), substance: "Birkepollen", reaction: "Høfeber", severity: "mild" });
+  // Triggers an allergy warning in the meal plan (shellfish).
+  await createEntity(ctx, "health_allergy", { person_id: String(ida.id), substance: "Rejer", reaction: "Udslæt (syntetisk)", severity: "moderate" });
   for (const [d, v] of [["2026-01-10", 128], ["2026-06-10", 124], ["2026-11-10", 121]] as const) {
     await createEntity(ctx, "health_measurement", { person_id: String(boP!.id), type: "blood_pressure_sys", value: v, unit: "mmHg", measured_at: `${d}T08:00:00.000Z` });
   }
@@ -252,6 +282,33 @@ async function main() {
   await createTask(ctx, { title: "Skift til vinterdæk", module: "vehicle", target_type: "vehicle", target_id: String(car.id), source: "template", template_id: "vehicle.tires.winter", template_version: 1, recurrence: { kind: "fixed", unit: "year", every: 1, month: 10, day: 15 }, firstDueDate: "2026-10-15" });
   await createTask(ctx, { title: "Tandlægetjek", module: "health", target_type: "person", target_id: String(ida.id), assignee_person_id: String(annaP!.id), recurrence: { kind: "interval", unit: "year", every: 1 }, firstDueDate: "2027-01-20" });
   await createTask(ctx, { title: "Gennemgå forsikringer", module: "insurance", recurrence: { kind: "interval", unit: "year", every: 1 }, firstDueDate: "2026-12-01" });
+
+  // ---- Meal plan (synthetic recipes, this week)
+  const recipe = (name: string, data: Record<string, unknown>, ingredients: string[]) =>
+    createRecipe(ctx, { name, ...data } as never, ingredients);
+  const kodsovs = await recipe("Pasta med kødsovs", { servings: 4, prep_minutes: 30, estimated_cost_minor: kr(95), tags_json: '["pasta","hverdag"]', source_ref: "open-planner:pasta-med-kodsovs", instructions: "Brun kødet. Tilsæt løg, hvidløg og tomater. Kog pastaen. (syntetisk)" }, ["500 g hakket oksekød", "1 dåse hakkede tomater", "2 løg", "2-3 fed hvidløg", "400 g pasta", "Salt og peber"]);
+  const rejer = await recipe("Indbagte rejer med ris", { servings: 4, prep_minutes: 40, estimated_cost_minor: kr(140), tags_json: '["fisk"]' }, ["300 g rejer", "250 g ris", "2 æg", "1 dl hvedemel", "Salt og peber"]);
+  const suppe = await recipe("Tomatsuppe", { servings: 4, prep_minutes: 25, estimated_cost_minor: kr(45), tags_json: '["vegetar","hurtig"]' }, ["2 dåser hakkede tomater", "1 løg", "1 l grøntsagsbouillon", "1 dl fløde"]);
+  const frikadeller = await recipe("Frikadeller med kartofler", { servings: 4, prep_minutes: 45, estimated_cost_minor: kr(110), tags_json: '["klassiker"]' }, ["500 g hakket svinekød", "1 æg", "1 dl mælk", "2 spsk hvedemel", "1 kg kartofler", "Salt og peber"]);
+  const wok = await recipe("Grøntsagswok med tofu", { servings: 2, prep_minutes: 20, tags_json: '["vegetar","hurtig"]' }, ["200 g tofu", "1 pk wokgrøntsager", "2 spsk soja", "125 g nudler"]);
+  const photo = join(tmp, "pasta.png");
+  writeFileSync(photo, syntheticPng(4242));
+  const pastaPhoto = await importDocument(env, archive, ctx, photo, { source: "drop", title: "Pasta med kødsovs" });
+  await updateRecipe(ctx, String(kodsovs.id), { photo_document_id: String(pastaPhoto.document.id) });
+
+  const monday = weekStart(env.clock.today());
+  const plan: [number, Row | null, string | null][] = [
+    [0, kodsovs, null],
+    [1, suppe, null],
+    [2, rejer, null],
+    [3, null, "Rester"],
+    [4, frikadeller, null],
+    [5, wok, null],
+  ];
+  for (const [d, r, title] of plan) {
+    await planMeal(ctx, { plan_date: addDays(monday, d), recipe_id: r ? String(r.id) : null, title, servings: r === wok ? 2 : 4 });
+  }
+  await generateShoppingList(ctx, monday);
 
   await archive.close();
   console.log(`Demoarkiv oprettet i ${root}`);

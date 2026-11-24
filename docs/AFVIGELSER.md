@@ -8,6 +8,8 @@ Listen dækker de steder, hvor implementeringen afviger fra specifikationen elle
 | --- | --- | --- | --- |
 | A1 | 01 Første platform: Windows | `bundle.targets` er `["nsis", "deb"]`, så `pnpm build` også giver en pakke på Linux (bruges i udvikling og i CI). Windows-installeren bygges i CI på `windows-latest`. | Gør det muligt at verificere builden uden Windows. |
 | A2 | 05 Overvåget indbakke | Indbakken scannes hvert 2. sekund (polling) i stedet for at bruge filsystem-events. | Virker ens på alle platforme og netværksdrev. Kravet om 2 sekunders stabil størrelse kræver alligevel en gentagen kontrol. |
+| A3 | README "Sletning" og 03 Madplan | `recipe_ingredient`, `meal_plan_entry` og `shopping_item` slettes fysisk (med en auditlinje, som for koblinger). Det sker, når ingredienslisten erstattes, når en ret fjernes fra madplanen, og når en vare slettes fra indkøbslisten. | Tabellerne har ingen `archived_at` i schema-0002. Spec 03 siger selv, at ingredienslisten erstattes, og spec 04 siger, at varer kan slettes. Rækkerne behandles derfor som koblinger. Primære poster (`recipe`, `shopping_list`) arkiveres. |
+| A4 | 04 Opskrifter, "Genbrug DetailTabs" (opgaven) | Opskriftens foto vises i en egen fane med `DocumentPreview` og ikke med `DocumentsTab` fra `DetailTabs`. | `document_link.target_type` tillader ikke `recipe` (CHECK i schema.sql), og foto er en kolonne (`photo_document_id`). `EntityForm` og `Tabs` genbruges. |
 
 ## Fortolkninger
 
@@ -27,6 +29,20 @@ Listen dækker de steder, hvor implementeringen afviger fra specifikationen elle
 | F12 | 04 Bil | Driftsomkostningerne tæller ikke annullerede arbejdsordrer med. Posteringer koblet til bilen regnes som udgift med omvendt fortegn. |
 | F13 | 03 Afledte regler | Automatiske opgaver får `reminder_days = 60`. Er en automatisk opgave markeret som udført, og ændres datoen bagefter, oprettes en ny åben forekomst. |
 | F14 | 07 nr. 15 | Hukommelsesforbruget måles både ad Rust-vejen, som appen bruger (zip og udpakning), og gennem core i Node (backup og gendannelse). Se `docs/STATUS.md`. |
+| F15 | 04 Allergi-advarsler | Allergener udledes kun af ingrediensnavnene (ikke rettens navn), og både ingredienser og allergiregistreringer matches som delstrenge, som spec 04 beskriver for `substance`. Det giver hellere en advarsel for meget end en for lidt, fx "kokosmælk" → Mælk og "jordnødder" → både Jordnødder og Nødder. |
+| F16 | 04 Allergi-advarsler, privat | En privat advarsel viser hverken navn, stof eller hvilket allergen der matchede. Flere private match på samme ret bliver til én advarsel. |
+| F17 | 04 Dokumenter og 03 Madplan | Et dokument, som en opskrift bruger som foto, tæller som koblet i Dokumenter og ligger ikke i importkøen. |
+| F18 | 04 Uge, anslået pris | Portioner er pladsens `servings` og ellers opskriftens. Prisen afrundes pr. ret til hele øre. "Retter uden pris" tæller kun planlagte opskrifter uden pris, ikke frie titler som "Rester". |
+| F19 | 04 Uge, budget | Budgettet beregnes pr. dag (månedens budget / dage i måneden) og lægges sammen for ugens 7 dage. Inden for én måned er det præcis formlen i spec 04. En uge over et månedsskifte bruger begge måneders budget. Forbruget er minus summen af posteringer i kategorierne i ugen. |
+| F20 | 04 Indkøbsliste | En vare uden mængde gemmes med `amount` = antal retter og enheden `retter`, så navn og enhed er stabile, når listen genereres igen. Valgt afdeling bevares også. *Kopiér som tekst* er grupperet efter afdeling uden overskrifter og udelader afkrydsede varer, medmindre brugeren vælger andet. Listen hedder "Indkøb uge N", og der er én liste pr. uge. |
+| F21 | 04 Indkøbsliste, afdelinger | Afdelingen gættes med en nøgleordsliste, hvor første match vinder. Tørvarer med et grøntord i navnet (fx "grøntsagsbouillon" og "hakkede tomater") er Kolonial. |
+| F22 | 05 Import fra Open Planner | Tomme felter i filen tæller ikke som en ændring og overskriver ikke det, brugeren har udfyldt. En opdateret opskrift får `source = 'import'`. Står samme `id` flere gange i filen, bruges den første, og der vises en besked. Det indlejrede foto skrives midlertidigt i `bilag/` under et skjult navn og fjernes efter importen. |
+| F23 | 05 Eksport til Open Planner | Eksporten har `format: "extruda-open-planner-database"` og `standardkortMm` (69 × 66) som i fixturen til version 2. Ugens retter eksporteres fra ugevisningen, og filen gemmes i `eksport/`. |
+| F24 | 05 Startkatalog | Tilbuddet vises, når der ingen aktive opskrifter er, og kataloget aldrig er tilføjet eller afvist (`setting` `food.catalog_added_at`). Retter, hvis `source_ref` allerede findes (også arkiverede), springes over. |
+| F25 | 04 Uge | *Kopiér sidste uge* springer retter over, som allerede står på samme dag og måltid. Måltider, der er slået fra i indstillingerne, vises stadig, hvis ugen har retter i dem. |
+| F26 | 04 Overblik, nøgletalskort | Kortene er links, der ruller til sektionen og flytter fokus dertil. Routeren bruger URL'ens hash, så almindelige ankerlinks kan ikke bruges. |
+| F27 | 04 Overblik, graf | "Forbrug" er alle udgående posteringer undtagen overførsler, også dem uden kategori. |
+| F28 | 04 Farver | Temaet følger styresystemet (`prefers-color-scheme`). Der er ingen manuel temaknap. |
 
 ## Fjernet efter PR #2 (nu en del af specifikationen)
 
@@ -37,3 +53,9 @@ Egne Rust-kommandoer i stedet for plugin-sql og plugin-fs, `executeScript` i `Db
 1. Spec 04 Overblik: angiv, om automatiske opgaver også skal stå i sektion 1–2, og hvor langt tilbage udløbne frister skal vises (se F4).
 2. Spec 05: tillad polling som alternativ til filsystem-events for indbakken (A2).
 3. Spec 05 CSV-eksport: fastlæg skilletegn og kodning (F9).
+4. Spec README "Sletning": nævn, at `recipe_ingredient`, `meal_plan_entry` og `shopping_item` slettes fysisk med audit (A3).
+5. schema/03: enten `recipe` i `document_link.target_type` i en senere migration, eller en regel om, at et opskriftsfoto tæller som koblet (A4, F17).
+6. Spec 04 Indkøbsliste: fastlæg, hvordan varer uden mængde gemmes (F20), og om *Kopiér som tekst* tager afkrydsede varer med.
+7. Spec 04 Allergi: angiv, om nøgleord matches som delstreng eller som ord, og om rettens navn indgår (F15).
+8. Spec 04 Uge: angiv budgettet for en uge over et månedsskifte (F19), og om frie titler tæller som "retter uden pris" (F18).
+9. Spec 05 Open Planner: angiv, om tomme felter i filen må overskrive brugerens data (F22).
