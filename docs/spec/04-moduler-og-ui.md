@@ -8,7 +8,7 @@
 
 ## Navigation
 
-En venstremenu med disse punkter i denne rækkefølge: **Overblik, Opgaver, Bolig og inventar, Arbejdsordrer, Bil, Økonomi, Forsikring, Helbred, Dokumenter, AI-indbakke (med antal), Indstillinger.**
+En venstremenu med disse punkter i denne rækkefølge, hvert med sit ikon (se "Visuel stil"): **Overblik, Opgaver, Bolig og inventar, Arbejdsordrer, Bil, Økonomi, Madplan, Forsikring, Helbred, Dokumenter, AI-indbakke (med antal), Indstillinger.**
 
 Global søgning åbnes med `Ctrl+K`. Den søger i `search_index` og viser resultater grupperet pr. modul. Hele appen SKAL kunne betjenes med tastatur og have synlig fokus.
 
@@ -126,3 +126,102 @@ Hver kladde viser værktøjet, begrundelsen og en forhåndsvisning. Ved `create`
 ## Indstillinger
 
 Brugere og personer, arkivplacering, backup og gendannelse, AI-adgang pr. modul samt hvilken bruger AI agerer som, log over AI-adgang, MCP-opsætningsvejledning (med en kopiérbar konfiguration), importprofiler, kategorier og regler samt skabeloner.
+
+## Madplan
+
+Modulet har fanerne **Uge, Opskrifter og Indkøbsliste**.
+
+### Uge
+
+- Viser én uge ad gangen, mandag til søndag, med ugenummer (ISO 8601) og knapper til forrige, denne og næste uge.
+- Hver dag har pladser til aftensmad som standard. Morgenmad, frokost og mellemmåltid kan slås til i indstillingerne (`food.meals`, standard `["dinner"]`).
+- En plads udfyldes med en opskrift (søgbar vælger) eller en fri tekst, fx "Rester". Antal portioner er som standard husstandens størrelse (`food.default_servings`, standard 4).
+- En ret kan flyttes til en anden dag. Knappen *Kopiér sidste uge* kopierer alle pladser 7 dage frem.
+- Ugekortet viser:
+  - **Anslået pris** for ugen: summen af `estimated_cost_minor × portioner / servings` for de retter, der har en pris. Antal retter uden pris vises separat.
+  - **Budget:** månedens budget for kategorien "Mad og dagligvarer" (og underkategorier) delt med antal dage i måneden og ganget med 7. Desuden det faktiske forbrug i ugen fra posteringer i samme kategorier.
+  - **Allergi-advarsler** (se nedenfor) ved hver ret.
+
+### Opskrifter
+
+- Liste med søgning, filter på tags, ikon for allergener og miniaturefoto.
+- Felterne er navn, beskrivelse, portioner, tid, tags, anslået pris, foto og fremgangsmåde. Ingredienserne redigeres som en tabel med mængde, enhed, vare og note. Man kan også indsætte tekstlinjer, som fortolkes med ingrediens-parseren (05).
+- **Allergener:** brugeren kan markere allergener på opskriften (`allergens_json`). Desuden udledes allergener automatisk af ingrediensnavnene ud fra nøgleordslisten nedenfor.
+- Knapperne er *Planlæg* (vælg dag) og *Arkivér*.
+
+### Allergi-advarsler (kostbehov fra Helbred)
+
+- En ret får en advarsel, hvis et af dens allergener (markeret eller udledt) matcher en registrering i `health_allergy` for en person i husstanden. Advarslen viser stoffet og personen.
+- Er personens helbredsdata private for en anden bruger (`health_private_user_id`), vises kun "Allergi hos et husstandsmedlem (privat)" uden navn og stof.
+- Matching sker uden forskel på store og små bogstaver og med denne nøgleordsliste (core SKAL indeholde den, og den KAN udvides):
+
+| Nøgle | Visningsnavn | Nøgleord i ingrediens eller allergi |
+| --- | --- | --- |
+| gluten | Gluten | hvede, mel, rug, byg, spelt, pasta, brød, rasp, couscous, bulgur, gluten |
+| milk | Mælk | mælk, fløde, smør, ost, yoghurt, skyr, creme fraiche, laktose |
+| egg | Æg | æg, mayonnaise |
+| nuts | Nødder | nød, nødder, mandel, hasselnød, valnød, cashew, pistacie, pekan |
+| peanut | Jordnødder | jordnød, peanut |
+| fish | Fisk | fisk, laks, torsk, tun, sild, makrel, rødspætte |
+| shellfish | Skaldyr | rejer, reje, krabbe, hummer, muslinger, skaldyr |
+| soy | Soja | soja, tofu, edamame |
+| sesame | Sesam | sesam, tahin |
+| celery | Selleri | selleri |
+| mustard | Sennep | sennep |
+
+En allergi-registrering matcher en nøgle, hvis `substance` indeholder visningsnavnet eller et af nøgleordene.
+
+### Indkøbsliste
+
+- *Lav indkøbsliste for ugen* opretter eller opdaterer listen for ugen (`week_start` = mandag):
+  - Ingredienser fra ugens retter skaleres med `portioner / servings` og lægges sammen efter normaliseret varenavn og enhed. g og kg lægges sammen i g (vises som kg fra 1000 g). ml, dl og l lægges sammen i ml (vises som l fra 1000 ml). Andre enheder lægges kun sammen med samme enhed.
+  - Varer uden mængde vises én gang med antallet af retter, de indgår i, fx "salt (3 retter)".
+  - Når listen genereres igen, erstattes de genererede varer (`source = 'plan'`). Manuelle varer bevares. Afkrydsning bevares for varer med samme navn og enhed.
+- Varer grupperes efter butiksafdeling (`category`), og afdelingen gættes ud fra varenavnet med en simpel liste: Frugt og grønt, Kød og fisk, Mejeri, Brød, Kolonial, Frost, Andet. Brugeren kan ændre den.
+- Varer kan afkrydses, tilføjes manuelt, slettes og kopieres som tekst (én vare pr. linje), fx til en besked.
+
+## Visuel stil
+
+Ikoner, farver og små grafer skal *supplere* teksten. De må aldrig være den eneste bærer af information (WCAG 1.4.1).
+
+### Ikoner
+
+- Ikonsættet er `lucide-react`. Ikoner, der står ved siden af tekst, er dekorative (`aria-hidden`). Knapper med kun et ikon SKAL have `aria-label` og tooltip.
+- Modulernes ikoner (Lucide-navne):
+
+| Modul | Ikon | Farvetoken |
+| --- | --- | --- |
+| Overblik | `layout-dashboard` | `--c-overview` |
+| Opgaver | `list-checks` | `--c-tasks` |
+| Bolig og inventar | `house` | `--c-home` |
+| Arbejdsordrer | `wrench` | `--c-maintenance` |
+| Bil | `car` | `--c-vehicle` |
+| Økonomi | `wallet` | `--c-finance` |
+| Madplan | `utensils` | `--c-food` |
+| Forsikring | `shield-check` | `--c-insurance` |
+| Helbred | `heart-pulse` | `--c-health` |
+| Dokumenter | `file-text` | `--c-documents` |
+| AI-indbakke | `sparkles` | `--c-ai` |
+| Indstillinger | `settings` | `--c-settings` |
+
+- Ikonerne bruges i menuen, i sidehoveder, ved poster i lister og i søgeresultater (modulets ikon) og ved dokumenter (filtypeikon: `file-text` til PDF, `image` til billeder og `mail` til mail).
+- Status vises som badge med ikon og tekst. Eksempler: forfalden (`triangle-alert`), i dag (`clock`), udført (`circle-check`), mangler (`circle-help`), privat (`lock`), allergi (`triangle-alert` i farven `--danger`).
+
+### Farver
+
+- Hvert modul har et farvetoken, som bruges til ikonets baggrund i menu og sidehoved og til en tynd kant på modulets kort på overblikket. Der er værdier til både lyst og mørkt tema. Tekst på farvede flader skal have en kontrast på mindst 4,5:1.
+- De eksisterende tokens for advarsel, fare og accent bevares.
+
+### Overblik
+
+- Øverst kommer en række **nøgletalskort** før sektion 1: Forfaldne, Næste 30 dage, Udløber snart og Mangler oplysninger. Hvert kort har ikon, antal og tekst og fungerer som et link til sektionen. Den faste rækkefølge af sektioner nedenfor bevares.
+- **Økonomi denne måned** viser vandrette søjler for budget og forbrug pr. kategori (rød ved overskridelse, også markeret med tekst) og en lille graf over forbruget de seneste 6 måneder.
+- Har ugens madplan retter, vises et lille kort med i dag og i morgen.
+
+### Tomme tilstande
+
+En tom liste viser modulets ikon (stort, nedtonet), én sætning om hvad modulet bruges til og den primære handling som knap, fx "Opret din første genstand".
+
+### Grafer
+
+Egne SVG-komponenter: vandret søjle, sparkline og linjegraf. Hver graf har en tekstlig opsummering (`aria-label` eller synlig tekst) med de vigtigste tal.

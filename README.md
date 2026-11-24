@@ -16,7 +16,7 @@ Kvitteringer, garantier, servicehistorik, forsikringspolicer, budget og lægetje
 - **Hvad koster det?** Familiebudget, faste udgifter og import af kontoudtog.
 - **Hvordan er vi dækket?** Forsikringspolicer koblet til det, de dækker.
 
-Med den indbyggede MCP-server kan Claude, OpenAI-klienter eller en lokal AI-model søge i arkivet og læse bilag. For eksempel: *"Hvornår blev brønden sidst renset?"*, *"Er opvaskemaskinen stadig dækket af reklamationsretten?"* eller *"Registrér denne kvittering"*. AI'en kan kun foreslå ændringer. Brugeren godkender dem i appen.
+Med den indbyggede MCP-server kan Claude (Desktop eller Code), Codex/ChatGPT desktop eller en lokal AI-model søge i arkivet og læse bilag. Til eget brug kræver det ingen godkendelse hos Anthropic eller OpenAI. Serveren er bygget til at bruge få tokens. For eksempel: *"Hvornår blev brønden sidst renset?"*, *"Er opvaskemaskinen stadig dækket af reklamationsretten?"* eller *"Registrér denne kvittering"*. AI'en kan kun foreslå ændringer. Brugeren godkender dem i appen.
 
 ## Moduler
 
@@ -26,6 +26,7 @@ Med den indbyggede MCP-server kan Claude, OpenAI-klienter eller en lokal AI-mode
 | Vedligehold og arbejdsordrer | Gentagne opgaver, reparationer, skader, håndværkere, tilbud, fakturaer og fotos før og efter |
 | Bil | Servicebog, reparationer, km-stand, syn, dækskifte, afgifter og vejhjælp |
 | Økonomi og budget | Budget pr. kategori, faste udgifter, abonnementer og CSV-import fra banken |
+| Madplan | Ugeplan, opskrifter, indkøbsliste, allergi-advarsler ud fra Helbred, pris mod budget og import fra Open Planner |
 | Forsikring | Policer, præmier, fornyelse, selvrisiko, dækning og skadesager |
 | Helbred | Lægebesøg, screeninger, vaccinationer, medicin, allergier og målinger pr. familiemedlem |
 | Egne områder | Brugerdefinerede opgaver, noter og dokumenter |

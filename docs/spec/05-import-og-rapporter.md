@@ -68,3 +68,58 @@ Filen gemmes i `eksport/forsikringsrapport-YYYYMMDD.pdf` eller et sted, brugeren
 
 - **CSV eller JSON pr. tabel** samt en samlet JSON med alle tabeller (`ppm-export.json` med `schemaVersion`).
 - **ICS:** valgte opgaver og deres åbne forekomster som heldags-`VEVENT`. Som standard bruges en neutral titel (opgavens titel) uden noter, bilag og helbredsdetaljer. Helbredsopgaver får titlen "Helbred: påmindelse", medmindre brugeren aktivt vælger at bruge den fulde titel.
+
+## Madplan: ingredienser og Open Planner
+
+### Ingrediens-parser
+
+Ingredienser på tekstform (indsat eller importeret) fortolkes linje for linje. Den oprindelige linje gemmes altid i `raw_text`.
+
+- Formatet er `[mængde] [enhed] vare[, note]`. Mængden kan være heltal, decimal med komma (`1,5`), brøk (`1/2`, `½`) eller et interval (`2-3`, hvor den største værdi bruges).
+- Enheder genkendes uden forskel på store og små bogstaver og normaliseres:
+
+| Skrevet | Gemmes som |
+| --- | --- |
+| g, gram | g |
+| kg, kilo | kg |
+| ml | ml |
+| dl | dl |
+| l, liter | l |
+| stk, stk. | stk |
+| spsk, spsk. | spsk |
+| tsk, tsk. | tsk |
+| fed | fed |
+| dåse, dåser | dåse |
+| pk, pakke, pakker | pk |
+| bdt, bundt | bundt |
+
+- En mængde uden enhed ("2 løg") gemmes med enheden `stk`. En linje uden mængde ("salt og peber") gemmes med `amount = NULL` og `unit = NULL`.
+- Varenavnet gemmes med små bogstaver og trimmet. Tekst efter det første komma bliver til `note`.
+- Eksempler, som SKAL være dækket af tests:
+
+| Linje | amount | unit | name | note |
+| --- | --- | --- | --- | --- |
+| `500 g hakket oksekød` | 500 | g | hakket oksekød | |
+| `2 dl fløde` | 2 | dl | fløde | |
+| `1,5 kg kartofler, skrællede` | 1.5 | kg | kartofler | skrællede |
+| `½ tsk salt` | 0.5 | tsk | salt | |
+| `2 løg` | 2 | stk | løg | |
+| `2-3 fed hvidløg` | 3 | fed | hvidløg | |
+| `Salt og peber` | NULL | NULL | salt og peber | |
+
+### Import fra Open Planner
+
+PPM SKAL kunne importere en Open Planner-database (JSON, version 1 eller 2) fra projektet `open-planner`:
+
+- Formatet er `{ "version": 1|2, "format"?: "...", "sprog": "da", "retter": [{ "id", "navn", "billede"?, "ingredienser": [tekst] | tekst, "fremgangsmaade"?, "opskrift"? }] }`. Højst 200 retter og højst 50 MB.
+- Hver ret bliver til en `recipe` med `source = 'import'` og `source_ref = 'open-planner:<id>'`. Findes `source_ref` allerede, opdateres opskriften. Brugerens egne ændringer af en importeret opskrift overskrives dog ikke uden bekræftelse: importdialogen viser "N nye, M ændrede, K uændrede", og ændrede kan vælges fra.
+- `ingredienser` fortolkes med ingrediens-parseren. `fremgangsmaade` (eller `opskrift`) bliver til `instructions`.
+- `billede` som indlejret `data:image/png|jpeg;base64,...` (version 2) importeres som et `document` (kilde `drop`) og kobles via `photo_document_id`. Relative stier (version 1) ignoreres med en besked, fordi filen ikke findes i JSON-filen.
+
+### Eksport til Open Planner
+
+Appen BØR kunne eksportere valgte opskrifter, eller ugens retter, som en Open Planner-database version 2 med indlejrede fotos. Så kan ugens madplan printes som madkort i Open Planner. Feltet `id` er opskriftens `source_ref` uden præfiks, hvis den findes, ellers en slug af navnet.
+
+### Startkatalog
+
+`templates/da/retter.json` indeholder 40 almindelige danske retter (kun navne, ingen fotos og ingen opskrifter) fra Open Planners katalog. Ved første besøg i Madplan tilbydes "Tilføj startkatalog", som opretter dem som opskrifter med `source = 'template'` og `source_ref = 'open-planner:<id>'`. Ingredienser og priser tilføjes af brugeren eller foreslås af AI.
