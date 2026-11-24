@@ -69,9 +69,31 @@ function shape(field: z.ZodType): Shape {
   return variants[0];
 }
 
+type Housing = Record<'property' | 'location' | 'building_part' | 'item', Row[]>;
+
+function HousingTree({ data, open }: { data: Housing; open: (type: RecordType, row: Row) => void }) {
+  const active = (rows: Row[]) => rows.filter(row => !row.archived_at);
+  const entry = (type: RecordType, row: Row) =>
+    <button onClick={() => open(type, row)}>{String(row.name)}</button>;
+  function rooms(property: string, parent: string | null): React.ReactNode {
+    return active(data.location).filter(room => room.property_id === property && room.parent_id === parent)
+      .map(room => <li key={room.id}>{entry('location', room)}<ul>
+        {rooms(property, room.id)}
+        {active(data.item).filter(item => item.location_id === room.id).map(item =>
+          <li key={item.id}>{entry('item', item)}</li>)}
+      </ul></li>);
+  }
+  return <section><h2>Boligoversigt</h2><ul>{active(data.property).map(property =>
+    <li key={property.id}>{entry('property', property)}<ul>{rooms(property.id, null)}
+      {active(data.building_part).filter(part => part.property_id === property.id).map(part =>
+        <li key={part.id}>Bygningsdel · {entry('building_part', part)}</li>)}
+    </ul></li>)}</ul></section>;
+}
+
 export function ModuleView({ name, local, run }: { name: string; local: Local; run: Run }) {
   const tabs = sections[name];
   const [type, setType] = useState(tabs[0][0]);
+  const [housing, setHousing] = useState<Housing>();
   const [rows, setRows] = useState<Row[]>([]);
   const [selected, setSelected] = useState<Row>();
   const [filter, setFilter] = useState('');
@@ -89,6 +111,11 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
 
   async function load() {
     setRows(await local<Row[]>('records', type));
+    if (name === 'Bolig og inventar' && type === 'property') {
+      const [property, location, building_part, item] = await Promise.all(
+        ['property', 'location', 'building_part', 'item'].map(table => local<Row[]>('records', table)));
+      setHousing({ property, location, building_part, item });
+    }
   }
 
   useEffect(() => {
@@ -157,6 +184,9 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
     <h1>{name}</h1>
     <div className="actions">{tabs.map(([key, label]) =>
       <button key={key} aria-pressed={key === type} onClick={() => { edit(); setRows([]); setOptions({}); setType(key); }}>{label}</button>)}</div>
+    {type === 'property' && housing && <HousingTree data={housing} open={(table, row) => {
+      setType(table); setSelected(row); setPurchase(String(row.purchase_date ?? '')); setAux([]);
+    }} />}
     {name === 'Helbred' && <><p>Dine egne noter og påmindelser. Erstatter ikke journal eller rådgivning fra sundhedspersonale.</p>
       <p>Synlighed pr. bruger er ikke en sikkerhedsgrænse. Arkivet er ukrypteret.</p>
       <label>Person<select value={personFilter} onChange={event => setPersonFilter(event.target.value)}>

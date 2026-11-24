@@ -20,7 +20,7 @@ Branchen indeholder merge af `main` efter PR #3. Migration 0001 er byteidentisk 
 
 | Nr. | Status | Verifikation og udestående |
 | --- | --- | --- |
-| 1 | Delvist | Bolig, rum, inventar, reservedele og bygningsdele kan oprettes og redigeres. Kvitteringer, fotos og reklamationsforslag. Automatiske opgaver og livscyklus er testet. Trævisning og enkelte livscyklusser udestår. |
+| 1 | Delvist | Bolig, rum, inventar, reservedele og bygningsdele kan oprettes og redigeres. Kvitteringer, fotos og reklamationsforslag. Automatiske opgaver og livscyklus er testet. Boligoversigten viser rum, underrum, genstande og bygningsdele. Livscyklusser uden arkivfelt er beskrevet i A3. |
 | 2 | Delvist | Statusflow, tidslinje, bilag med roller, km-stand og historik på inventar, bygningsdele og biler. Statusflow og km-stand er testet. Se A3 og A4. |
 | 3 | Implementeret | Biler, km-stand, historik og skabelonforslag. Årsopgørelsen pr. valuta er testet. Visningen bruger indeværende år. |
 | 4 | Delvist | To CSV-profiler, forhåndsvisning, dubletter, råfil, genbrugelige profiler, kategorisering, lærte regler og månedligt og årligt budget. Dubletter, danske beløb og Windows-1252 er testet. Se A5 og A8. |
