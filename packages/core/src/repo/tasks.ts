@@ -1,3 +1,4 @@
+import { saveRecord } from './records';
 import templates from "../../../../templates/da/basis.json";
 import { z } from 'zod';
 import type { DbAdapter } from '../db/adapter';
@@ -40,20 +41,29 @@ export async function createTask(db: DbAdapter, input: unknown, ctx: WriteContex
 
 export function openTasks(db: DbAdapter, userId?: string) {
   return db.select<{ id: string; title: string; due_date: string | null }>(
-    "SELECT o.id, t.title, o.due_date FROM task_occurrence o JOIN task t ON t.id = o.task_id WHERE o.status = 'open' AND t.status = 'active' AND (t.module != 'health' OR EXISTS (SELECT 1 FROM person p WHERE p.id = t.target_id AND p.archived_at IS NULL AND (p.health_private_user_id IS NULL OR p.health_private_user_id = ?))) ORDER BY o.due_date IS NULL, o.due_date", [userId ?? null],
+    "SELECT o.id, t.title, t.module, o.due_date FROM task_occurrence o JOIN task t ON t.id = o.task_id WHERE o.status = 'open' AND t.status = 'active' AND (t.module != 'health' OR EXISTS (SELECT 1 FROM person p WHERE p.id = t.target_id AND p.archived_at IS NULL AND (p.health_private_user_id IS NULL OR p.health_private_user_id = ?))) ORDER BY o.due_date IS NULL, o.due_date", [userId ?? null],
   );
 }
 
-export async function completeTask(db: DbAdapter, id: string, status: 'done' | 'skipped', completed: string, ctx: WriteContext) {
+export async function completeTask(db: DbAdapter, id: string, status: 'done' | 'skipped', completed: string, ctx: WriteContext, withWorkOrder = false) {
   z.uuid().parse(id);
   z.enum(['done', 'skipped']).parse(status);
   date.parse(completed);
   return db.transaction(async (tx) => {
-    const [row] = await tx.select<{ task_id: string; due_date: string | null; recurrence_json: string | null }>(
-      "SELECT o.task_id, o.due_date, t.recurrence_json FROM task_occurrence o JOIN task t ON t.id = o.task_id WHERE o.id = ? AND o.status = 'open' AND t.status = 'active' AND (t.module != 'health' OR EXISTS (SELECT 1 FROM person p WHERE p.id = t.target_id AND p.archived_at IS NULL AND (p.health_private_user_id IS NULL OR p.health_private_user_id = ?)))", [id, ctx.userId ?? null]);
+    const [row] = await tx.select<{ task_id: string; title: string; module: string; target_type: string | null; target_id: string | null; due_date: string | null; recurrence_json: string | null }>(
+      "SELECT o.task_id, o.due_date, t.recurrence_json, t.title, t.module, t.target_type, t.target_id FROM task_occurrence o JOIN task t ON t.id = o.task_id WHERE o.id = ? AND o.status = 'open' AND t.status = 'active' AND (t.module != 'health' OR EXISTS (SELECT 1 FROM person p WHERE p.id = t.target_id AND p.archived_at IS NULL AND (p.health_private_user_id IS NULL OR p.health_private_user_id = ?)))", [id, ctx.userId ?? null]);
     if (!row) throw new Error('Opgaven har ingen åben forekomst.');
-    await tx.execute('UPDATE task_occurrence SET status = ?, completed_date = ?, completed_by = ? WHERE id = ?', [status, completed, ctx.userId ?? null, id]);
-    await recordChange(tx, ctx, 'task_occurrence', id, { status: 'open' }, { status, completed_date: completed, completed_by: ctx.userId ?? null });
+    let workOrderId: string | null = null;
+    if (withWorkOrder) {
+      if (status !== 'done' || row.module === 'health') throw new Error('Der kan ikke oprettes en arbejdsordre for denne forekomst.');
+      const target = ['property', 'building_part', 'item', 'vehicle'].includes(row.target_type ?? '');
+      const order = await saveRecord(tx, 'work_order', { title: row.title, status: 'done', kind: 'service',
+        reported_date: completed, completed_date: completed,
+        target_type: target ? row.target_type : null, target_id: target ? row.target_id : null }, ctx);
+      workOrderId = order.id;
+    }
+    await tx.execute('UPDATE task_occurrence SET status = ?, completed_date = ?, completed_by = ?, work_order_id = COALESCE(?, work_order_id) WHERE id = ?', [status, completed, ctx.userId ?? null, workOrderId, id]);
+    await recordChange(tx, ctx, 'task_occurrence', id, { status: 'open' }, { status, completed_date: completed, completed_by: ctx.userId ?? null, ...(workOrderId && {work_order_id: workOrderId}) });
     if (row.recurrence_json) {
       await occurrence(tx, row.task_id, nextDate(recurrence.parse(JSON.parse(row.recurrence_json)), row.due_date, completed, status === 'skipped'), ctx);
     }

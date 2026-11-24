@@ -191,8 +191,8 @@ async function call(action: string, data: unknown) {
     }
     case 'createTask': return createTask(db, data, ctx);
     case 'completeTask': {
-      const { id, status } = z.object({ id: z.uuid(), status: z.enum(['done', 'skipped']) }).parse(data);
-      return completeTask(db, id, status, today(), ctx);
+      const { id, status, withWorkOrder } = z.object({ id: z.uuid(), status: z.enum(['done', 'skipped']), withWorkOrder: z.boolean().optional() }).parse(data);
+      return completeTask(db, id, status, today(), ctx, withWorkOrder);
     }
     case 'postponeTask': {
       const { id, date } = z.object({ id: z.uuid(), date: z.string() }).parse(data);

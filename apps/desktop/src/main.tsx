@@ -7,7 +7,7 @@ import { HealthPrivacy, Overview, SaveOutput } from './module-actions';
 import { ModuleView, sections } from './modules';
 
 type User = { id: string; name: string; has_pin: number; is_admin: number };
-type Task = { id: string; title: string; due_date: string | null };
+type Task = { module: string; id: string; title: string; due_date: string | null };
 type Document = { id: string; title: string; filename: string; source?: string; linked?: number; roles?: string };
 type Opened = { cloud?: boolean; readonly?: boolean; users?: User[]; lastUserId?: string };
 
@@ -306,12 +306,14 @@ function App() {
       <label><input type="checkbox" checked={fullHealthTitle} onChange={e => setFullHealthTitle(e.target.checked)} />Medtag fulde helbredstitler</label>
       <SaveOutput action="export" payload={{ format: 'ics', ids: calendarIds.length ? calendarIds : undefined, fullHealthTitle }}
         label={calendarIds.length ? 'Gem markerede opgaver som kalenderfil' : 'Gem åbne opgaver som kalenderfil'} local={local} run={run} />
-      <ul className="records">{tasks.map(({ id, title, due_date }) => <li key={id}><label><input type="checkbox" checked={calendarIds.includes(id)} onChange={() => setCalendarIds(ids => ids.includes(id) ? ids.filter(key => key !== id) : [...ids, id])} />{title}</label>
+      <ul className="records">{tasks.map(({ id, title, due_date, module }) => <li key={id}><label><input type="checkbox" checked={calendarIds.includes(id)} onChange={() => setCalendarIds(ids => ids.includes(id) ? ids.filter(key => key !== id) : [...ids, id])} />{title}</label>
         <span>{due_date ? due_date.split('-').reverse().join('.') : 'Ingen dato'}</span>
         <div className="actions">{(['done', 'skipped'] as const).map((status) => <button key={status}
           onClick={() => void run(async () => { await local('completeTask', { id, status }); await refresh(); })}>
           {status === 'done' ? 'Udført' : 'Spring over'}
-        </button>)}</div>
+        </button>)}{module !== 'health' && <button onClick={() => void run(async () => {
+          await local('completeTask', { id, status: 'done', withWorkOrder: true }); await refresh();
+        })}>Udført, opret arbejdsordre</button>}</div>
       </li>)}</ul>
       <h2>Ny opgave</h2><form onSubmit={taskForm}>
         <label>Titel<input name="title" required /></label>

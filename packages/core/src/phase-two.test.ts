@@ -218,3 +218,12 @@ it('preserves a completed automatic reminder until the source deadline changes',
   await saveRecord(db, 'item', { warranty_until: '2027-02-01' }, ctx, item.id);
   expect(await db.select("SELECT due_date FROM task_occurrence WHERE status = 'open'")).toEqual([{ due_date: '2027-02-01' }]);
 });
+
+it('completes an occurrence with exactly one linked work order', async () => {
+  const { db } = archive;
+  const task = await createTask(db, { title: 'Syntetisk eftersyn' }, ctx);
+  await completeTask(db, task.occurrenceId, 'done', '2026-11-24', ctx, true);
+  await expect(completeTask(db, task.occurrenceId, 'done', '2026-11-24', ctx, true)).rejects.toThrow();
+  expect(await db.select('SELECT w.status, w.title FROM work_order w JOIN task_occurrence o ON w.id = o.work_order_id WHERE o.id = ?', [task.occurrenceId]))
+    .toEqual([{ status: 'done', title: 'Syntetisk eftersyn' }]);
+});
