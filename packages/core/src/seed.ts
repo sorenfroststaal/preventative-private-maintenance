@@ -19,10 +19,12 @@ try {
   const id = () => crypto.randomUUID();
   await archive.db.transaction(async (tx) => {
     const [person] = await tx.select<{ id: string }>('SELECT id FROM person WHERE app_user_id = ?', [userId]);
-    const records = [
-      { table: 'property', data: { id: id(), name: 'Demobolig', kind: 'house', created_at: now() } },
-      { table: 'location', data: { id: id(), name: 'Demorum', property_id: '' } },
-      { table: 'item', module: 'home', data: { id: id(), name: 'Demogenstand', location_id: '', purchase_price_minor: 159900, created_at: now(), updated_at: now() } },
+    const propertyId = id();
+    const locationId = id();
+    const records: { table: string; module?: string; data: Record<string, string | number> & { id: string; title?: string; name?: string } }[] = [
+      { table: 'property', data: { id: propertyId, name: 'Demobolig', kind: 'house', created_at: now() } },
+      { table: 'location', data: { id: locationId, name: 'Demorum', property_id: propertyId } },
+      { table: 'item', module: 'home', data: { id: id(), name: 'Demogenstand', location_id: locationId, purchase_price_minor: 159900, created_at: now(), updated_at: now() } },
       { table: 'work_order', module: 'maintenance', data: { id: id(), title: 'Rens tagrende', kind: 'service', reported_date: '2026-09-10', created_at: now(), updated_at: now() } },
       { table: 'vehicle', module: 'vehicle', data: { id: id(), name: 'Demobil', created_at: now() } },
       { table: 'account', data: { id: id(), name: 'Demokonto' } },
@@ -34,8 +36,6 @@ try {
         data: { id: id(), name, kind: name === 'Indtægt' ? 'income' : name === 'Overførsel' ? 'transfer' : 'expense' },
       })),
     ];
-    records[1].data.property_id = records[0].data.id;
-    records[2].data.location_id = records[1].data.id;
     for (const { table, data, module } of records) {
       const fields = Object.entries(data);
       const columns = fields.map(([key]) => key);
