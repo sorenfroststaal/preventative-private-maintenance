@@ -32,6 +32,8 @@ export interface Dashboard {
 }
 
 export const EXPIRING_DAYS = 60;
+/** Recently expired system tasks stay visible this long; older ones are no longer actionable. */
+export const EXPIRED_GRACE_DAYS = 30;
 
 /**
  * Open occurrences of active tasks the user may see. Health tasks on persons whose
@@ -54,6 +56,7 @@ export async function dashboard(db: DbAdapter, opts: { today: string; userId: st
   const horizonDays = (await getSetting<number>(db, "dashboard.horizon_days")) ?? 30;
   const until = addDays(today, horizonDays);
   const expiringUntil = addDays(today, EXPIRING_DAYS);
+  const expiredSince = addDays(today, -EXPIRED_GRACE_DAYS);
   const tasks = await openTasks(db, opts.userId);
   // System tasks (warranty, complaint, policy, binding, prescription…) live in "Udløber snart".
   const normal = tasks.filter((t) => t.source !== "system");
@@ -79,7 +82,7 @@ export async function dashboard(db: DbAdapter, opts: { today: string; userId: st
   return {
     overdue: normal.filter((t) => t.due_date !== null && t.due_date < today),
     upcoming: normal.filter((t) => t.due_date !== null && t.due_date >= today && t.due_date <= until),
-    expiring: system.filter((t) => t.due_date !== null && t.due_date <= expiringUntil),
+    expiring: system.filter((t) => t.due_date !== null && t.due_date >= expiredSince && t.due_date <= expiringUntil),
     missing: {
       itemsWithoutReceipt,
       tasksWithoutDate: tasks.filter((t) => t.due_date === null),

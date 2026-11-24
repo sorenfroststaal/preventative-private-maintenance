@@ -8,6 +8,7 @@ import { DocumentsTab, HistoryTab, TasksTab } from "../components/DetailTabs";
 import { Empty, Modal, rowProps, Tabs } from "../components/ui";
 import { formatDate, formatMoney } from "../lib/format";
 import { NewWorkOrder } from "./WorkOrders";
+import { ArchiveButton } from "../components/ArchiveButton";
 
 export function Vehicles() {
   const { archive } = useSession();
@@ -81,7 +82,10 @@ function VehicleDetail({ vehicle }: { vehicle: Row }) {
   const id = String(vehicle.id);
   return (
     <aside className="detail wide-detail" aria-label="Bil">
-      <h2>{String(vehicle.name)}</h2>
+      <div className="header-row">
+        <h2>{String(vehicle.name)}</h2>
+        <ArchiveButton type="vehicle" id={id} label="Bilen" />
+      </div>
       <Tabs
         initial={params.get("tab") ?? undefined}
         tabs={[

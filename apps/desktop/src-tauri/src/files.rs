@@ -267,4 +267,89 @@ mod tests {
         scope.allow_dir(dir.path());
         assert!(remove(&scope, &dir.path().to_string_lossy(), true).is_err());
     }
+
+    #[cfg(unix)]
+    #[test]
+    fn file_commands_respect_scope() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("arkiv");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(dir.path().join("hemmelig.txt"), b"x").unwrap();
+        let scope = Scope::default();
+        scope.allow_dir(&root);
+        let outside = dir.path().join("hemmelig.txt");
+        let traversal = format!("{}/../hemmelig.txt", root.display());
+        assert!(read(&scope, &outside.to_string_lossy()).is_err());
+        assert!(read(&scope, &traversal).is_err());
+        assert!(sha256(&scope, &traversal).is_err());
+        assert!(write(&scope, &outside.to_string_lossy(), b"y").is_err());
+        assert!(copy(
+            &scope,
+            &outside.to_string_lossy(),
+            &root.join("x").to_string_lossy()
+        )
+        .is_err());
+        assert!(rename(
+            &scope,
+            &root.join("a").to_string_lossy(),
+            &outside.to_string_lossy()
+        )
+        .is_err());
+        assert!(list_dir(&scope, &dir.path().to_string_lossy()).is_err());
+        assert!(zip_create(
+            &scope,
+            &[ZipEntry {
+                src: outside.to_string_lossy().into(),
+                name: "x".into()
+            }],
+            &root.join("z.zip").to_string_lossy()
+        )
+        .is_err());
+        // A dropped/picked file is readable but not writable.
+        scope.allow_read_file(&outside);
+        assert!(read(&scope, &outside.to_string_lossy()).is_ok());
+        assert!(write(&scope, &outside.to_string_lossy(), b"y").is_err());
+        assert_eq!(fs::read(&outside).unwrap(), b"x");
+    }
+
+    /// Streaming check for spec 07 nr. 15 – run manually with
+    /// `PPM_BIG_MB=500 cargo test --release large_archive_zip_streams -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn large_archive_zip_streams() {
+        let mb: usize = std::env::var("PPM_BIG_MB")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(500);
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("arkiv");
+        fs::create_dir_all(root.join("bilag")).unwrap();
+        let scope = Scope::default();
+        scope.allow_dir(&root);
+        let mut entries = Vec::new();
+        let chunk: Vec<u8> = (0..1024 * 1024).map(|i| (i * 7 % 251) as u8).collect();
+        for i in 0..mb / 10 {
+            let p = root.join(format!("bilag/f{i}.jpg"));
+            let mut f = File::create(&p).unwrap();
+            for _ in 0..10 {
+                f.write_all(&chunk).unwrap();
+            }
+            entries.push(ZipEntry {
+                src: p.to_string_lossy().into(),
+                name: format!("bilag/f{i}.jpg"),
+            });
+        }
+        let z = root.join("backup.zip");
+        zip_create(&scope, &entries, &z.to_string_lossy()).unwrap();
+        let out = root.join("restore");
+        let names = zip_extract(&scope, &z.to_string_lossy(), &out.to_string_lossy()).unwrap();
+        assert_eq!(names.len(), entries.len());
+        for e in &entries {
+            assert_eq!(
+                sha256(&scope, &e.src).unwrap(),
+                sha256(&scope, &out.join(&e.name).to_string_lossy()).unwrap()
+            );
+        }
+        println!("zipped and extracted {} MB in {} files", mb, entries.len());
+    }
 }

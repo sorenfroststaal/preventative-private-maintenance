@@ -1,58 +1,86 @@
 # Status (branch `claude/app`)
 
-Opdateret: 24.11.2026. Aktuel fase: **Fase 1 – Fundament er færdig**, bortset fra punkterne under "Ikke verificeret".
+Opdateret: 24.11.2026. Aktuel fase: **Fase 2 – Alle moduler i en tynd udgave er færdig**, bortset fra punkterne under "Ikke verificeret". Fase 1 er bragt i overensstemmelse med præciseringerne i PR #2.
 
 ## Fase 1: kriterier
 
-| # | Kriterium | Status | Bemærkning |
+| # | Status | Bemærkning |
+| --- | --- | --- |
+| 1 | Opfyldt | Alle kommandoer virker lokalt og i CI. `pnpm mcp` afslutter med en forklaring og exit-kode 2 (spec 01). |
+| 2–4 | Opfyldt **[T]** | Arkiv, migrationer og lås (`archive.test.ts`) |
+| 5 | Opfyldt | Brugere, personer og PIN (core-tests og E2E) |
+| 6 | Opfyldt **[T]** | Hash og dubletter (`repo.test.ts`) |
+| 7 | Opfyldt **[T]** | Alle 8 eksempler i eksempeltabellen fra spec 04 og flere andre (`recurrence.test.ts`) |
+| 8 | Opfyldt **[T]** | Audit og søgning ved oprettelse, ændring, arkivering, gendannelse og sletning af links. `pin_hash` står aldrig i auditloggen (`modules.test.ts`). |
+| 9 | Opfyldt **[T]** | Backup og gendannelse (`backup.test.ts`) |
+| 10 | Opfyldt | `pnpm seed` (CI-røgtest) |
+
+## Fase 2: kriterier
+
+| # | Kriterium | Status | Bevis |
 | --- | --- | --- | --- |
-| 1 | Monorepo og kommandoer | Opfyldt | `pnpm install/lint/test/build/seed` er kørt og grønne, også i CI (Ubuntu og Windows). `pnpm mcp` er en stub indtil fase 3 (AFVIGELSER A4). `pnpm dev` er ikke kørt interaktivt i containeren. |
-| 2 | Opret og åbn arkiv **[T]** | Opfyldt | `archive.test.ts` |
-| 3 | Migrationer er idempotente **[T]** | Opfyldt | Også test af rollback og skrivebeskyttet åbning af en nyere database. Lint tjekker, at `0001_init.sql` er identisk med `docs/spec/schema.sql`. |
-| 4 | Instanslås **[T]** | Opfyldt | Låst, forældet, frigivelse og "fjern kun forældet". Rust frigiver låsen ved normal afslutning (verificeret manuelt). |
-| 5 | Brugere, personer, brugervalg og PIN | Opfyldt | Core-tests og E2E i den rigtige app (forkert PIN afvises, login virker). |
-| 6 | Dokumentimport, hash og dubletter **[T]** | Opfyldt | `repo.test.ts`. Træk og slip i appen går via et Rust-event. Selve slip-handlingen er ikke automatiseret. |
-| 7 | Gentagelse **[T]** | Opfyldt | De tre testcases fra specifikationen og 10 ekstra. Fortolkninger i AFVIGELSER F1–F3. |
-| 8 | audit_log og search_index **[T]** | Opfyldt | Create, update, archive og restore, rollback ved fejl samt sletning af links. |
-| 9 | Backup og gendannelse **[T]** | Opfyldt | Round-trip med 3 bilag, beskadiget bilag, beskadiget database, zip slip og åbent arkiv. `VACUUM INTO` og zip via Rust er testet i Rust og i E2E. |
-| 10 | `pnpm seed` | Opfyldt | Syntetiske data i alle moduler. CI kører et røgtest. |
+| 1 | Bolig og inventar **[T]** | Opfyldt | CRUD (arkivering i stedet for sletning), fotos og kvittering, forslag til reklamationsret, automatiske opgaver (`modules.test.ts`). E2E: ny genstand med forslag. |
+| 2 | Arbejdsordrer **[T]** | Opfyldt | Statusflow med tidslinje, noter (søgbare), bilag med roller, historik og km-stand fra arbejdsordre. Skadesag ved skade. |
+| 3 | Bil **[T]** | Opfyldt | Km-stand, skabelonforslag og driftsomkostninger pr. år |
+| 4 | Økonomi **[T]** | Opfyldt | `sparkron` og `generic` med forhåndsvisning. Anden import giver 0 nye rækker. Windows-1252 og danske beløb. Regler og lærte regler, budget mod faktisk forbrug og faste udgifter (`finance.test.ts`). |
+| 5 | Forsikring **[T]** | Opfyldt | Dækning (også via bolig), advarsel om underforsikring, normaliseret præmie og automatisk opgave ved fornyelse |
+| 6 | Forsikringsrapport **[T]** | Opfyldt | Antal og totalsum, filtre, fotos og kvitteringer som bilag (`documents2.test.ts`). E2E: rapporten gemmes i `eksport/`. |
+| 7 | Helbred **[T]** | Opfyldt | Seks faner, graf over målinger, privat synlighed og automatiske opgaver |
+| 8 | Dokumenter **[T]** | Opfyldt | Tekstudtræk (PDF og eml), liste med filtre, forhåndsvisning (pdf.js), importkø og kobling. Overvåget indbakke testet med falsk ur. E2E i den rigtige app. |
+| 9 | Overblik **[T]** | Opfyldt | Alle 7 sektioner med hurtighandlinger. Fortolkning i AFVIGELSER F4–F6. |
+| 10 | Global søgning | Opfyldt | Ctrl+K, grupperet pr. modul (E2E) |
+| 11 | Eksport **[T]** | Opfyldt | CSV, JSON, alt som JSON og ICS uden noter og med neutrale helbredstitler |
+| 12 | Tastatur | Delvist verificeret | Alle handlinger er knapper og felter. Tabelrækker kan fokuseres og vælges med Enter. Dialoger lukkes med Escape, og fokus vender tilbage. Der er ingen automatiseret test af hele forløbet kun med tastatur. |
+| 13 | Filadgang **[T]** | Opfyldt | Rust-tests gennem samme funktioner som kommandoerne: uden for scope, `..`, `ATTACH`, `VACUUM INTO` uden for arkivet, database uden for scope og config-sti, der ikke er valgt i en dialog. Desuden E2E gennem rigtig IPC (fase 1). |
+| 14 | Appens database-driver **[T]** | Opfyldt | Rust-tests: transaktion over flere kald (rollback og commit, isolation fra anden forbindelse), FTS5 med æøå, parametertyper og `VACUUM INTO` |
+| 15 | Streaming backup | Opfyldt | 500 MB bilag, se målingerne nedenfor |
+| 16 | Låsen fjernes ved lukning | Opfyldt | Verificeret i den rigtige app ved at lukke vinduet via en window manager (`wmctrl -c`). `.lock` er væk bagefter. |
 
 ## Tests
 
 | Suite | Antal | Resultat |
 | --- | --- | --- |
-| core (Vitest) | 52 | Grøn |
-| desktop (Vitest, jsdom) | 5 | Grøn |
-| Rust (`cargo test`) | 5 | Grøn |
-| **I alt** | **62** | **Grøn** |
+| core (Vitest) | 93 | Grøn |
+| desktop (Vitest) | 9 | Grøn |
+| Rust (`cargo test`) | 10 (+1 ignoreret måletest) | Grøn |
+| **I alt** | **112** | **Grøn** |
 
-Desuden er `cargo clippy -D warnings`, `cargo fmt --check`, ESLint og `tsc -b` rene.
+ESLint, `tsc -b`, `cargo fmt --check` og `cargo clippy -D warnings` er rene.
 
-### Manuel E2E (den rigtige app, tauri-driver og WebKitWebDriver i Xvfb)
+### E2E i den rigtige app (tauri-driver og WebKitWebDriver i Xvfb)
 
-- Login: forkert PIN afvises, korrekt bruger logges ind.
-- Overblik: viser forfaldne opgaver, næste 30 dage og opgaver, der mangler dato, ud fra seed-arkivet.
-- Opgaver: en ny opgave med interval på 2 måneder udføres 24.11.2026, og næste forfaldsdato bliver 24.01.2027. Historikken vises.
-- Dokumenter og indstillinger vises med seed-data.
-- Rust-scope gennem rigtig IPC:
-  - Tilladt: læsning og skrivning i arkivet, `VACUUM INTO` i arkivet, zip og sha256.
-  - Afvist: læsning uden for scope, `../`-traversal, `VACUUM INTO` uden for scope, `ATTACH`, at åbne en database uden for scope, sletning af rodmappen og at skrive config med en arkivsti, der ikke er valgt.
-- En forældet lås efter et nedbrud viser skærmen "Arkivet er låst" med knappen "Fjern låsen og åbn".
-- Lukkes vinduet normalt, fjernes `.lock`.
+Alle 11 trin bestod:
 
-Fundne og rettede fejl under E2E: `ATTACH`-spærren blokerede `VACUUM INTO` (backup). Låsen blev ikke frigivet ved normal lukning. Feltet "Udskyd" beholdt datoen fra den forrige opgave.
+- overblikkets sektioner
+- genstand med forhåndsvisning af PDF (pdf.js-worker under CSP)
+- ny genstand med forslag til reklamationsret, som derefter står under "Mangler oplysninger"
+- arbejdsordrens tidslinje
+- bilens driftsomkostninger og skabeloner
+- økonomifanerne
+- forsikring med advarsel om underforsikring og rapport
+- helbred
+- overvåget indbakke, inklusive advarsel om en fil, der ikke understøttes
+- Ctrl+K
+- ICS-eksport med neutral helbredstitel.
+
+Fundet og rettet under E2E: "Udløber snart" viste reklamationsret, der var udløbet for flere år siden (nu afgrænset, se F4).
 
 ## Målinger
 
-| Måling | Værdi | Note |
+| Måling | Værdi | Metode |
 | --- | --- | --- |
-| Installer, Linux (.deb) | 2,7 MB | Release-build med LTO |
-| Binær (Linux) | 6,2 MB | |
-| Installer, Windows (NSIS) | ca. 2,4 MB | Bygget af CI-jobbet `build-windows` på windows-latest (artefakt `ppm-windows-installer`, zip-størrelse 2.384.009 byte) |
-| Opstartstid til login-skærm | ca. 0,95 s | Median af 3, release-build, Linux i Xvfb uden GPU |
+| Backup og gendannelse via Rust (zip og udpakning), 500 MB | Højst 4,4 MB RSS, 4,8 s | `cargo test --release large_archive_zip_streams -- --ignored` med `/usr/bin/time -v` |
+| Backup og gendannelse via core (Node), 500 MB | Højst 159 MB RSS (132 MB før backuppen). Backup 4,1 s, gendannelse 10,0 s. | `packages/core/scripts/bench-backup.ts 500` |
+| Det samme, 100 MB | Højst 148 MB RSS (115 MB før backuppen) | Hukommelsen vokser ikke med arkivets størrelse |
+| Installerstørrelse, Windows (NSIS) | Måles i CI på denne commit | `*-setup.exe` (spec 07, målemetoder) |
+| Opstartstid til login-skærm | ca. 0,95 s (fase 1-måling) | Median af 3, release-build, Linux i Xvfb |
+
+## Manuel test på Windows (spec 07)
+
+**Ikke gennemført.** Det kræver en fysisk Windows-maskine. Installeren bygges i CI-jobbet `build-windows`.
 
 ## Ikke verificeret
 
-- Windows-installeren bygges grønt i CI, men den er ikke installeret og startet på en rigtig Windows-maskine.
-- De native dialoger (opret og åbn arkiv, vælg backupmappe og -fil) lod sig ikke automatisere i Xvfb. De kalder samme kode, som er testet på andre måder.
-- Gendannelse via brugerfladen er kun testet i core og ikke klikket igennem i appen.
+- Det manuelle testforløb på Windows (se ovenfor).
+- De native dialoger (vælg mappe og filer) lod sig ikke automatisere i Xvfb. Det gælder også bank-import via filvælgeren, men parsing og import er dækket af core-tests.
+- En fuld automatiseret test af tastaturbetjeningen (fase 2 nr. 12).

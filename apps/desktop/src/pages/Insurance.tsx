@@ -17,6 +17,7 @@ import { Empty, Modal, rowProps, Tabs } from "../components/ui";
 import { CLAIM_STATUS, optionLabel, POLICY_KIND } from "../lib/entityFields";
 import { formatDate, formatMoney } from "../lib/format";
 import { useToast } from "../layout/Shell";
+import { ArchiveButton } from "../components/ArchiveButton";
 
 export function Insurance() {
   const { archive } = useSession();
@@ -94,7 +95,10 @@ function PolicyDetail({ policy }: { policy: Row }) {
   const id = String(policy.id);
   return (
     <aside className="detail wide-detail" aria-label="Police">
-      <h2>{String(policy.title)}</h2>
+      <div className="header-row">
+        <h2>{String(policy.title)}</h2>
+        <ArchiveButton type="policy" id={id} label="Policen" />
+      </div>
       <Tabs
         tabs={[
           { id: "cov", label: "Dækning", content: () => <Coverage policyId={id} /> },

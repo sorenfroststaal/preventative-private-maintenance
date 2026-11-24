@@ -151,6 +151,8 @@ describe("phase 2.9 – dashboard queries", () => {
     await createTask(ctx, { title: "Uden dato", module: "maintenance", recurrence: { kind: "interval", unit: "year", every: 1 } });
     await createEntity(ctx, "item", { name: "TV", purchase_price_minor: 799500, complaint_until: "2027-01-10" });
     await createEntity(ctx, "item", { name: "Gammel", complaint_until: "2028-01-01" });
+    await createEntity(ctx, "item", { name: "Udløbet for længe siden", complaint_until: "2024-01-01" });
+    await createEntity(ctx, "item", { name: "Netop udløbet", complaint_until: "2026-11-10" });
     await createEntity(ctx, "policy", { kind: "car", title: "Bil" });
     await createEntity(ctx, "vehicle", { name: "Bilen" });
     // Private health task for Bo
@@ -163,7 +165,7 @@ describe("phase 2.9 – dashboard queries", () => {
     const d = await dashboard(db, { today: "2026-11-24", userId: String(anna.id) });
     expect(d.overdue.map((t) => t.title)).toEqual(["Forfalden"]);
     expect(d.upcoming.map((t) => t.title)).toEqual(["Snart"]);
-    expect(d.expiring.map((t) => t.title)).toEqual(["Reklamationsret udløber: TV"]);
+    expect(d.expiring.map((t) => t.title)).toEqual(["Reklamationsret udløber: Netop udløbet", "Reklamationsret udløber: TV"]);
     expect(d.missing.tasksWithoutDate.map((t) => t.title)).toEqual(["Uden dato"]);
     expect(d.missing.itemsWithoutReceipt.map((i) => i.name)).toEqual(["TV"]);
     expect(d.missing.policiesWithoutRenewal.map((p) => p.title)).toEqual(["Bil"]);
@@ -175,7 +177,7 @@ describe("phase 2.9 – dashboard queries", () => {
     // Bo sees his own private health task; the horizon setting is respected.
     await setSetting(ctx, "dashboard.horizon_days", 10);
     const forBo = await dashboard(db, { today: "2026-11-24", userId: String(bo.id) });
-    expect(forBo.expiring.map((t) => t.title).sort()).toEqual(["Forny recept: Medicin (Bo)", "Reklamationsret udløber: TV"]);
+    expect(forBo.expiring.map((t) => t.title).sort()).toEqual(["Forny recept: Medicin (Bo)", "Reklamationsret udløber: Netop udløbet", "Reklamationsret udløber: TV"]);
     expect(forBo.upcoming).toEqual([]);
     await setSetting(ctx, "backup.last_at", "2026-11-20T10:00:00.000Z");
     expect((await dashboard(db, { today: "2026-11-24", userId: null })).backup.due).toBe(false);

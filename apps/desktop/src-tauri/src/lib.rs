@@ -62,14 +62,21 @@ fn config_read(app: AppHandle) -> R<Option<String>> {
     }
 }
 
-#[tauri::command]
-fn config_write(app: AppHandle, scope: State<'_, Scope>, text: String) -> R<()> {
-    let v: Json = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+/// The UI may only store an archive path that the user picked in a native dialog;
+/// it can never widen the scope by writing a path of its own (spec 01 "Filadgang").
+fn validate_config(scope: &Scope, text: &str) -> R<()> {
+    let v: Json = serde_json::from_str(text).map_err(|e| e.to_string())?;
     if let Some(p) = v.get("archivePath").and_then(|x| x.as_str()) {
         if !scope.is_rw_root(std::path::Path::new(p)) {
             return Err("Arkivstien skal være valgt i en dialog".into());
         }
     }
+    Ok(())
+}
+
+#[tauri::command]
+fn config_write(app: AppHandle, scope: State<'_, Scope>, text: String) -> R<()> {
+    validate_config(&scope, &text)?;
     let p = config_path(&app)?;
     std::fs::create_dir_all(p.parent().unwrap()).map_err(|e| e.to_string())?;
     let tmp = p.with_extension("json.tmp");
@@ -344,5 +351,23 @@ fn release_own_lock(app: &AppHandle) {
     let same_host = info.get("hostname").and_then(|h| h.as_str()) == Some(host.as_str());
     if same_pid && same_host {
         let _ = std::fs::remove_file(lock);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn ui_cannot_widen_scope_through_config() {
+        let scope = Scope::default();
+        scope.allow_dir(std::path::Path::new("/home/a/arkiv"));
+        assert!(validate_config(&scope, r#"{"archivePath":"/home/a/arkiv"}"#).is_ok());
+        assert!(validate_config(&scope, r#"{"archivePath":"/etc"}"#).is_err());
+        assert!(validate_config(&scope, r#"{"archivePath":"/home/a/arkiv/../../etc"}"#).is_err());
+        assert!(validate_config(&scope, r#"{"lastUserId":"x"}"#).is_ok());
+        // A rejected config never adds anything to the scope.
+        assert!(scope.check("/etc/passwd", scope::Access::Read).is_err());
     }
 }

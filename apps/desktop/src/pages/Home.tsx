@@ -9,6 +9,7 @@ import { Empty, includesText, Modal, rowProps, SearchBox, Tabs } from "../compon
 import { formatDate, formatMoney } from "../lib/format";
 import { annualAmount } from "@ppm/core";
 import { useToast } from "../layout/Shell";
+import { ArchiveButton } from "../components/ArchiveButton";
 
 export function Home() {
   return (
@@ -226,9 +227,12 @@ function Properties() {
         <div key={String(p.id)} className="panel">
           <div className="header-row">
             <h3>{String(p.name)}</h3>
-            <button className="link" onClick={() => setEditing(p)}>
-              Redigér
-            </button>
+            <span className="row tight">
+              <button className="link" onClick={() => setEditing(p)}>
+                Redigér
+              </button>
+              <ArchiveButton type="property" id={String(p.id)} label="Boligen" />
+            </span>
           </div>
           <p className="muted">{String(p.address ?? "")}</p>
           <h4>Rum og områder</h4>
@@ -299,7 +303,10 @@ function BuildingParts() {
         </table>
         {selected && (
           <aside className="detail" key={String(selected.id)}>
-            <h2>{String(selected.name)}</h2>
+            <div className="header-row">
+              <h2>{String(selected.name)}</h2>
+              <ArchiveButton type="building_part" id={String(selected.id)} label="Bygningsdelen" onDone={() => setParams({})} />
+            </div>
             <Tabs
               tabs={[
                 { id: "tasks", label: "Opgaver", content: () => <TasksTab targetType="building_part" targetId={String(selected.id)} module="Vedligehold" /> },

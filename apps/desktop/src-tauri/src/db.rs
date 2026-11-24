@@ -253,4 +253,122 @@ mod tests {
             )
             .is_err());
     }
+
+    #[cfg(unix)]
+    #[test]
+    fn transactions_across_calls_use_one_connection() {
+        // Spec 01: BEGIN/COMMIT/ROLLBACK sent as separate calls (as SerializedDb does over IPC).
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("arkiv");
+        std::fs::create_dir_all(&root).unwrap();
+        let scope = Scope::default();
+        scope.allow_dir(&root);
+        let dbs = Dbs::default();
+        let path = root.join("a.sqlite");
+        let h = dbs.open(&scope, &path.to_string_lossy(), false).unwrap();
+        dbs.execute(&scope, h, "CREATE TABLE t (x INTEGER)", &[])
+            .unwrap();
+        dbs.execute(&scope, h, "BEGIN IMMEDIATE", &[]).unwrap();
+        dbs.execute(
+            &scope,
+            h,
+            "INSERT INTO t VALUES (?)",
+            &[serde_json::json!(1)],
+        )
+        .unwrap();
+        dbs.execute(&scope, h, "ROLLBACK", &[]).unwrap();
+        dbs.execute(&scope, h, "BEGIN IMMEDIATE", &[]).unwrap();
+        dbs.execute(
+            &scope,
+            h,
+            "INSERT INTO t VALUES (?)",
+            &[serde_json::json!(2)],
+        )
+        .unwrap();
+        // A second connection must not see uncommitted data.
+        let h2 = dbs.open(&scope, &path.to_string_lossy(), true).unwrap();
+        assert_eq!(
+            dbs.select(h2, "SELECT count(*) AS n FROM t", &[]).unwrap()[0]["n"],
+            0
+        );
+        dbs.execute(&scope, h, "COMMIT", &[]).unwrap();
+        let rows = dbs.select(h, "SELECT x FROM t", &[]).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["x"], 2);
+        assert_eq!(
+            dbs.select(h2, "SELECT count(*) AS n FROM t", &[]).unwrap()[0]["n"],
+            1
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fts5_and_parameter_types() {
+        let dir = tempfile::tempdir().unwrap();
+        let scope = Scope::default();
+        scope.allow_dir(dir.path());
+        let dbs = Dbs::default();
+        let h = dbs
+            .open(
+                &scope,
+                &dir.path().join("a.sqlite").to_string_lossy(),
+                false,
+            )
+            .unwrap();
+        dbs.execute_script(h, "CREATE VIRTUAL TABLE s USING fts5(title, body, tokenize = 'unicode61 remove_diacritics 0');").unwrap();
+        dbs.execute(
+            &scope,
+            h,
+            "INSERT INTO s VALUES (?, ?)",
+            &[
+                serde_json::json!("Køleskab"),
+                serde_json::json!("Rens brønd"),
+            ],
+        )
+        .unwrap();
+        let hits = dbs
+            .select(
+                h,
+                "SELECT title FROM s WHERE s MATCH ?",
+                &[serde_json::json!("\"brønd\"*")],
+            )
+            .unwrap();
+        assert_eq!(hits[0]["title"], "Køleskab");
+        let v = dbs
+            .select(
+                h,
+                "SELECT ? AS i, ? AS f, ? AS n, ? AS t",
+                &[
+                    serde_json::json!(5),
+                    serde_json::json!(1.5),
+                    serde_json::Value::Null,
+                    serde_json::json!("æøå"),
+                ],
+            )
+            .unwrap();
+        assert_eq!(v[0]["i"], 5);
+        assert_eq!(v[0]["f"], 1.5);
+        assert!(v[0]["n"].is_null());
+        assert_eq!(v[0]["t"], "æøå");
+        // PRAGMAs that return a row work through execute (applyPragmas uses this).
+        dbs.execute(&scope, h, "PRAGMA busy_timeout = 5000", &[])
+            .unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn database_outside_scope_cannot_be_opened() {
+        let dir = tempfile::tempdir().unwrap();
+        let scope = Scope::default();
+        scope.allow_dir(&dir.path().join("arkiv"));
+        let dbs = Dbs::default();
+        assert!(dbs
+            .open(
+                &scope,
+                &dir.path().join("andet.sqlite").to_string_lossy(),
+                false
+            )
+            .is_err());
+        assert!(dbs.open(&scope, "/etc/passwd", true).is_err());
+    }
 }
