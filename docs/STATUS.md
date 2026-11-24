@@ -6,7 +6,7 @@ Opdateret: 24.11.2026. Aktuel fase: **Fase 1 – Fundament er færdig**, bortset
 
 | # | Kriterium | Status | Bemærkning |
 | --- | --- | --- | --- |
-| 1 | Monorepo og kommandoer | Opfyldt | `pnpm install/lint/test/build/seed` er kørt og grønne. `pnpm mcp` er en stub indtil fase 3 (AFVIGELSER A4). `pnpm dev` er ikke kørt interaktivt i containeren. |
+| 1 | Monorepo og kommandoer | Opfyldt | `pnpm install/lint/test/build/seed` er kørt og grønne, også i CI (Ubuntu og Windows). `pnpm mcp` er en stub indtil fase 3 (AFVIGELSER A4). `pnpm dev` er ikke kørt interaktivt i containeren. |
 | 2 | Opret og åbn arkiv **[T]** | Opfyldt | `archive.test.ts` |
 | 3 | Migrationer er idempotente **[T]** | Opfyldt | Også test af rollback og skrivebeskyttet åbning af en nyere database. Lint tjekker, at `0001_init.sql` er identisk med `docs/spec/schema.sql`. |
 | 4 | Instanslås **[T]** | Opfyldt | Låst, forældet, frigivelse og "fjern kun forældet". Rust frigiver låsen ved normal afslutning (verificeret manuelt). |
@@ -48,11 +48,11 @@ Fundne og rettede fejl under E2E: `ATTACH`-spærren blokerede `VACUUM INTO` (bac
 | --- | --- | --- |
 | Installer, Linux (.deb) | 2,7 MB | Release-build med LTO |
 | Binær (Linux) | 6,2 MB | |
-| Installer, Windows (NSIS) | Ikke målt lokalt | Bygges af CI-jobbet `build-windows` (artefakt `ppm-windows-installer`) |
+| Installer, Windows (NSIS) | ca. 2,4 MB | Bygget af CI-jobbet `build-windows` på windows-latest (artefakt `ppm-windows-installer`, zip-størrelse 2.384.009 byte) |
 | Opstartstid til login-skærm | ca. 0,95 s | Median af 3, release-build, Linux i Xvfb uden GPU |
 
 ## Ikke verificeret
 
-- Windows-builden og NSIS-installeren er ikke kørt lokalt. Det sker i CI.
+- Windows-installeren bygges grønt i CI, men den er ikke installeret og startet på en rigtig Windows-maskine.
 - De native dialoger (opret og åbn arkiv, vælg backupmappe og -fil) lod sig ikke automatisere i Xvfb. De kalder samme kode, som er testet på andre måder.
 - Gendannelse via brugerfladen er kun testet i core og ikke klikket igennem i appen.
