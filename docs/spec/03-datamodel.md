@@ -1,6 +1,6 @@
 # 03 Datamodel
 
-[schema.sql](schema.sql) er det normative skema for `schemaVersion 1`, [schema-0002.sql](schema-0002.sql) bringer det til `schemaVersion 2` (madplan), og [schema-0003.sql](schema-0003.sql) bringer det til `schemaVersion 3` (bilag og fotos på reservedele, `document_link.target_type = 'item_part'`). Dokumentet her forklarer regler, som skemaet ikke selv kan håndhæve.
+[schema.sql](schema.sql) er det normative skema for `schemaVersion 1`, [schema-0002.sql](schema-0002.sql) bringer det til `schemaVersion 2` (madplan), [schema-0003.sql](schema-0003.sql) bringer det til `schemaVersion 3` (bilag og fotos på reservedele, `document_link.target_type = 'item_part'`), og [schema-0004.sql](schema-0004.sql) bringer det til `schemaVersion 4` (husdyr: tabellen `pet`, som bilag og forsikringsdækning kan pege på). Dokumentet her forklarer regler, som skemaet ikke selv kan håndhæve.
 
 ## Polymorfe koblinger
 
@@ -107,3 +107,9 @@ Moduler bruges i `search_index.module`, til AI-adgang (06) og til filtrering. Ma
 - Fritekstkolonner, som vælges fra en rulleliste (`item.category` og `building_part.kind`), har en redigerbar værdiliste i `setting` under `lists.item_category` og `lists.building_part_kind` (JSON-array af tekster). Listen vises altid sammen med de værdier, der allerede er i brug, uden forskel på store og små bogstaver.
 - Omdøbes en værdi, opdateres alle poster, der bruger den, og hver ændring auditeres. En værdi, der er i brug, kan ikke slettes fra listen.
 - Standardværdier: genstandskategorier *Hvidevarer, Elektronik, Møbler, Køkken, Værktøj, Have, Belysning, Sport og fritid, Andet*. Bygningsdelstyper *Tag, Facade, Vinduer og døre, Varme, Ventilation, VVS, El, Kloak og afløb, Have og udearealer, Andet*.
+
+## Husdyr (schemaVersion 4)
+
+- `pet` hører til modulet `home` (også for AI-adgang og søgeindeks: titel `name`, brødtekst race, chipnummer, dyrlægens navn og noter).
+- Et husdyr kan have bilag og fotos (`document_link.target_type = 'pet'`) og være dækket af en police (`policy_coverage.target_type = 'pet'`, typisk `policy.kind = 'pet'`).
+- Dyrlæge er en `contact`, og ejer er en `person`. Vaccinationer og dyrlægebesøg registreres foreløbig som opgaver og bilag (en egen helbredsjournal for dyr er uden for v1).

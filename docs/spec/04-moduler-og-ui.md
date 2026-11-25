@@ -181,6 +181,10 @@ En allergi-registrering matcher en nøgle, hvis `substance` indeholder visningsn
 - Varer grupperes efter butiksafdeling (`category`), og afdelingen gættes ud fra varenavnet med en simpel liste: Frugt og grønt, Kød og fisk, Mejeri, Brød, Kolonial, Frost, Andet. Brugeren kan ændre den.
 - Varer kan afkrydses, tilføjes manuelt, slettes og kopieres som tekst (én vare pr. linje, grupperet efter afdeling), fx til en besked. Afkrydsede varer kommer kun med, hvis brugeren vælger det.
 
+## Husdyr
+
+Under **Bolig og inventar** har fanen **Husdyr** en liste (navn, art og race, chipnummer, dyrlæge) og en detaljevisning med fotos, oplysninger, bilag og de policer, der dækker dyret. Felterne er navn, art (hund, kat, hest, kanin, fugl, andet), race, køn, fødselsdato, chipnummer, ejer (person), dyrlæge (kontakt) og noter. Under Forsikring kan dækning tilføjes for et husdyr.
+
 ## Lister og rullelister
 
 - Menupunktet **Lister** (ikon `list-tree`, farvetoken `--c-lists`) viser de poster og værdier, som rullelisterne i formularerne henter fra, med en fane for hver: rum og placeringer, boliger, kontakter, personer, konti, økonomikategorier, genstandskategorier og bygningsdelstyper. Poster rettes med samme formular som andre steder og arkiveres i stedet for at blive slettet. Værdilister (03) kan få nye værdier, omdøbes og få ubrugte værdier slettet.

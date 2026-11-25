@@ -8,7 +8,7 @@ Nøgleordene **SKAL**, **BØR** og **KAN** bruges som i RFC 2119.
 | --- | --- |
 | [01-teknologi-og-struktur.md](01-teknologi-og-struktur.md) | Teknologistak, mappestruktur, kommandoer og konventioner |
 | [02-arkiv-og-lagring.md](02-arkiv-og-lagring.md) | Arkivmappe, database, bilag, backup og gendannelse |
-| [03-datamodel.md](03-datamodel.md) | Forklaring af datamodellen. Selve skemaet ligger i [schema.sql](schema.sql) og migrationerne [schema-0002.sql](schema-0002.sql) (madplan) og [schema-0003.sql](schema-0003.sql) (bilag på reservedele) |
+| [03-datamodel.md](03-datamodel.md) | Forklaring af datamodellen. Selve skemaet ligger i [schema.sql](schema.sql) og migrationerne [schema-0002.sql](schema-0002.sql) (madplan) [schema-0003.sql](schema-0003.sql) (bilag på reservedele) og [schema-0004.sql](schema-0004.sql) (husdyr) |
 | [04-moduler-og-ui.md](04-moduler-og-ui.md) | Skærmbilleder, felter, dashboard, gentagelsesregler, madplan og visuel stil |
 | [05-import-og-rapporter.md](05-import-og-rapporter.md) | Import af bilag, bank-CSV, forsikringsrapport og eksport |
 | [06-ai-mcp.md](06-ai-mcp.md) | MCP-server, værktøjer, adgangsstyring og kladder |
