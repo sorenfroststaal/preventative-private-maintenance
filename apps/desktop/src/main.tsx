@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import './style.css';
+import { Food } from './food';
 import { HealthPrivacy, Overview, SaveOutput } from './module-actions';
 import { ModuleView, sections } from './modules';
 
@@ -218,7 +219,7 @@ function App() {
         <button type="button" onClick={() => setSearchOpen(false)}>Luk</button></div>
     </form>{Object.entries(results.reduce<Record<string, typeof results>>((groups, row) => {
       const group = Object.entries(sections).find(([, types]) => types.some(([type]) => type === row.entity_type))?.[0] ??
-        (row.module === 'documents' ? 'Dokumenter' : 'Opgaver');
+        (row.module === 'food' ? 'Madplan' : row.module === 'documents' ? 'Dokumenter' : 'Opgaver');
       (groups[group] ??= []).push(row);
       return groups;
     }, {})).map(([group, hits]) =>
@@ -226,6 +227,8 @@ function App() {
           <li key={hit.entity_type + hit.entity_id}><strong>{hit.title}</strong></li>)}</ul>
           <button onClick={() => { setSection(group); setSearchOpen(false); }}>Åbn {group.toLocaleLowerCase('da')}</button>
         </section>)}</>;
+  } else if (section === 'Madplan') {
+    content = <Food local={local} run={run} />;
   } else if (section === 'Overblik') {
     content = <Overview local={local} run={run} backup={backupDue} openTasks={id => void run(async () => {
       await refresh(); setFocusedTask(id); setSection('Opgaver');
@@ -345,7 +348,7 @@ function App() {
 
   return <div className="layout">
     <aside><div className="brand">PPM</div><p>Privat vedligeholdelse</p>{current && <nav>
-      {['Overblik', 'Opgaver', ...Object.keys(sections), 'Dokumenter', 'Indstillinger'].map((name) =>
+      {['Overblik', 'Opgaver', ...Object.keys(sections), 'Madplan', 'Dokumenter', 'Indstillinger'].map((name) =>
         <button key={name} aria-current={section === name ? 'page' : undefined} onClick={() => { setSearchOpen(false); setSection(name); }}>{name}</button>)}
       <button onClick={() => setSearchOpen(true)}>Søg (Ctrl+K)</button>
       <button onClick={() => void run(async () => {

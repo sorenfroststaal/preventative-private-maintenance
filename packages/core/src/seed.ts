@@ -2,6 +2,7 @@ import { openArchive } from './archive';
 import { importArchiveDocument } from './node-documents';
 import { createTask } from './repo/tasks';
 import { createUser } from './repo/users';
+import { today } from './domain/dates';
 import { now } from './db/migrate';
 import { recordChange } from './repo/write';
 
@@ -21,7 +22,20 @@ try {
     const [person] = await tx.select<{ id: string }>('SELECT id FROM person WHERE app_user_id = ?', [userId]);
     const propertyId = id();
     const locationId = id();
+    const soup = id();
+    const stew = id();
+    const day = today();
+    const timestamp = now();
+    await tx.execute('INSERT INTO setting VALUES (?, ?)', ['ai.as_user_id', JSON.stringify(userId)]);
+    await recordChange(tx, ctx, 'setting', 'ai.as_user_id', null, { value_json: JSON.stringify(userId) });
     const records: { table: string; module?: string; data: Record<string, string | number> & { id: string; title?: string; name?: string } }[] = [
+      { table: 'recipe', module: 'food', data: { id: soup, name: 'Kartoffelsuppe', servings: 4, estimated_cost_minor: 3600, created_at: timestamp, updated_at: timestamp } },
+      { table: 'recipe', module: 'food', data: { id: stew, name: 'Linsegryde', servings: 4, estimated_cost_minor: 4400, created_at: timestamp, updated_at: timestamp } },
+      { table: 'recipe_ingredient', data: { id: id(), recipe_id: soup, position: 0, name: 'kartofler', amount: 800, unit: 'g' } },
+      { table: 'recipe_ingredient', data: { id: id(), recipe_id: soup, position: 1, name: 'fløde', amount: 2, unit: 'dl' } },
+      { table: 'recipe_ingredient', data: { id: id(), recipe_id: stew, position: 0, name: 'linser', amount: 300, unit: 'g' } },
+      { table: 'health_allergy', data: { id: id(), person_id: person.id, substance: 'Mælk' } },
+      { table: 'meal_plan_entry', data: { id: id(), plan_date: day, recipe_id: soup, servings: 4, created_at: timestamp } },
       { table: 'property', data: { id: propertyId, name: 'Demobolig', kind: 'house', created_at: now() } },
       { table: 'location', data: { id: locationId, name: 'Demorum', property_id: propertyId } },
       { table: 'item', module: 'home', data: { id: id(), name: 'Demogenstand', location_id: locationId, purchase_price_minor: 159900, created_at: now(), updated_at: now() } },

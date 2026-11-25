@@ -45,7 +45,9 @@ Branchen indeholder merge af `main` efter PR #3. Migration 0001 er byteidentisk 
 
 3. Ingrediens-parseren dækker alle syv eksempler i spec 05 samt brøk, store bogstaver og bevarelse af den oprindelige tekst. Lokal lint og 54 Vitest-tests bestod. Vite-buildet bestod. Lokal pakning stoppede ved Tauri, fordi Cargo manglede.
 
-Kriterium 2 og 4–10 udestår.
+8. Startkataloget kan tilføjes fra Madplan. Testen opretter 40 opskrifter, gentager handlingen med 0 nye og kontrollerer audit og søgning. Seed opretter to syntetiske opskrifter, dagens ret med fløde, en mælkeallergi og `ai.as_user_id`. Lokal lint, 55 tests og seed bestod.
+
+Kriterium 2, 4–7 og 9 udestår. For kriterium 10 finder søgningen katalogets opskrifter. Kortet på overblikket udestår.
 
 ## Byg og manuel afprøvning
 

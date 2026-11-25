@@ -1,3 +1,4 @@
+import { addStarterCatalog, recipes } from './food/catalog';
 import { Console } from 'node:console';
 import { lstat, mkdir, readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
@@ -87,6 +88,8 @@ async function call(action: string, data: unknown) {
   if (!userId) throw new Error('Vælg en bruger først.');
   const ctx = { via: 'ui', userId } as const;
   switch (action) {
+    case 'recipes': return recipes(db);
+    case 'addStarterCatalog': return addStarterCatalog(db, ctx);
     case 'logout': userId = undefined; pendingBank = undefined; return true;
     case 'createPerson': return createPerson(db, data, userId);
     case 'backupDue': {

@@ -13,6 +13,7 @@ await build({
   target: 'node24',
   banner: { js: 'import { createRequire as runtimeRequire } from "node:module"; const require = runtimeRequire(import.meta.url);' },
 });
+copyFileSync('templates/da/retter.json', destination + '/retter.json');
 for (const file of ['0001_init.sql', '0002_meal_plan.sql']) {
   copyFileSync('packages/core/migrations/' + file, destination + '/' + file);
 }
