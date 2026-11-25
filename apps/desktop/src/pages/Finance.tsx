@@ -4,6 +4,10 @@ import { DocumentsTab } from "../components/DetailTabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   acceptCategorySuggestions,
+  BANK_PRESETS,
+  detectBankPreset,
+  resolvePreset,
+  type BankPreset,
   archiveEntity,
   suggestCategories,
   type CategorySuggestion,
@@ -282,7 +286,8 @@ function ImportWizard() {
   });
   const [accountId, setAccountId] = useState("");
   const [file, setFile] = useState<{ path: string; text: string } | null>(null);
-  const [mode, setMode] = useState<"sparkron" | "generic">("sparkron");
+  const [mode, setMode] = useState<"sparkron" | "preset" | "generic">("sparkron");
+  const [detected, setDetected] = useState<{ preset: BankPreset; profile: GenericProfile } | null>(null);
   const [generic, setGeneric] = useState<GenericProfile>({ name: "", delimiter: ";", hasHeader: true, dateFormat: "DD-MM-YYYY", columns: { date: 0, text: 1, amount: 2, balance: null } });
   const [parsed, setParsed] = useState<ParseResult | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
@@ -294,7 +299,10 @@ function ImportWizard() {
     if (!p) return;
     const text = decodeBankFile(await session.env.fs.readFile(p));
     setFile({ path: p, text });
-    setMode(detectSparkron(text) ? "sparkron" : "generic");
+    const bank = detectSparkron(text) ? null : detectBankPreset(text);
+    setDetected(bank);
+    if (bank) setGeneric({ ...bank.profile, name: "" });
+    setMode(detectSparkron(text) ? "sparkron" : bank ? "preset" : "generic");
     setParsed(null);
     setPreview(null);
     setErrors([]);
@@ -302,7 +310,7 @@ function ImportWizard() {
 
   async function doPreview() {
     if (!file || !accountId) return;
-    const result = mode === "sparkron" ? parseSparkron(file.text) : parseGeneric(file.text, generic);
+    const result = mode === "sparkron" ? parseSparkron(file.text) : mode === "preset" && detected ? { ...parseGeneric(file.text, detected.profile), profile: `preset:${detected.preset.id}` } : parseGeneric(file.text, generic);
     setParsed(result);
     try {
       setPreview(await previewBankImport(session.archive.db, accountId, result));
@@ -336,6 +344,7 @@ function ImportWizard() {
 
   const sampleRows = file ? parseCsv(file.text, generic.delimiter).slice(0, 3) : [];
   const colOptions = Array.from({ length: Math.max(0, ...sampleRows.map((r) => r.length)) }, (_, i) => i);
+  const split = generic.columns.amount === null || generic.columns.amount === undefined;
   const setCol = (k: keyof GenericProfile["columns"], v: string) => setGeneric((g) => ({ ...g, columns: { ...g.columns, [k]: v === "" ? null : Number(v) } }));
 
   return (
@@ -364,12 +373,59 @@ function ImportWizard() {
             <label className="inline">
               <input type="radio" checked={mode === "sparkron"} onChange={() => setMode("sparkron")} /> Sparekassen Kronjylland (Dato, Posteringstekst, Beløb)
             </label>
+            {detected && (
+              <label className="inline">
+                <input type="radio" checked={mode === "preset"} onChange={() => setMode("preset")} /> {detected.preset.label}
+              </label>
+            )}
             <label className="inline">
               <input type="radio" checked={mode === "generic"} onChange={() => setMode("generic")} /> Anden bank (vælg kolonner)
             </label>
           </div>
+          {mode === "preset" && detected && (
+            <p className="small">
+              Filen ligner et kontoudtog fra <strong>{detected.preset.label}</strong>.{" "}
+              {!detected.preset.verified && (
+                <StatusBadge kind="missing" title="Formatet er ikke afprøvet med en rigtig fil fra banken. Kontrollér datoer, tekster og fortegn i forhåndsvisningen.">
+                  Ikke verificeret
+                </StatusBadge>
+              )}{" "}
+              Kontrollér forhåndsvisningen, eller{" "}
+              <button
+                className="link"
+                onClick={() => {
+                  setGeneric({ ...detected.profile, name: detected.preset.label });
+                  setMode("generic");
+                }}
+              >
+                ret opsætningen
+              </button>
+              .
+            </p>
+          )}
           {mode === "generic" && (
             <div className="grid2">
+              <label>
+                Forudindstilling for bank
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const b = BANK_PRESETS.find((x) => x.id === e.target.value);
+                    if (!b) return;
+                    const resolved = resolvePreset(b, sampleRows[0] ?? []);
+                    if (resolved) setGeneric({ ...resolved, name: b.label });
+                    else toast(`Filens overskrifter passer ikke til ${b.label}. Vælg kolonnerne selv.`, "error");
+                  }}
+                >
+                  <option value="">– vælg –</option>
+                  {BANK_PRESETS.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.label}
+                      {b.verified ? "" : " (ikke verificeret)"}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label>
                 Gemte opsætninger
                 <select
@@ -402,16 +458,41 @@ function ImportWizard() {
                 <select value={generic.dateFormat} onChange={(e) => setGeneric({ ...generic, dateFormat: e.target.value as GenericProfile["dateFormat"] })}>
                   <option>DD-MM-YYYY</option>
                   <option>DD.MM.YYYY</option>
+                  <option>DD/MM/YYYY</option>
                   <option>YYYY-MM-DD</option>
+                  <option>YYYY/MM/DD</option>
+                </select>
+              </label>
+              <label>
+                Decimaltegn
+                <select value={generic.decimal ?? ","} onChange={(e) => setGeneric({ ...generic, decimal: e.target.value as "," | "." })}>
+                  <option value=",">Komma (1.234,50)</option>
+                  <option value=".">Punktum (1,234.50)</option>
+                </select>
+              </label>
+              <label>
+                Beløb står i
+                <select
+                  value={split ? "split" : "one"}
+                  onChange={(e) =>
+                    setGeneric((g) =>
+                      e.target.value === "split"
+                        ? { ...g, columns: { ...g.columns, amount: null, debit: g.columns.debit ?? 0, credit: g.columns.credit ?? 0 } }
+                        : { ...g, columns: { ...g.columns, amount: g.columns.amount ?? 0, debit: null, credit: null } },
+                    )
+                  }
+                >
+                  <option value="one">Én kolonne (minus = udgift)</option>
+                  <option value="split">To kolonner: ud og ind</option>
                 </select>
               </label>
               <label className="inline">
                 <input type="checkbox" checked={generic.hasHeader} onChange={(e) => setGeneric({ ...generic, hasHeader: e.target.checked })} /> Første række er overskrifter
               </label>
               <span />
-              {(["date", "text", "amount", "balance"] as const).map((k) => (
+              {(["date", "text", ...(split ? (["debit", "credit"] as const) : (["amount"] as const)), "balance"] as const).map((k) => (
                 <label key={k}>
-                  {{ date: "Dato", text: "Tekst", amount: "Beløb", balance: "Saldo (valgfri)" }[k]}
+                  {{ date: "Dato", text: "Tekst", amount: "Beløb", debit: "Ud (udbetaling)", credit: "Ind (indbetaling)", balance: "Saldo (valgfri)" }[k]}
                   <select value={generic.columns[k] ?? ""} onChange={(e) => setCol(k, e.target.value)}>
                     {k === "balance" && <option value="">Ingen</option>}
                     {colOptions.map((i) => (

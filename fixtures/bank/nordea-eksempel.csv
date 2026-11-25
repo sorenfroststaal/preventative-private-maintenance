@@ -1,0 +1,4 @@
+Bogføringsdato;Beløb;Afsender;Modtager;Navn;Beskrivelse;Saldo;Valuta
+2026/11/02;-245,50;1234567890;;;Netto 1234 Randers;10.254,50;DKK
+2026/11/03;28.500,00;;1234567890;Eksempel A/S;Løn November;38.754,50;DKK
+2026/11/05;-3.125,00;1234567890;;Hansen VVS;MobilePay Hansen VVS;35.629,50;DKK

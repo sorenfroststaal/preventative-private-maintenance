@@ -19,6 +19,7 @@ export * from "./repo/modules";
 export * from "./repo/finance";
 export * from "./repo/financeHistory";
 export * from "./repo/categorySuggest";
+export * from "./repo/bankPresets";
 export * from "./repo/eml";
 export * from "./repo/inbox";
 export * from "./repo/dashboard";

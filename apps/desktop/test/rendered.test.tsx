@@ -29,7 +29,8 @@ import { localDate } from "@ppm/core";
 import { nodeEnv } from "@ppm/core/node";
 
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => undefined }));
-vi.mock("@tauri-apps/api/core", () => ({ invoke: async () => [] }));
+const picked = vi.hoisted(() => ({ files: [] as string[] }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: async (cmd: string) => (cmd === "pick_files" ? picked.files.splice(0) : []) }));
 
 import { SessionContext, type Session } from "../src/app/session";
 import { Shell } from "../src/layout/Shell";
@@ -360,6 +361,27 @@ describe("phase 2b.9 – rendered components", () => {
     await waitFor(() => expect(screen.queryByRole("region", { name: "Forslag til kategorier" })).toBeNull());
     const [row] = await archive.db.select<{ category_id: string; category_source: string }>("SELECT category_id, category_source FROM bank_transaction WHERE text = 'Biografen Nord 333'");
     expect(row).toEqual({ category_id: fun!.id, category_source: "user" });
+  });
+
+  it("phase 4.1: the import wizard recognises a bank by its headers and marks the preset as not verified", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    await createEntity(ctx, "account", { name: "Lønkonto Test" });
+    picked.files = [join(__dirname, "../../../fixtures/bank/arbejdernes-landsbank-eksempel.csv")];
+    const { container } = renderAt("/okonomi?tab=import");
+    await settle("Økonomi");
+    const account = await screen.findByRole("combobox", { name: "Konto" });
+    const opt = within(account).getByRole("option", { name: "Lønkonto Test" }) as HTMLOptionElement;
+    fireEvent.change(account, { target: { value: opt.value } });
+    fireEvent.click(screen.getByRole("button", { name: "Vælg CSV-fil…" }));
+    expect(await screen.findByRole("radio", { name: "Arbejdernes Landsbank" })).toBeChecked();
+    expect(screen.getByText("Ikke verificeret")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Vis forhåndsvisning" }));
+    expect(await screen.findByText(/nye posteringer/)).toBeInTheDocument();
+    expect(screen.getByText("-3.125,00 kr.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "ret opsætningen" }));
+    expect(screen.getByRole("combobox", { name: "Beløb står i" })).toHaveValue("split");
+    expect(screen.getByRole("combobox", { name: "Ud (udbetaling)" })).toHaveValue("2");
+    checkButtons(container, "Import");
   });
 });
 

@@ -89,7 +89,10 @@ Kriterierne er udkastet på spec-branchen `claude/spec-fase-2b-praeciseringer` (
 
 | Nr. | Kriterium | Status | Test |
 | --- | --- | --- | --- |
+| 4.1 | Mindst fire bankprofiler ud over `sparkron`, genkendt på overskrifter, kan rettes som generisk profil, én beløbskolonne eller ud/ind, "ikke verificeret" i UI | Opfyldt (formaterne er ikke verificeret mod rigtige filer) | `bankPresets.test.ts` (10) med `fixtures/bank/`, `rendered.test.tsx` |
 | 4.2 | Kategoriforslag ud fra modtagernøgle, 2-eller-1-reglen, regler først, godkend enkeltvis eller alle, gør til regel | Opfyldt | `categorySuggest.test.ts` (4), `rendered.test.tsx` |
+
+**4.1 Bankprofiler:** Danske Bank, Nordea, Jyske Bank, Arbejdernes Landsbank og Lunar. Import-guiden genkender banken på overskriftsrækken og viser "Ikke verificeret", fordi formaterne er bygget ud fra syntetiske filer og ikke rigtige eksportfiler. *Ret opsætningen* åbner den generiske profil udfyldt med bankens kolonner. Den generiske profil har nu også decimaltegn (komma eller punktum), ud/ind i to kolonner og datoformaterne `DD/MM/YYYY` og `YYYY/MM/DD`. En profil markeres verificeret (`verified: true`), når den er afprøvet med en rigtig fil.
 
 **4.2 Kategoriforslag:** Modtagernøglen er teksten med små bogstaver uden datoer, maskerede kortnumre og andre tal (`payeeKey`). Forslaget er den hyppigste kategori blandt kategoriserede posteringer med samme nøgle og fortegn. Det kræver mindst 2 forekomster, eller 1, hvis nøglen ikke har andre kategorier. Står to kategorier lige, gives intet forslag. Passer en regel, foreslås reglens kategori. *Posteringer* viser panelet "Forslag til kategorier" med *Godkend alle* og *Godkend* pr. postering (`category_source = 'user'`). Valget "Lav også en regel" opretter en lært `contains`-regel med den længste del af teksten uden tal (fx "dankort-nota netto").
 

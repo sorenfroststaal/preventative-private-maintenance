@@ -20,7 +20,7 @@ export function parseDanishAmount(input: string): number | null {
   return neg ? -minor : minor;
 }
 
-export type DateFormat = "DD-MM-YYYY" | "DD.MM.YYYY" | "YYYY-MM-DD";
+export type DateFormat = "DD-MM-YYYY" | "DD.MM.YYYY" | "YYYY-MM-DD" | "DD/MM/YYYY" | "YYYY/MM/DD";
 
 /** DD-MM-YYYY / DD.MM.YYYY (and ISO for the generic profile) → YYYY-MM-DD, or null. */
 export function parseBankDate(input: string, format?: DateFormat): string | null {
@@ -35,6 +35,14 @@ export function parseBankDate(input: string, format?: DateFormat): string | null
     return isValidDate(iso) ? iso : null;
   }
   if (format === "YYYY-MM-DD" && isValidDate(s)) return s;
+  if (format === "DD/MM/YYYY" && (m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/))) {
+    const iso = `${m[3]}-${m[2]}-${m[1]}`;
+    return isValidDate(iso) ? iso : null;
+  }
+  if (format === "YYYY/MM/DD" && (m = s.match(/^(\d{4})\/(\d{2})\/(\d{2})$/))) {
+    const iso = `${m[1]}-${m[2]}-${m[3]}`;
+    return isValidDate(iso) ? iso : null;
+  }
   return null;
 }
 
@@ -92,7 +100,20 @@ export interface GenericProfile {
   delimiter: string;
   hasHeader: boolean;
   dateFormat: DateFormat;
-  columns: { date: number; text: number; amount: number; balance?: number | null };
+  /** Decimal separator of amounts: "," (Danish, default, "." as thousands) or "." (e.g. 1234.50, "," as thousands). */
+  decimal?: "," | ".";
+  /**
+   * One amount column (`amount`, negative = expense), or separate columns for money out (`debit`)
+   * and money in (`credit`). In the separate case the sign in the file is ignored.
+   */
+  columns: { date: number; text: number; amount?: number | null; debit?: number | null; credit?: number | null; balance?: number | null };
+}
+
+/** Amount with the given decimal separator; also accepts the Unicode minus sign. */
+export function parseAmount(input: string, decimal: "," | "." = ","): number | null {
+  let s = input.trim().replace(/\u2212/g, "-");
+  if (decimal === ".") s = s.replace(/[\s,]/g, "").replace(".", ",");
+  return parseDanishAmount(s);
 }
 
 export interface ParsedRow {
@@ -146,6 +167,8 @@ export function parseSparkron(text: string): ParseResult {
 export function parseGeneric(text: string, p: GenericProfile): ParseResult {
   const rows: ParsedRow[] = [];
   const errors: ParseResult["errors"] = [];
+  const split = p.columns.amount === null || p.columns.amount === undefined;
+  const dec = p.decimal ?? ",";
   parseCsv(text, p.delimiter).forEach((cols, i) => {
     const line = i + 1;
     if (p.hasHeader && i === 0) return;
@@ -153,16 +176,28 @@ export function parseGeneric(text: string, p: GenericProfile): ParseResult {
     const get = (idx: number | null | undefined) => (idx === null || idx === undefined ? undefined : cols[idx]);
     const rawDate = get(p.columns.date);
     const rawText = get(p.columns.text);
-    const rawAmount = get(p.columns.amount);
+    let amount: number | null = null;
+    let rawAmount: string | undefined;
+    if (!split) {
+      rawAmount = get(p.columns.amount);
+      amount = rawAmount === undefined ? null : parseAmount(rawAmount, dec);
+    } else {
+      const out = get(p.columns.debit)?.trim() ?? "";
+      const inn = get(p.columns.credit)?.trim() ?? "";
+      rawAmount = `${out}|${inn}`;
+      if (get(p.columns.debit) === undefined && get(p.columns.credit) === undefined) rawAmount = undefined;
+      const o = out ? parseAmount(out, dec) : 0;
+      const n = inn ? parseAmount(inn, dec) : 0;
+      amount = o === null || n === null || (!out && !inn) ? null : Math.abs(n) - Math.abs(o);
+    }
     if (rawDate === undefined || rawText === undefined || rawAmount === undefined) {
       return void errors.push({ line, message: "Rækken har for få kolonner" });
     }
     const date = parseBankDate(rawDate, p.dateFormat);
-    const amount = parseDanishAmount(rawAmount);
     const rawBalance = get(p.columns.balance);
-    const balance = rawBalance !== undefined && rawBalance.trim() !== "" ? parseDanishAmount(rawBalance) : null;
+    const balance = rawBalance !== undefined && rawBalance.trim() !== "" ? parseAmount(rawBalance, dec) : null;
     if (!date) errors.push({ line, message: `Ugyldig dato: "${rawDate}"` });
-    if (amount === null) errors.push({ line, message: `Ugyldigt beløb: "${rawAmount}"` });
+    if (amount === null) errors.push({ line, message: split ? `Ugyldigt beløb i ud/ind: "${rawAmount.replace("|", '" / "')}"` : `Ugyldigt beløb: "${rawAmount}"` });
     if (rawBalance && rawBalance.trim() !== "" && balance === null) errors.push({ line, message: `Ugyldig saldo: "${rawBalance}"` });
     if (date && amount !== null) rows.push({ line, booking_date: date, text: rawText.trim(), amount_minor: amount, balance_minor: balance });
   });

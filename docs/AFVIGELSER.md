@@ -61,6 +61,7 @@ Listen dækker de steder, hvor implementeringen afviger fra specifikationen elle
 | F38 | 04 Forsikring | Policelisten har kolonnen *Dækker* med initialer for personer og ikoner for andre dækninger (højst tre, derefter "+n"). |
 | F39 | 04 Økonomi, 02 Datamodel | Lån (migration 0006): ydelsen omregnes til et månedligt gennemsnit som faste udgifter. Restgælden er den, brugeren har indtastet pr. `balance_date`; appen beregner ikke afdrag. En fast udgift med `end_date` før i dag vises som "Ophørt" og tælles ikke med i summerne. `amount_variable = 1` betyder, at beløbet er et skøn. |
 | F40 | 07 Fase 4.2 | Lige mange forekomster for to kategorier giver intet forslag. Reglen, der laves fra et forslag, er en `contains`-regel med den længste del af posteringsteksten uden tal (små bogstaver), fordi modtagernøglen selv ikke altid er en delstreng af teksten (bindestreger og skråstreger fjernes). Forslag er ikke en `category_source`; de vises kun, indtil de godkendes. |
+| F41 | 07 Fase 4.1 | Bankprofilernes kolonnenavne og formater er antagelser, ikke dokumenterede formater. De findes ud fra overskrifter (uden forskel på store og små bogstaver), og nogle kræver ekstra overskrifter for at kunne skelnes (fx Danske Bank: Status og Afstemt). Ved to kolonner for ud og ind ignoreres fortegnet i filen: ud bliver negativ, ind positiv, og en række uden beløb i begge afviser importen som andre ugyldige rækker. Importens `profile` gemmes som `preset:<id>`. |
 
 ## Fjernet efter PR #2 (nu en del af specifikationen)
 
