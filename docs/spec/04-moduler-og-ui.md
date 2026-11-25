@@ -8,7 +8,7 @@
 
 ## Navigation
 
-En venstremenu med disse punkter i denne rækkefølge, hvert med sit ikon (se "Visuel stil"): **Overblik, Opgaver, Bolig og inventar, Arbejdsordrer, Bil, Økonomi, Madplan, Forsikring, Helbred, Dokumenter, AI-indbakke (med antal), Indstillinger.**
+En venstremenu med disse punkter i denne rækkefølge, hvert med sit ikon (se "Visuel stil"): **Overblik, Opgaver, Bolig og inventar, Arbejdsordrer, Bil, Økonomi, Madplan, Forsikring, Helbred, Dokumenter, AI-indbakke (med antal), Lister, Indstillinger.**
 
 Global søgning åbnes med `Ctrl+K`. Den søger i `search_index` og viser resultater grupperet pr. modul. Hele appen SKAL kunne betjenes med tastatur og have synlig fokus.
 
@@ -181,6 +181,13 @@ En allergi-registrering matcher en nøgle, hvis `substance` indeholder visningsn
 - Varer grupperes efter butiksafdeling (`category`), og afdelingen gættes ud fra varenavnet med en simpel liste: Frugt og grønt, Kød og fisk, Mejeri, Brød, Kolonial, Frost, Andet. Brugeren kan ændre den.
 - Varer kan afkrydses, tilføjes manuelt, slettes og kopieres som tekst (én vare pr. linje, grupperet efter afdeling), fx til en besked. Afkrydsede varer kommer kun med, hvis brugeren vælger det.
 
+## Lister og rullelister
+
+- Menupunktet **Lister** (ikon `list-tree`, farvetoken `--c-lists`) viser de poster og værdier, som rullelisterne i formularerne henter fra, med en fane for hver: rum og placeringer, boliger, kontakter, personer, konti, økonomikategorier, genstandskategorier og bygningsdelstyper. Poster rettes med samme formular som andre steder og arkiveres i stedet for at blive slettet. Værdilister (03) kan få nye værdier, omdøbes og få ubrugte værdier slettet.
+- Genstandens kategori og bygningsdelens type vælges fra en rulleliste med værdilisten og muligheden **+ Tilføj ny…**.
+- Rullelister, der henviser til poster (fx placering, forhandler, bolig og kategori), har muligheden **+ Ny …**. Den åbner en lille formular for posttypen og vælger den nye post bagefter.
+- Fotos og kvittering kan vælges, når en genstand oprettes, og fotos, når en bygningsdel, bil eller reservedel oprettes. Filerne importeres og kobles, når posten er gemt. Detaljevisningen viser fotos som miniaturer øverst.
+
 ## Visuel stil
 
 Ikoner, farver og små grafer skal *supplere* teksten. De må aldrig være den eneste bærer af information (WCAG 1.4.1).
@@ -203,6 +210,7 @@ Ikoner, farver og små grafer skal *supplere* teksten. De må aldrig være den e
 | Helbred | `heart-pulse` | `--c-health` |
 | Dokumenter | `file-text` | `--c-documents` |
 | AI-indbakke | `sparkles` | `--c-ai` |
+| Lister | `list-tree` | `--c-lists` |
 | Indstillinger | `settings` | `--c-settings` |
 
 - Ikonerne bruges i menuen, i sidehoveder, ved poster i lister og i søgeresultater (modulets ikon) og ved dokumenter (filtypeikon: `file-text` til PDF, `image` til billeder og `mail` til mail).

@@ -29,7 +29,7 @@ apps/
     src-tauri/        Rust: vinduer, filrettigheder, arkivlås og zip
 packages/
   core/
-    migrations/       0001_init.sql (= docs/spec/schema.sql), 0002_meal_plan.sql (= docs/spec/schema-0002.sql)
+    migrations/       0001_init.sql (= docs/spec/schema.sql), 0002_meal_plan.sql (= docs/spec/schema-0002.sql), 0003_item_part_documents.sql (= docs/spec/schema-0003.sql)
     src/
       db/             DbAdapter-interface, migration-runner
       domain/         Zod-skemaer pr. entitet

@@ -1,6 +1,6 @@
 # 03 Datamodel
 
-[schema.sql](schema.sql) er det normative skema for `schemaVersion 1`, og [schema-0002.sql](schema-0002.sql) bringer det til `schemaVersion 2` (madplan). Dokumentet her forklarer regler, som skemaet ikke selv kan håndhæve.
+[schema.sql](schema.sql) er det normative skema for `schemaVersion 1`, [schema-0002.sql](schema-0002.sql) bringer det til `schemaVersion 2` (madplan), og [schema-0003.sql](schema-0003.sql) bringer det til `schemaVersion 3` (bilag og fotos på reservedele, `document_link.target_type = 'item_part'`). Dokumentet her forklarer regler, som skemaet ikke selv kan håndhæve.
 
 ## Polymorfe koblinger
 
@@ -101,3 +101,9 @@ Moduler bruges i `search_index.module`, til AI-adgang (06) og til filtrering. Ma
 - `meal_plan_entry` har enten en opskrift eller en fri titel. `servings` overstyrer opskriftens antal portioner for den dag.
 - Foto af en opskrift er et `document`, som `recipe.photo_document_id` peger på. `document_link` kan ikke pege på `recipe`, så et dokument, som en opskrift bruger som foto, tæller som koblet (fx i importkøen under Dokumenter).
 - `shopping_item.source = 'plan'` betyder, at varen er genereret fra madplanen. Den genereres igen, når madplanen ændres (se 04).
+
+## Værdilister bag rullelister
+
+- Fritekstkolonner, som vælges fra en rulleliste (`item.category` og `building_part.kind`), har en redigerbar værdiliste i `setting` under `lists.item_category` og `lists.building_part_kind` (JSON-array af tekster). Listen vises altid sammen med de værdier, der allerede er i brug, uden forskel på store og små bogstaver.
+- Omdøbes en værdi, opdateres alle poster, der bruger den, og hver ændring auditeres. En værdi, der er i brug, kan ikke slettes fra listen.
+- Standardværdier: genstandskategorier *Hvidevarer, Elektronik, Møbler, Køkken, Værktøj, Have, Belysning, Sport og fritid, Andet*. Bygningsdelstyper *Tag, Facade, Vinduer og døre, Varme, Ventilation, VVS, El, Kloak og afløb, Have og udearealer, Andet*.
