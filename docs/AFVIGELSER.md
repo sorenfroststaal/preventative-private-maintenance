@@ -77,7 +77,7 @@ Egne Rust-kommandoer i stedet for plugin-sql og plugin-fs, `executeScript` i `Db
 8. Spec 04 Uge: angiv budgettet for en uge over et månedsskifte (F19), og om frie titler tæller som "retter uden pris" (F18).
 9. Spec 05 Open Planner: angiv, om tomme felter i filen må overskrive brugerens data (F22).
 
-Punkt 4–9 er foreslået på branchen `claude/spec-fase-2b-praeciseringer`.
+Alle punkter (1–14) er nu foreslået på branchen `claude/spec-fase-2b-praeciseringer` (godkendt af brugeren 25.11.2026), sammen med migration 0003–0006.
 
 10. Spec 06 Færdigpakkede forbindelser: tillad, at `ppm.mcpb` bygges af appen ud fra den installerede binær i stedet for at ligge ved installeren (A5).
 11. Spec 06 Server: nævn, at en SEA-binær har brug for et native SQLite-addon ved siden af sig, og hvor binæren ligger (A6).
