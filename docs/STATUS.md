@@ -95,6 +95,19 @@ Fundet og rettet under E2E: typenavne stod på engelsk i AI-indbakken ("item", "
 
 **Claude Desktop virker (brugerens test 25.11.2026):** Claude Desktop forbandt til `ppm-mcp` og brugte værktøjerne. `propose` fejlede dog fem gange, fordi Claude ikke kunne se de gyldige feltnavne, og fordi husstand (`person`) og boliger (`property`) ikke kunne foreslås. Nu viser fejlen fra `propose` de gyldige felter, og `person`, `property` og `policy_coverage` kan foreslås, så fx en husforsikring kan kobles til huset. `dry_run` validerer uden at oprette en kladde, og alle fejlende operationer rapporteres på én gang (feedback fra brugerens Claude Desktop-session). Tests i `ai.test.ts`.
 
+**Feedback runde 2 fra udfyldningen af et rigtigt arkiv (25.11.2026), rettet:**
+
+- `attach_document` til en type, der ikke kan have bilag (fx `contact`), afvises nu i `propose` med listen over gyldige mål, også via `$n`. Før fejlede den først ved godkendelsen og rullede 27 operationer tilbage.
+- Fejler en godkendelse, rulles alt tilbage som før, men kun den fejlende operation markeres `failed`. De øvrige venter stadig og kan godkendes uden den.
+- `propose` advarer om dubletter (samme navn, policenummer eller nummerplade) i svaret og i AI-indbakken ("Findes allerede").
+- Opgaver: `recurrence` og `first_due_date` ved `create`, `due_date` (næste forekomst) og `recurrence` ved `update`.
+- Dokumenter: `update` af `title` og `doc_date`. `attach_document` accepterer `ref` på operationen som mål, og fejlen viser alle felter.
+- `inbox` forklarer filer i `indbakke/ai`, der ikke hører til et ventende forslag (mappen importeres ikke).
+- Overblikket: en faktura opfylder kravet om kvittering på genstande med pris.
+- Advarsel, når arkivet ligger i en midlertidig mappe (tmp/temp), både ved oprettelse og i Indstillinger.
+
+Venter på brugerens beslutning (kræver migration 0005): dokumentroller (garanti, kontrakt, certifikat), bilag på alle posttyper (fx kontakter), købsdato og købspris på bil, kobling, slutdato og variabelt beløb på faste udgifter samt lån.
+
 **Geninstallation, mens Claude Desktop kører (fundet ved brugerens test):** Installeren kunne ikke skrive `better_sqlite3.node`, fordi en kørende `ppm-mcp.exe` (startet af Claude Desktop) låser filen. NSIS-hooks stopper nu `ppm-mcp.exe` før installation og afinstallation (`taskkill`), og AI-klienten starter den igen efter behov. CI geninstallerer, mens `ppm-mcp.exe` kører, og kører derefter MCP-røgtesten igen.
 
 **Husdyr (godkendt af brugeren 25.11.2026):** Migration 0004 tilføjer tabellen `pet` (navn, art, race, køn, fødselsdato, chipnummer, ejer, dyrlæge og noter) og udvider `document_link` og `policy_coverage`, så fotos, bilag og forsikringsdækning kan pege på et husdyr. Bolig og inventar har fanen **Husdyr**, og Forsikring kan dække et husdyr. Husdyr kan foreslås via `propose`, listes og søges. Skemaet er foreslået på spec-branchen (`schema-0004.sql`). Tests: migrationen (data og `ON DELETE CASCADE` bevaret), søgning og audit (`lists.test.ts`), `propose` (`ai.test.ts`) og fanen (`rendered.test.tsx`).

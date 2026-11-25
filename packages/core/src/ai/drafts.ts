@@ -6,14 +6,14 @@ import { z } from "zod";
 import type { Archive } from "../archive/archive";
 import type { DbAdapter } from "../db/adapter";
 import type { Row } from "../domain/registry";
-import { createSchema, fields, updateSchema, type EntityType } from "../domain/schemas";
+import { createSchema, fields, updateSchema, zRecurrence, type EntityType } from "../domain/schemas";
 import type { Env } from "../env";
 import { toIngredientRows } from "../food/recipes";
 import { extOf, MIME_BY_EXT } from "../repo/documents";
 import { ValidationError } from "../repo/entities";
 import { getSetting } from "../repo/settings";
 import { aiModuleOf, assertModule, canSee, hiddenHealthPersons, type AiAccess } from "./access";
-import { expandRefs, isRef, isUuid, resolveRef } from "./compact";
+import { expandRefs, isRef, isUuid, refOf, resolveRef } from "./compact";
 
 /** Types that may be created/updated via propose (spec 06). */
 export const PROPOSE_TYPES = [
@@ -44,6 +44,7 @@ export const PROPOSE_TYPES = [
   "meal_plan_entry",
   "shopping_item",
   "policy_coverage",
+  "document",
 ] as const;
 
 /** Link tables: create only (no update), result is the composite key. */
@@ -76,6 +77,8 @@ export class ProposeError extends Error {
 /** Payload stored in ai_draft.payload_json. */
 export interface DraftPayload {
   group: string;
+  /** Id of an existing record with the same name (warning shown in the inbox). */
+  duplicate_of?: string;
   index: number;
   op: ProposeOp["op"];
   type: string;
@@ -126,9 +129,9 @@ const issues = (e: unknown) => (e instanceof ValidationError ? e.message : e ins
  */
 export function describeFields(type: string): string {
   const shape = (fields as Record<string, z.ZodRawShape>)[type];
-  if (!shape) return "";
+  if (!shape && type !== "attach_document") return "";
   const parts: string[] = [];
-  for (const [key, schema] of Object.entries(shape)) {
+  for (const [key, schema] of Object.entries(shape ?? {})) {
     if (AI_FORBIDDEN_FIELDS[type]?.includes(key)) continue;
     let t: z.ZodTypeAny = schema as z.ZodTypeAny;
     let required = true;
@@ -154,7 +157,53 @@ export function describeFields(type: string): string {
     parts.push(`${key}${required ? "*" : ""}${hint}`);
   }
   if (type === "recipe") parts.push("ingredients:[tekstlinjer]");
+  if (type === "task") parts.push('recurrence:{kind=fixed|interval,unit=day|week|month|year,every,month?,day?}', "first_due_date:ÅÅÅÅ-MM-DD (create)", "due_date:ÅÅÅÅ-MM-DD (update, næste forekomst)");
+  if (type === "attach_document") {
+    return "Gyldige felter for attach_document (* = påkrævet): document:ref ELLER file_path, target*:ref (eller ref på operationen), role*=receipt|invoice|quote|photo|photo_before|photo_after|manual|policy_terms|report|letter|other, title, doc_date:ÅÅÅÅ-MM-DD";
+  }
   return `Gyldige felter for ${type} (* = påkrævet): ${parts.join(", ")}`;
+}
+
+/** Types a document can be linked to (document_link.target_type). */
+export const ATTACHABLE: string[] = [...(fields.document_link.target_type as unknown as { options: string[] }).options];
+const notAttachable = (type: string) => `Bilag kan ikke kobles til ${type}. Bilag kan kobles til: ${ATTACHABLE.join(", ")}.`;
+
+/** Types created earlier in the same propose call, for checking "$n" targets. */
+const createdTypeMaps = new Map<string, Map<number, string>>();
+const createdTypes = (group: string) => {
+  let m = createdTypeMaps.get(group);
+  if (!m) {
+    m = new Map();
+    createdTypeMaps.set(group, m);
+  }
+  return m;
+};
+
+/** Columns that identify a record for the duplicate warning (spec: brugerens feedback, A10). */
+const DUPLICATE_KEYS: Record<string, string[]> = {
+  person: ["name"],
+  property: ["name"],
+  item: ["name"],
+  building_part: ["name"],
+  vehicle: ["registration", "name"],
+  pet: ["name"],
+  contact: ["name"],
+  policy: ["policy_number", "title"],
+  recurring_expense: ["name"],
+  recipe: ["name"],
+  location: ["name"],
+};
+
+/** An active record of the same type with the same identifying value (case-insensitive). */
+async function findDuplicate(db: DbAdapter, type: string, data: Record<string, unknown>): Promise<{ id: string; label: string } | null> {
+  for (const col of DUPLICATE_KEYS[type] ?? []) {
+    const v = data[col];
+    if (typeof v !== "string" || !v.trim()) continue;
+    const archived = (await db.select<{ name: string }>(`PRAGMA table_info(${type})`)).some((c) => c.name === "archived_at") ? "AND archived_at IS NULL" : "";
+    const r = await db.select<{ id: string }>(`SELECT id FROM ${type} WHERE lower(trim(${col})) = lower(trim(?)) ${archived} LIMIT 1`, [v]);
+    if (r[0]) return { id: r[0].id, label: v.trim() };
+  }
+  return null;
 }
 
 /** Fields AI may not set (access control and privacy stay with the user). */
@@ -203,6 +252,8 @@ export async function isAllowedImportPath(ctx: ProposeContext, path: string): Pr
 }
 
 interface Prepared {
+  /** Shown to the AI client and in the inbox, e.g. a record with the same name exists. */
+  warning?: string;
   payload: DraftPayload;
   action: DraftPayload["op"];
   entity_type: string;
@@ -221,7 +272,33 @@ async function prepareOp(ctx: ProposeContext, op: ProposeOp, index: number, grou
         throw new ProposeError(index, `type skal være en af: ${PROPOSE_TYPES.join(", ")}.`);
       }
       assertModule(access, aiModuleOf(type));
-      const { ingredients, ...rest } = (op.data ?? {}) as Record<string, unknown> & { ingredients?: unknown };
+      const { ingredients, ...rest0 } = (op.data ?? {}) as Record<string, unknown> & { ingredients?: unknown };
+      // Tasks: recurrence as an object and the first due date (createTask), outside the table schema.
+      const { recurrence, first_due_date, due_date, ...rest } =
+        type === "task" ? (rest0 as Record<string, unknown>) : { ...rest0, recurrence: undefined, first_due_date: undefined, due_date: undefined };
+      const taskExtras: Record<string, unknown> = {};
+      if (type === "task") {
+        if (recurrence !== undefined) {
+          const r = zRecurrence.safeParse(recurrence);
+          if (!r.success) throw new ProposeError(index, `recurrence: ${r.error.issues.map((i) => i.message).join("; ")}. Fx {"kind":"fixed","unit":"year","every":1,"month":11,"day":1} eller {"kind":"interval","unit":"month","every":6}`);
+          taskExtras.recurrence = r.data;
+        }
+        if (first_due_date !== undefined) {
+          if (op.op !== "create") throw new ProposeError(index, "first_due_date bruges ved create; brug due_date ved update.");
+          if (typeof first_due_date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(first_due_date)) throw new ProposeError(index, "first_due_date skal være ÅÅÅÅ-MM-DD.");
+          taskExtras.first_due_date = first_due_date;
+        }
+        if (due_date !== undefined) {
+          if (op.op !== "update") throw new ProposeError(index, "due_date bruges ved update; brug first_due_date ved create.");
+          if (due_date !== null && (typeof due_date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(due_date))) throw new ProposeError(index, "due_date skal være ÅÅÅÅ-MM-DD.");
+          taskExtras.due_date = due_date;
+        }
+      }
+      if (type === "document") {
+        if (op.op === "create") throw new ProposeError(index, "Dokumenter oprettes med attach_document (file_path eller document).");
+        const extra = Object.keys(rest).filter((k) => k !== "title" && k !== "doc_date");
+        if (extra.length) throw new ProposeError(index, `document: kun title og doc_date kan ændres (ikke ${extra.join(", ")}).`);
+      }
       if (ingredients !== undefined && type !== "recipe") throw new ProposeError(index, "ingredients bruges kun ved recipe.");
       const expanded = await expandRefs(db, rest);
       const withPh = placeholders(expanded, index, creates);
@@ -251,9 +328,14 @@ async function prepareOp(ctx: ProposeContext, op: ProposeOp, index: number, grou
           if (!DOLLAR.test(target)) await resolveRef(db, target, [String(expanded.target_type)]);
           if (!DOLLAR.test(String(expanded.policy_id ?? ""))) await resolveRef(db, String(expanded.policy_id), ["policy"]);
         }
-        if (!LINK_TYPES.has(type)) creates.add(index);
+        if (!LINK_TYPES.has(type)) {
+          creates.add(index);
+          createdTypes(group).set(index, type);
+        }
+        const dup = await findDuplicate(db, type, expanded);
         return {
-          payload: { group, index, op: op.op, type, data: expanded, ...(rows ? { ingredients: rows } : {}) },
+          payload: { group, index, op: op.op, type, data: { ...expanded, ...taskExtras }, ...(rows ? { ingredients: rows } : {}), ...(dup ? { duplicate_of: dup.id } : {}) },
+          warning: dup ? `${type} "${dup.label}" findes allerede (ref ${refOf(dup.id)}). Brug update i stedet for at oprette en dublet.` : undefined,
           action: "create",
           entity_type: type,
           entity_id: null,
@@ -270,7 +352,7 @@ async function prepareOp(ctx: ProposeContext, op: ProposeOp, index: number, grou
       }
       validate(updateSchema(type as EntityType), withPh, index, type);
       return {
-        payload: { group, index, op: op.op, type, target_id: target.id, data: expanded, ...(rows ? { ingredients: rows } : {}) },
+        payload: { group, index, op: op.op, type, target_id: target.id, data: { ...expanded, ...taskExtras }, ...(rows ? { ingredients: rows } : {}) },
         action: "update",
         entity_type: type,
         entity_id: target.id,
@@ -297,7 +379,9 @@ async function prepareOp(ctx: ProposeContext, op: ProposeOp, index: number, grou
 
     // attach_document
     assertModule(access, "documents");
-    const data = op.data ?? {};
+    const data = { ...(op.data ?? {}) };
+    // The target may also be given as ref on the operation.
+    if (data.target === undefined && op.ref) data.target = op.ref;
     validate(
       z
         .object({
@@ -312,15 +396,20 @@ async function prepareOp(ctx: ProposeContext, op: ProposeOp, index: number, grou
         .refine((d) => Boolean(d.document) !== Boolean(d.file_path), { message: "Angiv enten document eller file_path" }),
       data,
       index,
+      "attach_document",
     );
     const d = data as { document?: string; file_path?: string; target: string; role: string };
     let target: { type: string; id: string };
     if (DOLLAR.test(d.target)) {
       const n = Number(DOLLAR.exec(d.target)![1]);
       if (n >= index || !creates.has(n)) throw new ProposeError(index, `"$${n}" skal pege på en tidligere create-operation.`);
+      const t = createdTypes(group).get(n);
+      if (t && !ATTACHABLE.includes(t)) throw new ProposeError(index, notAttachable(t));
       target = { type: "$", id: d.target };
     } else {
       target = await resolveRef(db, d.target);
+      // Validate the target type now, not first at approval (feedback: a whole group was rolled back).
+      if (!ATTACHABLE.includes(target.type)) throw new ProposeError(index, notAttachable(target.type));
       const row = (await db.select<Row>(`SELECT * FROM ${target.type} WHERE id = ?`, [target.id]))[0]!;
       if (!(await canSee(db, access, target.type, row, hidden))) throw new ProposeError(index, "Målet er ikke tilgængeligt for AI.");
     }
@@ -352,6 +441,7 @@ async function prepareOp(ctx: ProposeContext, op: ProposeOp, index: number, grou
 export interface ProposeResult {
   group: string;
   n: number;
+  warnings?: string[];
   /** "valid" for dry_run: everything validated, nothing stored. */
   status: "pending" | "valid";
 }
@@ -377,8 +467,10 @@ export async function proposeGroup(ctx: ProposeContext, input: unknown): Promise
       errors.push(e.message);
     }
   }
+  createdTypeMaps.delete(group);
   if (errors.length) throw new ProposeError(0, errors.join("\n"));
-  if (dry_run) return { group: "", n: prepared.length, status: "valid" };
+  const warnings = prepared.flatMap((p) => (p.warning ? [`Operation ${p.payload.index}: ${p.warning}`] : []));
+  if (dry_run) return { group: "", n: prepared.length, status: "valid", ...(warnings.length ? { warnings } : {}) };
 
   const copied: string[] = [];
   try {
@@ -402,7 +494,7 @@ export async function proposeGroup(ctx: ProposeContext, input: unknown): Promise
     for (const c of copied) await ctx.env.fs.remove(c).catch(() => undefined);
     throw e;
   }
-  return { group, n: prepared.length, status: "pending" };
+  return { group, n: prepared.length, status: "pending", ...(warnings.length ? { warnings } : {}) };
 }
 
 export interface DraftRow extends Row {

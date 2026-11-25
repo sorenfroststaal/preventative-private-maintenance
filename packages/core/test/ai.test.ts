@@ -362,6 +362,83 @@ describe("propose: dry_run, all errors at once and coverage links", () => {
   });
 });
 
+describe("feedback from filling a real archive (round 2)", () => {
+  it("attach_document to a type that cannot have documents is rejected at propose, also via $n", async () => {
+    const { deps, ai } = await demo();
+    const [contact] = await ai.db.select<{ id: string }>("SELECT id FROM contact LIMIT 1");
+    const [doc] = await ai.db.select<{ id: string }>("SELECT id FROM document LIMIT 1");
+    const e1 = errText(await runTool(deps, "propose", { rationale: "x", ops: [{ op: "attach_document", data: { document: refOf(doc!.id), target: refOf(contact!.id), role: "other" } }] }));
+    expect(e1).toMatch(/Bilag kan ikke kobles til contact\. Bilag kan kobles til: .*item.*pet/);
+    const e2 = errText(
+      await runTool(deps, "propose", {
+        rationale: "x",
+        ops: [
+          { op: "create", type: "contact", data: { name: "Ny bank", kind: "bank" } },
+          { op: "attach_document", data: { document: refOf(doc!.id), target: "$1", role: "other" } },
+        ],
+      }),
+    );
+    expect(e2).toMatch(/^Operation 2: Bilag kan ikke kobles til contact/);
+    // The target may be given as ref on the operation; the error lists all attach fields.
+    const [item] = await ai.db.select<{ id: string }>("SELECT id FROM item LIMIT 1");
+    expect(json(await runTool(deps, "propose", { rationale: "x", ops: [{ op: "attach_document", ref: refOf(item!.id), data: { document: refOf(doc!.id), role: "manual" } }] })).n).toBe(1);
+    expect(errText(await runTool(deps, "propose", { rationale: "x", ops: [{ op: "attach_document", data: { target: refOf(item!.id), role: "manual" } }] }))).toMatch(/document:ref ELLER file_path/);
+  });
+
+  it("warns about duplicates by name, policy number or registration", async () => {
+    const { deps } = await demo();
+    const r = json(
+      await runTool(deps, "propose", {
+        rationale: "x",
+        ops: [
+          { op: "create", type: "item", data: { name: "opvaskemaskine" } },
+          { op: "create", type: "item", data: { name: "Helt ny ting" } },
+        ],
+      }),
+    );
+    expect(r.warnings).toEqual([expect.stringMatching(/^Operation 1: item "opvaskemaskine" findes allerede \(ref [0-9a-f]{8}\)/)]);
+    expect(json(await runTool(deps, "propose", { rationale: "x", dry_run: true, ops: [{ op: "create", type: "item", data: { name: "Opvaskemaskine" } }] })).warnings).toHaveLength(1);
+  });
+
+  it("tasks: recurrence and first due date on create, due date on update; documents: title and date", async () => {
+    const d = await demo();
+    await d.ai.close();
+    const app = track(await openArchive(d.env, d.info.root, { appVersion: "t" }));
+    const deps: ToolDeps = { ...d.deps, archive: app };
+    const ctx = makeCtx(d.env, app.db, d.info.annaUserId, "ui");
+    const r = json(
+      await runTool(deps, "propose", {
+        rationale: "Service",
+        ops: [{ op: "create", type: "task", data: { title: "Service af varmepumpe", module: "maintenance", recurrence: { kind: "fixed", unit: "year", every: 1, month: 11, day: 1 }, first_due_date: "2026-11-01" } }],
+      }),
+    );
+    await approveGroup(d.env, app, ctx, r.group);
+    const [task] = await app.db.select<{ id: string; recurrence_json: string; source: string }>("SELECT * FROM task WHERE title = 'Service af varmepumpe'");
+    expect(JSON.parse(task!.recurrence_json)).toMatchObject({ kind: "fixed", month: 11, day: 1 });
+    expect(task!.source).toBe("ai");
+    const [noDate] = await app.db.select<{ id: string }>("SELECT t.id FROM task t JOIN task_occurrence o ON o.task_id = t.id AND o.status = 'open' WHERE o.due_date IS NULL LIMIT 1");
+    const u = json(await runTool(deps, "propose", { rationale: "Dato", ops: [{ op: "update", type: "task", ref: refOf(noDate!.id), data: { due_date: "2026-12-15" } }] }));
+    await approveGroup(d.env, app, ctx, u.group);
+    expect((await app.db.select<{ due_date: string }>("SELECT due_date FROM task_occurrence WHERE task_id = ? AND status = 'open'", [noDate!.id]))[0]!.due_date).toBe("2026-12-15");
+    expect(errText(await runTool(deps, "propose", { rationale: "x", ops: [{ op: "create", type: "task", data: { title: "x", module: "maintenance", recurrence: { kind: "fixed", unit: "year", every: 1 } } }] }))).toMatch(/recurrence:/);
+
+    const [doc] = await app.db.select<{ id: string }>("SELECT id FROM document LIMIT 1");
+    const dd = json(await runTool(deps, "propose", { rationale: "Dato", ops: [{ op: "update", type: "document", ref: refOf(doc!.id), data: { doc_date: "2025-05-01", title: "Garantibevis" } }] }));
+    await approveGroup(d.env, app, ctx, dd.group);
+    expect((await app.db.select("SELECT title, doc_date FROM document WHERE id = ?", [doc!.id]))[0]).toEqual({ title: "Garantibevis", doc_date: "2025-05-01" });
+    expect(errText(await runTool(deps, "propose", { rationale: "x", ops: [{ op: "update", type: "document", ref: refOf(doc!.id), data: { sha256: "x" } }] }))).toMatch(/kun title og doc_date/);
+  });
+
+  it("inbox explains files in indbakke/ai that do not belong to a pending draft", async () => {
+    const { deps, ai } = await demo();
+    await fsp.mkdir(ai.path("indbakke", "ai"), { recursive: true });
+    await fsp.writeFile(ai.path("indbakke", "ai", "lagt-her-ved-en-fejl.pdf"), "%PDF");
+    const r = json(await runTool(deps, "inbox", {}));
+    expect(r.ai_folder.not_imported).toEqual(["lagt-her-ved-en-fejl.pdf"]);
+    expect(r.ai_folder.note).toMatch(/importeres ikke/);
+  });
+});
+
 describe("phase 3.7 – AI inbox: approve all, approve selected, edit, reject, conflicts and rollback", () => {
   async function setup() {
     const d = await demo();
@@ -451,7 +528,7 @@ describe("phase 3.7 – AI inbox: approve all, approve selected, edit, reject, c
     expect((await app.db.select<{ notes: string }>("SELECT notes FROM item WHERE id = ?", [item]))[0]!.notes).toBe("AI");
   });
 
-  it("rolls everything back if one operation fails and marks the group failed", async () => {
+  it("rolls everything back if one operation fails; only that one is failed, the rest can be approved without it", async () => {
     const { env, app, deps, ctx } = await setup();
     const r = json(
       await runTool(deps, "propose", {
@@ -464,8 +541,12 @@ describe("phase 3.7 – AI inbox: approve all, approve selected, edit, reject, c
     );
     await expect(approveGroup(env, app, ctx, r.group)).rejects.toThrow(/rullet tilbage.*Operation 2/);
     expect(await app.db.select("SELECT * FROM contact WHERE name = 'Skal rulles tilbage'")).toEqual([]);
-    const g = (await listDraftGroups(app.db)).find((x) => x.group === r.group)!;
-    expect(g.status).toBe("failed");
-    expect(g.drafts.every((d) => d.status === "failed" && /Operation 2/.test(String(d.error)))).toBe(true);
+    let g = (await listDraftGroups(app.db)).find((x) => x.group === r.group)!;
+    expect(g.drafts.map((d) => d.status)).toEqual(["pending", "failed"]);
+    expect(g.drafts[1]!.error).toMatch(/Operation 2/);
+    await approveGroup(env, app, ctx, r.group);
+    expect(await app.db.select("SELECT * FROM contact WHERE name = 'Skal rulles tilbage'")).toHaveLength(1);
+    g = (await listDraftGroups(app.db)).find((x) => x.group === r.group)!;
+    expect(g.drafts.map((d) => d.status)).toEqual(["approved", "failed"]);
   });
 });

@@ -103,3 +103,21 @@ describe("value lists behind dropdowns", () => {
     expect((await textListValues(archive.db, "building_part_kind")).map((v) => v.value)).toContain("Tag");
   });
 });
+
+describe("dashboard: an invoice counts as receipt (feedback 25.11.2026)", () => {
+  it("an item with a price and an invoice is not listed as missing a receipt", async () => {
+    const { env, archive } = await newArchive();
+    const ctx = ctxFor(env, archive);
+    const item = await createEntity(ctx, "item", { name: "Varmepumpe", purchase_price_minor: 2500000 });
+    const { dashboard, isTempFolder } = await import("../src");
+    const missing = async () => (await dashboard(archive.db, { today: "2026-11-24", userId: null })).missing.itemsWithoutReceipt.map((i) => i.name);
+    expect(await missing()).toEqual(["Varmepumpe"]);
+    const pdf = await writeTempFile("faktura.pdf", "%PDF-1.4 syntetisk faktura");
+    const r = await importDocument(env, archive, ctx, pdf, { source: "drop" });
+    await linkDocument(ctx, { document_id: String(r.document.id), target_type: "item", target_id: String(item.id), role: "invoice" });
+    expect(await missing()).toEqual([]);
+    expect(isTempFolder("C:\\tmp\\Ny mappe")).toBe(true);
+    expect(isTempFolder("C:\\Users\\a\\AppData\\Local\\Temp\\x")).toBe(true);
+    expect(isTempFolder("C:\\Users\\a\\Documents\\PPM-arkiv")).toBe(false);
+  });
+});

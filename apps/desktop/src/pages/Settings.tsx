@@ -11,6 +11,7 @@ import {
   updateEntity,
   createUser,
   detectCloudFolder,
+  isTempFolder,
   getSetting,
   listEntities,
   listUsers,
@@ -53,9 +54,19 @@ export function Settings() {
 function ArchivePanel() {
   const { archive, info } = useSession();
   const cloud = detectCloudFolder(archive.root, info.oneDriveEnv);
+  const temp = isTempFolder(archive.root);
+  const nested = /[\\/]PPM-arkiv[\\/]?$/i.test(archive.root);
   return (
     <div className="panel">
       <h2>Arkiv</h2>
+      {temp && (
+        <p className="warning" role="alert">
+          Arkivet ligger i en midlertidig mappe ({archive.root}). Den kan blive tømt og kommer sjældent med i backup. Flyt arkivet: tag en backup, og gendan den i en fast mappe, fx under Dokumenter.
+        </p>
+      )}
+      {nested && (
+        <p className="small muted">Arkivet ligger i undermappen PPM-arkiv, fordi den valgte mappe ikke var tom, da arkivet blev oprettet.</p>
+      )}
       <dl className="kv">
         <dt>Placering</dt>
         <dd>{archive.root}</dd>

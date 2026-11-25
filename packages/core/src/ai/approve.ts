@@ -11,7 +11,7 @@ import { planMeal } from "../food/mealplan";
 import { createRecipe, updateRecipe } from "../food/recipes";
 import { importDocument, linkDocument } from "../repo/documents";
 import { createEntity, entityKey, getEntity, parseOrThrow, updateEntity, withDb, writeAudit, type Ctx } from "../repo/entities";
-import { completeOccurrence, createTask, parseRecurrence } from "../repo/tasks";
+import { completeOccurrence, createTask, getOpenOccurrence, parseRecurrence, setOccurrenceDueDate } from "../repo/tasks";
 import { groupStatus, toDraft, type DraftPayload, type DraftRow } from "./drafts";
 
 export interface DraftGroup {
@@ -90,8 +90,10 @@ async function execute(env: Env, archive: Archive, ctx: Ctx, d: DraftRow, result
       if (p.type === "recipe") return String((await createRecipe(ctx, data as never, (p.ingredients ?? []) as never)).id);
       if (p.type === "meal_plan_entry") return String((await planMeal(ctx, data as never)).id);
       if (p.type === "task") {
-        const { recurrence_json, ...rest } = data as Record<string, unknown>;
-        return String((await createTask(ctx, { ...rest, source: "ai", recurrence: parseRecurrence(recurrence_json) } as never)).task.id);
+        const { recurrence_json, recurrence, first_due_date, ...rest } = data as Record<string, unknown>;
+        return String(
+          (await createTask(ctx, { ...rest, source: "ai", recurrence: (recurrence as never) ?? parseRecurrence(recurrence_json), firstDueDate: (first_due_date as string | undefined) ?? null } as never)).task.id,
+        );
       }
       if (p.type === "shopping_item" && data.position === undefined) {
         const r = await ctx.db.select<{ p: number | null }>("SELECT max(position) AS p FROM shopping_item WHERE list_id = ?", [String(data.list_id)]);
@@ -106,6 +108,17 @@ async function execute(env: Env, archive: Archive, ctx: Ctx, d: DraftRow, result
       const id = p.target_id!;
       if (p.type === "recipe") return String((await updateRecipe(ctx, id, data as never, p.ingredients as never)).id);
       if (p.type === "bank_transaction" && "category_id" in data) data.category_source = "ai";
+      if (p.type === "task") {
+        const { due_date, recurrence, ...fieldsOnly } = data as Record<string, unknown>;
+        if (recurrence !== undefined) fieldsOnly.recurrence_json = recurrence === null ? null : JSON.stringify(recurrence);
+        if (Object.keys(fieldsOnly).length) await updateEntity(ctx, "task", id, fieldsOnly as never);
+        if (due_date !== undefined) {
+          const occ = await getOpenOccurrence(ctx.db, id);
+          if (!occ) throw new Error("Opgaven har ingen åben forekomst at sætte en dato på.");
+          await setOccurrenceDueDate(ctx, String(occ.id), due_date as string | null);
+        }
+        return id;
+      }
       return String((await updateEntity(ctx, p.type as EntityType, id, data as never)).id);
     }
     case "complete_task": {
@@ -195,11 +208,12 @@ export async function approveGroup(env: Env, archive: Archive, uiCtx: Ctx, group
       failedAt = null;
     });
   } catch (e) {
-    const msg = `Operation ${(failedAt as DraftRow | null)?.payload.index ?? "?"}: ${e instanceof Error ? e.message : String(e)}`;
-    await archive.db.transaction(async (tx) => {
-      for (const d of selected) await setStatus(withDb(uiCtx, tx), d, "failed", { error: msg });
-    });
-    throw new Error(`Godkendelsen blev rullet tilbage. ${msg}`);
+    // Everything is rolled back. Only the failing operation is marked failed; the others stay
+    // pending, so the user can approve them without it (feedback: 25 valid links were lost).
+    const bad = failedAt as DraftRow | null;
+    const msg = `Operation ${bad?.payload.index ?? "?"}: ${e instanceof Error ? e.message : String(e)}`;
+    if (bad) await archive.db.transaction(async (tx) => setStatus(withDb(uiCtx, tx), bad, "failed", { error: msg }));
+    throw new Error(`Godkendelsen blev rullet tilbage, og intet er ændret. ${msg} De øvrige forslag venter stadig og kan godkendes uden den.`);
   }
   // Imported files are now attachments; remove the copies from indbakke/ai/.
   for (const d of selected) if (d.payload.file) await env.fs.remove(archive.path(d.payload.file)).catch(() => undefined);
@@ -267,6 +281,7 @@ export const DRAFT_TYPE_LABELS: Record<string, string> = {
   meal_plan_entry: "ret i madplanen",
   shopping_item: "vare på indkøbslisten",
   policy_coverage: "dækning på police",
+  document: "dokument",
 };
 
 const ROLE_LABELS: Record<string, string> = {

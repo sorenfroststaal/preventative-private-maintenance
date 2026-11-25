@@ -58,7 +58,7 @@ function Items() {
     queryKey: ["documents", "itemPhotos"],
     queryFn: () =>
       archive.db.select<{ target_id: string; n: number }>(
-        "SELECT target_id, count(*) AS n FROM document_link WHERE target_type = 'item' AND role = 'receipt' GROUP BY target_id",
+        "SELECT target_id, count(*) AS n FROM document_link WHERE target_type = 'item' AND role IN ('receipt', 'invoice') GROUP BY target_id",
       ),
   });
   const hasReceipt = new Set((photos.data ?? []).map((p) => p.target_id));

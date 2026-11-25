@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { detectCloudFolder, type Env } from "@ppm/core";
+import { detectCloudFolder, isTempFolder, type Env } from "@ppm/core";
 import { pickDirectory, type AppInfo } from "../platform/tauri";
 import { errorText } from "../app/session";
 
@@ -23,7 +23,7 @@ export function Welcome({ env, info, error, onCreate, onOpen }: Props) {
     // A non-empty folder gets a dedicated sub-folder instead of being refused.
     let target = picked;
     if ((await env.fs.listDir(picked)).length > 0) target = env.fs.join(picked, "PPM-arkiv");
-    const cloud = detectCloudFolder(target, info.oneDriveEnv);
+    const cloud = detectCloudFolder(target, info.oneDriveEnv) ?? (isTempFolder(target) ? "en midlertidig mappe (tmp/temp), som kan blive tømt" : null);
     if (cloud) setPending({ path: target, cloud });
     else await run(() => onCreate(target));
   }

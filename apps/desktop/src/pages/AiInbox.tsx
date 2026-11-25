@@ -131,6 +131,11 @@ function GroupCard({ group }: { group: DraftGroup }) {
                   <IconButton icon={Pencil} label={`Redigér operation ${d.payload.index}`} onClick={() => setEditing(d)} disabled={ro} />
                 )}
               </div>
+              {d.payload.duplicate_of && d.status === "pending" && (
+                <StatusBadge kind="missing" title="Godkender du, oprettes en post mere med samme navn.">
+                  Findes allerede (ref {d.payload.duplicate_of.replace(/-/g, "").slice(0, 8)})
+                </StatusBadge>
+              )}
               {d.error && <p className="error small">{d.error}</p>}
               {isOpen && (
                 <div className="draft-details">

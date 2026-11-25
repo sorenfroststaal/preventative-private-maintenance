@@ -536,9 +536,21 @@ async function inboxTool(c: Call) {
     const st = await c.deps.env.fs.stat(c.deps.env.fs.join(dir, e.name));
     files.push({ name: e.name, size: st?.size });
   }
+  // indbakke/ai holds copies for pending drafts; it is not an import folder.
+  const pendingFiles = new Set(
+    (await c.db.select<{ f: string }>("SELECT json_extract(payload_json, '$.file') AS f FROM ai_draft WHERE status = 'pending' AND json_extract(payload_json, '$.file') IS NOT NULL")).map(
+      (r) => r.f.split("/").pop(),
+    ),
+  );
+  const aiDir = c.deps.archive.path("indbakke", "ai");
+  const misplaced: string[] = [];
+  for (const e of await c.deps.env.fs.listDir(aiDir).catch(() => [])) if (!e.isDir && !pendingFiles.has(e.name)) misplaced.push(e.name);
   return compact({
     documents: docs.map((d) => ({ ref: d.id, title: d.title ?? d.filename, ext: d.ext, doc_date: d.doc_date, text: d.extracted_text ? String(d.extracted_text).slice(0, 120) : undefined })),
     files: files.map((f) => ({ ...f, supported: f.name.split(".").pop()!.toLowerCase() in MIME_BY_EXT })),
+    ai_folder: misplaced.length
+      ? { not_imported: misplaced, note: "indbakke/ai er kun til filer i ventende forslag og importeres ikke. Læg nye filer i indbakke/ (roden), eller brug attach_document med file_path." }
+      : undefined,
   }) ?? {};
 }
 
@@ -609,7 +621,8 @@ export async function runTool(deps: ToolDeps, name: string, args: unknown): Prom
       case "propose": {
         const pctx: ProposeContext = { env: deps.env, archive: deps.archive, access, homeDir: deps.homeDir, realpath: deps.realpath, sep: deps.sep };
         const r = await proposeGroup(pctx, a);
-        result = text(r.status === "valid" ? { dry_run: true, n: r.n, status: "valid" } : { group: r.group, n: r.n, status: r.status });
+        const w = r.warnings?.length ? { warnings: r.warnings } : {};
+        result = text(r.status === "valid" ? { dry_run: true, n: r.n, status: "valid", ...w } : { group: r.group, n: r.n, status: r.status, ...w });
         break;
       }
       case "draft_status":

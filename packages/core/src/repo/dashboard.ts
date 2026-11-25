@@ -94,7 +94,7 @@ export async function dashboard(db: DbAdapter, opts: { today: string; userId: st
 
   const itemsWithoutReceipt = await db.select<{ id: string; name: string }>(
     `SELECT i.id, i.name FROM item i WHERE i.archived_at IS NULL AND i.purchase_price_minor IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM document_link l WHERE l.target_type = 'item' AND l.target_id = i.id AND l.role = 'receipt')
+        AND NOT EXISTS (SELECT 1 FROM document_link l WHERE l.target_type = 'item' AND l.target_id = i.id AND l.role IN ('receipt', 'invoice'))
       ORDER BY i.name`,
   );
   const policiesWithoutRenewal = await db.select<{ id: string; title: string }>(

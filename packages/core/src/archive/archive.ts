@@ -151,6 +151,12 @@ export async function openArchiveForAi(env: Env, root: string): Promise<Archive>
 
 export { APP_SCHEMA_VERSION };
 
+/** True if the path looks like a temporary folder that may be emptied and is rarely backed up. */
+export function isTempFolder(path: string): boolean {
+  const norm = path.replace(/\\/g, "/").toLowerCase();
+  return /(^|\/)(tmp|temp)(\/|$)/.test(norm) || norm.includes("/appdata/local/temp/");
+}
+
 const CLOUD_MARKERS = ["onedrive", "dropbox", "google drive", "googledrive", "icloud drive", "iclouddrive", "icloud"];
 
 /**
