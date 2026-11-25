@@ -152,11 +152,81 @@ impl Dbs {
     }
 
     pub fn execute_script(&self, id: u32, sql: &str) -> Result<(), String> {
-        if sql.to_uppercase().contains("VACUUM") || sql.to_uppercase().contains("ATTACH") {
+        if has_forbidden_keyword(sql) {
             return Err("VACUUM/ATTACH er ikke tilladt i scripts".into());
         }
         self.with(id, |c| c.execute_batch(sql).map_err(|e| e.to_string()))
     }
+}
+
+/// True if the SQL contains the keyword VACUUM or ATTACH as a token. String literals,
+/// quoted identifiers and comments are skipped, so the schema's `'attach_document'`
+/// (a value in a CHECK constraint) does not count.
+fn has_forbidden_keyword(sql: &str) -> bool {
+    let b = sql.as_bytes();
+    let mut i = 0;
+    let mut word = String::new();
+    let check = |w: &mut String| {
+        let hit = w.eq_ignore_ascii_case("VACUUM") || w.eq_ignore_ascii_case("ATTACH");
+        w.clear();
+        hit
+    };
+    while i < b.len() {
+        let c = b[i];
+        match c {
+            b'\'' | b'"' | b'`' => {
+                if check(&mut word) {
+                    return true;
+                }
+                // Skip the quoted text; a doubled quote is an escaped quote.
+                i += 1;
+                while i < b.len() {
+                    if b[i] == c {
+                        if i + 1 < b.len() && b[i + 1] == c {
+                            i += 2;
+                            continue;
+                        }
+                        break;
+                    }
+                    i += 1;
+                }
+            }
+            b'[' => {
+                if check(&mut word) {
+                    return true;
+                }
+                while i < b.len() && b[i] != b']' {
+                    i += 1;
+                }
+            }
+            b'-' if i + 1 < b.len() && b[i + 1] == b'-' => {
+                if check(&mut word) {
+                    return true;
+                }
+                while i < b.len() && b[i] != b'\n' {
+                    i += 1;
+                }
+            }
+            b'/' if i + 1 < b.len() && b[i + 1] == b'*' => {
+                if check(&mut word) {
+                    return true;
+                }
+                i += 2;
+                while i + 1 < b.len() && !(b[i] == b'*' && b[i + 1] == b'/') {
+                    i += 1;
+                }
+                i += 1;
+            }
+            _ if c.is_ascii_alphanumeric() || c == b'_' || c >= 0x80 => word.push(c as char),
+            _ => {
+                if check(&mut word) {
+                    return true;
+                }
+            }
+        }
+        i += 1;
+    }
+    check(&mut word)
 }
 
 /// `VACUUM INTO '<path>'` writes a file; the target must be inside the scope.
@@ -190,6 +260,62 @@ fn check_vacuum_into(scope: &Scope, sql: &str) -> Result<bool, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn forbidden_keywords_are_tokens_not_text() {
+        // The normative migrations must pass (they contain 'attach_document' as a value).
+        assert!(!has_forbidden_keyword(include_str!(
+            "../../../../packages/core/migrations/0001_init.sql"
+        )));
+        assert!(!has_forbidden_keyword(include_str!(
+            "../../../../packages/core/migrations/0002_meal_plan.sql"
+        )));
+        assert!(!has_forbidden_keyword(
+            "CREATE TABLE t (a TEXT CHECK (a IN ('attach','vacuum'))); -- ATTACH\n/* VACUUM */"
+        ));
+        assert!(!has_forbidden_keyword(
+            "CREATE TABLE \"attach\" (x); CREATE TABLE [vacuum] (y);"
+        ));
+        assert!(has_forbidden_keyword("ATTACH DATABASE 'x.db' AS x"));
+        assert!(has_forbidden_keyword("create table a(x); attach 'x' as y;"));
+        assert!(has_forbidden_keyword("SELECT 1;\nvacuum"));
+        assert!(has_forbidden_keyword(
+            "SELECT 'it''s'; VACUUM INTO '/tmp/x'"
+        ));
+        assert!(!has_forbidden_keyword(
+            "CREATE TABLE attachment (id); SELECT vacuumed FROM x"
+        ));
+    }
+
+    /// Creating an archive runs the migrations through execute_script (regression:
+    /// 'attach_document' in schema.sql made archive creation fail in the app).
+    #[test]
+    fn migrations_run_through_execute_script() {
+        let dir = tempfile::tempdir().unwrap();
+        let scope = Scope::default();
+        scope.allow_dir(dir.path());
+        let dbs = Dbs::default();
+        let id = dbs
+            .open(
+                &scope,
+                dir.path().join("arkiv.sqlite").to_str().unwrap(),
+                false,
+            )
+            .unwrap();
+        dbs.execute_script(
+            id,
+            include_str!("../../../../packages/core/migrations/0001_init.sql"),
+        )
+        .unwrap();
+        dbs.execute_script(
+            id,
+            include_str!("../../../../packages/core/migrations/0002_meal_plan.sql"),
+        )
+        .unwrap();
+        assert!(dbs
+            .execute_script(id, "ATTACH DATABASE ':memory:' AS x")
+            .is_err());
+    }
 
     #[cfg(unix)]
     #[test]

@@ -83,6 +83,12 @@ Fundet og rettet under E2E:
 
 Fundet og rettet under E2E: typenavne stod på engelsk i AI-indbakken ("item", "recipe"). Nu på dansk, og ingredienser vises som korte linjer.
 
+## Fejl fundet ved brugerens test på Windows (25.11.2026)
+
+**Et nyt arkiv kunne ikke oprettes i den rigtige app.** Fejlen var "VACUUM/ATTACH er ikke tilladt i scripts". Rust-kommandoen `db_execute_script` afviste ethvert script, hvis tekst indeholdt "ATTACH", og skemaet indeholder værdien `'attach_document'` i en CHECK-regel. Fejlen har været der siden fase 1. Ingen test opdagede den, fordi E2E altid åbnede et seed-arkiv (oprettet i Node), og den manuelle test på Windows ikke var gennemført. Nu tjekkes kun hele nøgleord uden for strenge, citerede navne og kommentarer. Rust-tests kører begge migrationer gennem `execute_script` (regressionstest) og afviser stadig `ATTACH` og `VACUUM` som nøgleord.
+
+CI laver nu også artefaktet `ppm-demo-backup` med syntetiske demodata, som kan gendannes i appen (Indstillinger → Backup).
+
 ## Tests
 
 | Suite | Antal | Resultat |
@@ -90,8 +96,8 @@ Fundet og rettet under E2E: typenavne stod på engelsk i AI-indbakken ("item", "
 | core (Vitest) | 136 (heraf 29 for madplan og 14 for AI/MCP i `ai.test.ts`) | Grøn |
 | mcp-server (Vitest) | 4 (protokol, `tools/list`, log og versionsfejl) | Grøn |
 | desktop (Vitest) | 29 (kontrast, renderede sider, AI-indbakke og AI-adgang) | Grøn |
-| Rust (`cargo test`) | 10 (+1 ignoreret måletest) | Grøn |
-| **I alt** | **179** | **Grøn** |
+| Rust (`cargo test`) | 12 (+1 ignoreret måletest) | Grøn |
+| **I alt** | **181** | **Grøn** |
 
 ESLint, `tsc -b`, `cargo fmt --check` og `cargo clippy -D warnings` er rene.
 

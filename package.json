@@ -17,7 +17,8 @@
     "gen:check": "node scripts/gen-migrations.mjs --check",
     "seed": "tsx packages/core/scripts/seed.ts",
     "mcp": "pnpm --filter @ppm/mcp-server start",
-    "build:mcp": "pnpm --filter @ppm/mcp-server build:binary"
+    "build:mcp": "pnpm --filter @ppm/mcp-server build:binary",
+    "demo-backup": "tsx packages/core/scripts/demo-backup.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

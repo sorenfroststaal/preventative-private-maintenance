@@ -71,6 +71,13 @@ jobs:
           name: ppm-windows-installer
           path: apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
+      - name: Demo backup with synthetic data (restore it in the app)
+        run: pnpm demo-backup -- --out ./local-data/demo-backup
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ppm-demo-backup
+          path: local-data/demo-backup/*.zip
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: ppm-mcpb
