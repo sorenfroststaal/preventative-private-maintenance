@@ -25,3 +25,10 @@ Thumbs.db
 **/src-tauri/target/
 **/src-tauri/gen/
 *.tsbuildinfo
+
+# Built MCP binary and bundle (pnpm build:mcp)
+apps/desktop/src-tauri/resources/mcp/ppm-mcp*
+apps/desktop/src-tauri/resources/mcp/*.node
+apps/desktop/src-tauri/resources/mcp/ppm.mcpb
+apps/desktop/src-tauri/resources/mcp/mcpb-manifest.json
+packages/mcp-server/dist/

@@ -33,6 +33,10 @@ jobs:
       - run: pnpm test
       - name: Seed smoke test
         run: pnpm seed -- --archive ./local-data/ci-demo
+      - name: Self-contained ppm-mcp (Node SEA) and MCP smoke test
+        run: |
+          pnpm build:mcp
+          node packages/mcp-server/scripts/smoke.mjs apps/desktop/src-tauri/resources/mcp/ppm-mcp ./local-data/ci-demo
       - name: Frontend build (needed by tauri::generate_context)
         run: pnpm --filter @ppm/desktop vite:build
       - name: Rust fmt, clippy, tests
@@ -58,8 +62,35 @@ jobs:
           workspaces: apps/desktop/src-tauri
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - name: Installer size
+        shell: pwsh
+        run: Get-ChildItem apps/desktop/src-tauri/target/release/bundle/nsis/*.exe | ForEach-Object { "{0}: {1:N0} bytes ({2:N2} MiB)" -f $_.Name, $_.Length, ($_.Length / 1MB) }
       - uses: actions/upload-artifact@v4
         with:
           name: ppm-windows-installer
           path: apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ppm-mcpb
+          path: packages/mcp-server/dist/ppm.mcpb
+          if-no-files-found: error
+      - name: Install silently, check PATH and ppm-mcp.exe, uninstall
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem apps/desktop/src-tauri/target/release/bundle/nsis/*.exe | Select-Object -First 1).FullName
+          Start-Process -FilePath $setup -ArgumentList "/S" -Wait
+          $dir = Join-Path $env:LOCALAPPDATA "PPM\resources\mcp"
+          $exe = Join-Path $dir "ppm-mcp.exe"
+          if (-not (Test-Path $exe)) { throw "ppm-mcp.exe mangler i $dir" }
+          $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+          if (-not ($userPath -split ";" | Where-Object { $_ -eq $dir })) { throw "PATH indeholder ikke $dir" }
+          & $exe --version
+          pnpm seed -- --archive ./local-data/ci-win
+          node packages/mcp-server/scripts/smoke.mjs $exe ./local-data/ci-win
+          if ($LASTEXITCODE -ne 0) { throw "MCP-røgtest fejlede" }
+          Start-Process -FilePath (Join-Path $env:LOCALAPPDATA "PPM\uninstall.exe") -ArgumentList "/S" -Wait
+          Start-Sleep -Seconds 5
+          $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+          if ($userPath -split ";" | Where-Object { $_ -eq $dir }) { throw "PATH indeholder stadig $dir efter afinstallation" }
+          "Installation, PATH, MCP-røgtest og afinstallation er OK"

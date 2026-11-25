@@ -10,6 +10,8 @@ Listen dækker de steder, hvor implementeringen afviger fra specifikationen elle
 | A2 | 05 Overvåget indbakke | Indbakken scannes hvert 2. sekund (polling) i stedet for at bruge filsystem-events. | Virker ens på alle platforme og netværksdrev. Kravet om 2 sekunders stabil størrelse kræver alligevel en gentagen kontrol. |
 | A3 | README "Sletning" og 03 Madplan | `recipe_ingredient`, `meal_plan_entry` og `shopping_item` slettes fysisk (med en auditlinje, som for koblinger). Det sker, når ingredienslisten erstattes, når en ret fjernes fra madplanen, og når en vare slettes fra indkøbslisten. | Tabellerne har ingen `archived_at` i schema-0002. Spec 03 siger selv, at ingredienslisten erstattes, og spec 04 siger, at varer kan slettes. Rækkerne behandles derfor som koblinger. Primære poster (`recipe`, `shopping_list`) arkiveres. |
 | A4 | 04 Opskrifter, "Genbrug DetailTabs" (opgaven) | Opskriftens foto vises i en egen fane med `DocumentPreview` og ikke med `DocumentsTab` fra `DetailTabs`. | `document_link.target_type` tillader ikke `recipe` (CHECK i schema.sql), og foto er en kolonne (`photo_document_id`). `EntityForm` og `Tabs` genbruges. |
+| A5 | 06 Færdigpakkede forbindelser: "`ppm.mcpb` … lagt ved installeren" | Installeren indeholder `ppm-mcp.exe`, `better_sqlite3.node` og `mcpb-manifest.json`, men ikke selve `ppm.mcpb`. Knappen *Installér i Claude Desktop* bygger `ppm.mcpb` af de installerede filer og åbner den. CI bygger `ppm.mcpb` som selvstændigt artefakt. | `.mcpb` indeholder hele binæren (Node-runtimen). Lagt ved installeren ville den samme binær ligge der to gange (ca. +80 MB). |
+| A6 | 06 Server: "selvstændig `ppm-mcp`-binær" | Node SEA-binæren indlæser `better_sqlite3.node`, som ligger ved siden af den (`process.dlopen`). Binæren og addon'et ligger i `<installationsmappe>\resources\mcp`, og den mappe lægges i brugerens `PATH`. | En SEA kan ikke indlejre native addons. Undermappen kommer af Tauris ressourcehåndtering. |
 
 ## Fortolkninger
 
@@ -43,6 +45,13 @@ Listen dækker de steder, hvor implementeringen afviger fra specifikationen elle
 | F26 | 04 Overblik, nøgletalskort | Kortene er links, der ruller til sektionen og flytter fokus dertil. Routeren bruger URL'ens hash, så almindelige ankerlinks kan ikke bruges. |
 | F27 | 04 Overblik, graf | "Forbrug" er alle udgående posteringer undtagen overførsler, også dem uden kategori. |
 | F28 | 04 Farver | Temaet følger styresystemet (`prefers-color-scheme`). Der er ingen manuel temaknap. |
+| F29 | 06 Værktøjer, `list` | `list` understøtter de typer, der står i `LIST_TYPES` i `core/src/ai/tools.ts`. `from`/`to` gælder typens vigtigste datofelt (fx `booking_date`, `plan_date`). `cursor` er en forskydning. Arkiverede poster er udeladt. |
+| F30 | 06 Få tokens, krav 2 | Ud over `null` og tomme værdier udelades `currency: "DKK"`, `created_at`, `updated_at`, `dedupe_hash` og `sha256` i svar. Alle UUID'er, også fremmednøgler, returneres som `ref` på 8 tegn. Beløb er i øre. |
+| F31 | 06 `get`, "de seneste 10 historikposter" | For bolig, bygningsdel, genstand og bil er historikken arbejdsordrer og udførte opgaver (som fanen Historik). For andre typer er det de seneste 10 linjer i `audit_log` (tid, handling og via). |
+| F32 | 06 Adgangskontrol | Opgaver hører til `maintenance`. En opgave med `module = 'health'` kræver desuden `health` og må ikke være for en privat person. Kontakter og personer er altid synlige. `meal_plan` viser kun allergi-advarsler, når `health` er delt (ellers `warnings_hidden: true`). |
+| F33 | 06 `propose` | `$n` tæller operationerne fra 1. Refs i `*_id`-felter udvides til fulde id'er, når kladden oprettes. Standardmapperne for `file_path` er `<arkiv>/indbakke`, `~/Downloads` og `~/Overførsler`. Symlinks følges, før stien kontrolleres. |
+| F34 | 06 Kladdegrupper | Fejler *Godkend alle* eller *Godkend valgte*, markeres de valgte operationer `failed` med fejlteksten. Andre ventende operationer i gruppen forbliver ventende. *Redigér* retter operationens data som JSON og validerer med samme skema som formularerne. Gruppens status er `pending`, `approved`, `rejected`, `failed` eller `partial`. Menuen viser antallet af ventende grupper. |
+| F35 | 06 Godkendelse | Statusændringer på `ai_draft` auditeres med `via = 'ui'`. De ændringer, kladden udfører, auditeres med `via = 'ai_draft'`. En opgave oprettet af AI får `source = 'ai'`. |
 
 ## Fjernet efter PR #2 (nu en del af specifikationen)
 
@@ -59,3 +68,11 @@ Egne Rust-kommandoer i stedet for plugin-sql og plugin-fs, `executeScript` i `Db
 7. Spec 04 Allergi: angiv, om nøgleord matches som delstreng eller som ord, og om rettens navn indgår (F15).
 8. Spec 04 Uge: angiv budgettet for en uge over et månedsskifte (F19), og om frie titler tæller som "retter uden pris" (F18).
 9. Spec 05 Open Planner: angiv, om tomme felter i filen må overskrive brugerens data (F22).
+
+Punkt 4–9 er foreslået på branchen `claude/spec-fase-2b-praeciseringer`.
+
+10. Spec 06 Færdigpakkede forbindelser: tillad, at `ppm.mcpb` bygges af appen ud fra den installerede binær i stedet for at ligge ved installeren (A5).
+11. Spec 06 Server: nævn, at en SEA-binær har brug for et native SQLite-addon ved siden af sig, og hvor binæren ligger (A6).
+12. Spec 06 `get`: angiv, hvad "historikposter" er for typer uden arbejdsordrer (F31).
+13. Spec 06 Adgangskontrol: angiv, hvilket modul opgaver med `module = 'health'` hører til, og at allergi-advarsler i `meal_plan` kræver `health` (F32).
+14. Spec 06 Kladdegrupper: angiv, hvad der sker med ikke-valgte operationer, når *Godkend valgte* fejler (F34).

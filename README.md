@@ -4,7 +4,7 @@ Et open source-desktopprogram, der samler hjemmets dokumentation, tilbagevendend
 
 Projektet er inspireret af vedligeholdelsessystemer som Sertica, men henvender sig til privatpersoner og familier i Danmark. Det har ingen tilknytning til Sertica.
 
-**Status (branch `claude/app`): Fase 2 (alle moduler i en tynd udgave) og fase 2b (madplan og visuel stil) er bygget. Se [docs/STATUS.md](docs/STATUS.md).**
+**Status (branch `claude/app`): Fase 1, 2, 2b og 3 (AI og MCP) er bygget. Se [docs/STATUS.md](docs/STATUS.md).**
 
 ## Vision
 
@@ -70,6 +70,7 @@ cargo install tauri-driver --locked          # og apt: webkit2gtk-driver xvfb op
 pnpm build && pnpm seed -- --archive ./local-data/e2e
 Xvfb :99 & DISPLAY=:99 openbox & DISPLAY=:99 tauri-driver &
 DISPLAY=:99 node apps/desktop/e2e/phase2b.mjs ./local-data/e2e ./local-data/screens
+DISPLAY=:99 node apps/desktop/e2e/phase3.mjs ./local-data/e2e3 ./local-data/screens   # nyt seed-arkiv
 ```
 
 Scriptet skriver appens `config.json`, så arkivet åbnes ved start, og gemmer skærmbilleder i `local-data/screens`. Til et demoarkiv vælger du "Åbn eksisterende arkiv" og peger på `local-data/demo`. Brugerne er "Anna Eksempel" (uden PIN) og "Bo Eksempel" (PIN 1234).
@@ -78,7 +79,25 @@ Scriptet skriver appens `config.json`, så arkivet åbnes ved start, og gemmer s
 | --- | --- |
 | `packages/core` | Al forretningslogik: arkiv, migrationer, lås, entiteter, opgaver, dokumenter og backup |
 | `apps/desktop` | Tauri-app: React-UI (`src`) og afgrænsede Rust-kommandoer (`src-tauri`) |
-| `packages/mcp-server` | MCP-server (fase 3) |
+| `packages/mcp-server` | MCP-server over stdio, byggescript til selvstændig binær og `.mcpb` |
+| `plugins/ppm`, `.claude-plugin` | Claude Code-plugin og marketplace |
+
+## AI-forbindelse (MCP)
+
+Installeren lægger den selvstændige `ppm-mcp` i installationsmappen og i din `PATH`. Uden `--archive` læser den arkivstien fra appens `config.json`. Opsætningen står også i appen under Indstillinger → AI-adgang.
+
+- **Claude Desktop:** knappen *Installér i Claude Desktop* i appen, eller `ppm.mcpb` fra CI-artefaktet.
+- **Claude Code:** plugin og marketplace ligger i dette repo:
+
+  ```
+  /plugin marketplace add sorenfroststaal/preventative-private-maintenance
+  /plugin install ppm@ppm
+  ```
+
+  I nyere versioner af Claude Code kan det gøres i ét trin: `/plugin install ppm --marketplace sorenfroststaal/preventative-private-maintenance`.
+- **Codex / ChatGPT desktop:** `codex mcp add ppm -- ppm-mcp` (ikke afprøvet, se docs/STATUS.md).
+
+Under udvikling: `pnpm mcp -- --archive ./local-data/demo` starter serveren med `tsx`, og `pnpm build:mcp` bygger den selvstændige binær og `ppm.mcpb` i `packages/mcp-server/dist/`.
 
 ## Open source
 

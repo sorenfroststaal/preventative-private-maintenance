@@ -4,17 +4,20 @@
   "version": "0.1.0",
   "type": "module",
   "packageManager": "pnpm@10.28.0",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "pnpm --filter @ppm/desktop tauri dev",
-    "build": "pnpm --filter @ppm/desktop tauri build",
+    "build": "pnpm build:mcp && pnpm --filter @ppm/desktop tauri build",
     "test": "vitest run",
     "lint": "pnpm gen:check && eslint . && tsc -b",
     "format": "prettier --write .",
     "gen:migrations": "node scripts/gen-migrations.mjs",
     "gen:check": "node scripts/gen-migrations.mjs --check",
     "seed": "tsx packages/core/scripts/seed.ts",
-    "mcp": "pnpm --filter @ppm/mcp-server start"
+    "mcp": "pnpm --filter @ppm/mcp-server start",
+    "build:mcp": "pnpm --filter @ppm/mcp-server build:binary"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
@@ -29,6 +32,9 @@
     "vitest": "^3.2.4"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
   }
 }

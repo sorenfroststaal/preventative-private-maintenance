@@ -38,6 +38,88 @@ fn config_path(app: &AppHandle) -> R<PathBuf> {
         .join("config.json"))
 }
 
+/// Files of the packaged AI connection (spec 06 "Færdigpakkede forbindelser"), shipped as
+/// resources next to the app. Paths are resolved here and never taken from the UI.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct McpInfo {
+    binary_path: Option<String>,
+    /// Present when ppm.mcpb can be built (the manifest is installed).
+    bundle_path: Option<String>,
+}
+
+fn mcp_resource(app: &AppHandle, name: &str) -> Option<PathBuf> {
+    let p = app
+        .path()
+        .resource_dir()
+        .ok()?
+        .join("resources")
+        .join("mcp")
+        .join(name);
+    p.is_file().then_some(p)
+}
+
+#[tauri::command]
+fn mcp_info(app: AppHandle) -> McpInfo {
+    let exe = if cfg!(windows) {
+        "ppm-mcp.exe"
+    } else {
+        "ppm-mcp"
+    };
+    McpInfo {
+        binary_path: mcp_resource(&app, exe).map(|p| p.to_string_lossy().into_owned()),
+        bundle_path: mcp_resource(&app, "mcpb-manifest.json")
+            .map(|p| p.to_string_lossy().into_owned()),
+    }
+}
+
+/// Builds ppm.mcpb (zip with manifest.json and server/) from the installed binary.
+fn build_mcpb(app: &AppHandle) -> R<PathBuf> {
+    let exe = if cfg!(windows) {
+        "ppm-mcp.exe"
+    } else {
+        "ppm-mcp"
+    };
+    let manifest = mcp_resource(app, "mcpb-manifest.json")
+        .ok_or("mcpb-manifest.json følger ikke med denne installation.")?;
+    let binary = mcp_resource(app, exe).ok_or("ppm-mcp følger ikke med denne installation.")?;
+    let addon = mcp_resource(app, "better_sqlite3.node")
+        .ok_or("better_sqlite3.node følger ikke med denne installation.")?;
+    let dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let dest = dir.join("ppm.mcpb");
+    let file = std::fs::File::create(&dest).map_err(|e| e.to_string())?;
+    let mut zip = zip::ZipWriter::new(file);
+    let opts = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated)
+        .unix_permissions(0o755);
+    for (name, src) in [
+        ("manifest.json".to_string(), manifest),
+        (format!("server/{exe}"), binary),
+        ("server/better_sqlite3.node".to_string(), addon),
+    ] {
+        zip.start_file(name, opts).map_err(|e| e.to_string())?;
+        let mut f = std::fs::File::open(&src).map_err(|e| e.to_string())?;
+        std::io::copy(&mut f, &mut zip).map_err(|e| e.to_string())?;
+    }
+    zip.finish().map_err(|e| e.to_string())?;
+    Ok(dest)
+}
+
+/// "Installér i Claude Desktop": builds ppm.mcpb and opens it with its registered program.
+#[tauri::command]
+fn open_mcp_bundle(app: AppHandle) -> R<String> {
+    let path = build_mcpb(&app)?;
+    #[cfg(windows)]
+    let mut cmd = std::process::Command::new("explorer.exe");
+    #[cfg(target_os = "macos")]
+    let mut cmd = std::process::Command::new("open");
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let mut cmd = std::process::Command::new("xdg-open");
+    cmd.arg(&path).spawn().map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
 #[tauri::command]
 fn app_info(app: AppHandle) -> R<AppInfo> {
     let one_drive_env = ["OneDrive", "OneDriveConsumer", "OneDriveCommercial"]
@@ -290,6 +372,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             app_info,
+            mcp_info,
+            open_mcp_bundle,
             config_read,
             config_write,
             process_alive,

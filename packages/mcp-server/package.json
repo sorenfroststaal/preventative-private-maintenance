@@ -7,13 +7,18 @@
     "ppm-mcp": "./src/cli.ts"
   },
   "scripts": {
-    "start": "tsx src/cli.ts"
+    "start": "tsx src/cli.ts",
+    "build:binary": "tsx scripts/build-binary.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
     "@ppm/core": "workspace:*",
+    "fflate": "^0.8.3",
     "zod": "^3.25.76",
     "zod-to-json-schema": "^3.25.2"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "esbuild": "^0.25.12",
+    "postject": "1.0.0-alpha.6"
+  }
 }

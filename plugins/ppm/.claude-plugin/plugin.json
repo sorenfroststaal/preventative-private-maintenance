@@ -1,0 +1,8 @@
+{
+  "name": "ppm",
+  "version": "0.1.0",
+  "description": "Forbinder Claude Code til dit lokale PPM-arkiv via ppm-mcp. Ændringer foreslås som kladder og godkendes i appen.",
+  "author": { "name": "PPM open source" },
+  "license": "MIT",
+  "keywords": ["mcp", "husstand", "vedligehold", "madplan"]
+}

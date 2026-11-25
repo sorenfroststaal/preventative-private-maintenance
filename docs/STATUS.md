@@ -1,6 +1,6 @@
 # Status (branch `claude/app`)
 
-Opdateret: 25.11.2026. Aktuel fase: **Fase 2b – Madplan og visuel stil er færdig**, bortset fra punkterne under "Ikke verificeret". Fase 1 og 2 er færdige. `main` med PR #3 (madplan, visuel stil og tokeneffektiv AI-forbindelse) er merget ind. Fase 3 er ikke påbegyndt.
+Opdateret: 25.11.2026 (fase 3). Aktuel fase: **Fase 3 – AI og MCP er bygget.** Kanalerne Claude Desktop og Codex er ikke afprøvet med en rigtig klient (se kriterium 9). Fase 1, 2 og 2b er færdige. Præciseringer af specifikationen efter fase 2b ligger på branchen `claude/spec-fase-2b-praeciseringer` (ingen PR oprettet).
 
 ## Fase 1: kriterier
 
@@ -62,14 +62,36 @@ Fundet og rettet under E2E:
 - "Grøntsagsbouillon" blev gættet som Frugt og grønt. Nu Kolonial.
 - Allergi-badgen løb ud over retkortet.
 
+## Fase 3: kriterier
+
+| # | Kriterium | Status | Bevis |
+| --- | --- | --- | --- |
+| 1 | `ppm-mcp` starter og svarer med `instructions` | Opfyldt | Instruktionerne er 379 tegn (`server.test.ts`). `ppm-mcp --archive <sti>`, eller uden `--archive` med stien fra appens `config.json`. Serveren tager ingen lås og kører ingen migrationer. |
+| 2 | Alle værktøjer korrekte mod seed-arkivet **[T]** | Opfyldt | Alle 14 værktøjer er testet mod seed-arkivet, også `overview`, `meal_plan` og `recipes` (`ai.test.ts`) |
+| 3 | Filtrering af moduler og privat helbred **[T]** | Opfyldt | Moduler, der er slået fra, giver fejlteksten fra spec 06. `search`, `get`, `list`, `document`, `health` og allergi-advarslerne i `meal_plan` filtreres. Advarslerne vises kun, når `health` er delt, og private personer maskeres. Et dokument kræver `documents` og et delt modul blandt koblingerne. |
+| 4 | Hvert kald logges **[T]** | Opfyldt | `ai_access_log` med værktøj, argumenter, returnerede `{type,id}`, klientens navn fra `initialize`, `as_user_id` og `denied_reason` (også ved ukendte værktøjer og ugyldige argumenter, fordi valideringen sker i core) |
+| 5 | `propose` **[T]** | Opfyldt | Én kladdegruppe pr. kald. Ugyldige data afvises med operationens indeks, og intet gemmes. `$n`-referencer virker (opskrift og planlægning, genstand og kvittering). `file_path` uden for de tilladte mapper og `..` afvises. |
+| 6 | MCP skriver ikke til andre tabeller **[T]** | Opfyldt | En test sammenligner alle tabeller undtagen `ai_draft` og `ai_access_log` og filerne i `bilag/` før og efter 9 læsekald og et `propose` med fil. Kun `indbakke/ai/<gruppe>-<n>.pdf` er ny. |
+| 7 | AI-indbakken **[T]** | Opfyldt | Godkend alle (via `ai_draft` i audit), godkend valgte, redigér (valideres med samme skema), afvis alle (filer i `indbakke/ai/` slettes), advarsel om konflikt med bekræftelse, og fuld tilbagerulning med `failed` og fejltekst. `attach_document` importerer filen ved godkendelse. Desuden en renderet UI-test, der godkender via knappen. |
+| 8 | Få tokens **[T]** | Opfyldt | 14 værktøjer, beskrivelser på højst 160 tegn, ingen `description` på felter, `tools/list` på 4.311 tegn, `overview` på 1.125 tegn for seed-arkivet, ingen `null`/tomme felter i svar og `ref` på 8 tegn i alle værktøjer (`ai.test.ts`, `server.test.ts`) |
+| 9 | Færdigpakket | Delvist | `ppm.mcpb` bygges i CI (artefakt `ppm-mcpb`). Claude Code-plugin og marketplace ligger i repoet. Indstillingssiden viser knap og kommandoer for de tre kanaler og datoen for seneste verifikation. **Claude Code: afprøvet** med en rigtig klient (`claude plugin validate .` bestod; `marketplace add` og `plugin install ppm@ppm` i en ren profil; `claude mcp list` viser `plugin:ppm:ppm: ppm-mcp – ✓ Connected`). **Claude Desktop: ikke afprøvet** (ingen Windows- eller macOS-maskine). Formatet er kontrolleret mod MCPB `MANIFEST.md` (version 0.3), og E2E viser, at knappen bygger en gyldig `ppm.mcpb`. **Codex: ikke afprøvet og ikke verificeret.** OpenAIs dokumentation kunne ikke hentes fra dette miljø, og installation af Codex-CLI'en blev afvist. |
+| 10 | `ppm-mcp.exe` uden Node og i `PATH` | Verificeres i CI | Binæren er en Node SEA med `better_sqlite3.node` ved siden af. På Linux er den testet uden Node i `PATH` (røgtest i CI-jobbet `lint-test` og lokalt). Jobbet `build-windows` installerer den byggede installer lydløst, tjekker `PATH` (HKCU), kører `ppm-mcp.exe --version` og MCP-røgtesten mod et seed-arkiv, afinstallerer og tjekker, at `PATH` er ryddet. NSIS-hooks er kompileret med `makensis -WX` lokalt. |
+
+### E2E for fase 3 i den rigtige app
+
+`apps/desktop/e2e/phase3.mjs`: alle 12 trin bestod. Appen kører med arkivet åbent, mens en rigtig MCP-klient bruger den byggede binær (`overview` og `propose` med genstand, kvittering fra `Downloads` via `$1`, opskrift og planlægning via `$3`). AI-indbakken viser gruppen, og menuen viser antallet. Operationer kan foldes ud, og *Godkend alle* opretter genstanden og retten. Loggen viser klientens kald, og *Installér i Claude Desktop* bygger `ppm.mcpb`.
+
+Fundet og rettet under E2E: typenavne stod på engelsk i AI-indbakken ("item", "recipe"). Nu på dansk, og ingredienser vises som korte linjer.
+
 ## Tests
 
 | Suite | Antal | Resultat |
 | --- | --- | --- |
-| core (Vitest) | 122 (heraf 29 for madplan i `food.test.ts`) | Grøn |
-| desktop (Vitest) | 27 (heraf 18 nye: kontrast og renderede sider) | Grøn |
+| core (Vitest) | 136 (heraf 29 for madplan og 14 for AI/MCP i `ai.test.ts`) | Grøn |
+| mcp-server (Vitest) | 4 (protokol, `tools/list`, log og versionsfejl) | Grøn |
+| desktop (Vitest) | 29 (kontrast, renderede sider, AI-indbakke og AI-adgang) | Grøn |
 | Rust (`cargo test`) | 10 (+1 ignoreret måletest) | Grøn |
-| **I alt** | **159** | **Grøn** |
+| **I alt** | **179** | **Grøn** |
 
 ESLint, `tsc -b`, `cargo fmt --check` og `cargo clippy -D warnings` er rene.
 
@@ -102,6 +124,9 @@ Fundet og rettet under E2E: "Udløber snart" viste reklamationsret, der var udl�
 | Opstartstid til login-skærm | ca. 0,95 s (fase 1-måling) | Median af 3, release-build, Linux i Xvfb |
 | Linux-pakke (`.deb`) efter fase 2b | 3,34 MiB | `pnpm build` lokalt (release) |
 | Frontend-bundle efter fase 2b | 1,30 MB JavaScript (minificeret, før komprimering) | `vite build`. Kun de brugte Lucide-ikoner kommer med (tree-shaking). |
+| `ppm-mcp`, selvstændig binær (Linux) | 125,6 MB (`better_sqlite3.node` 2,1 MB ved siden af) | `pnpm build:mcp` (Node 22 SEA) |
+| Linux-pakke (`.deb`) efter fase 3 | 46,75 MiB | `pnpm build` lokalt. Næsten hele væksten er Node-runtimen i `ppm-mcp`. |
+| Installerstørrelse, Windows efter fase 3 | Måles i CI på denne commit | Trinnet "Installer size" i `build-windows` |
 | Installerstørrelse, Windows efter fase 2b | 2,94 MiB (`PPM_0.1.0_x64-setup.exe`, +0,02 MiB i forhold til fase 2) | CI-kørsel 45512953033 (commit ff6c794), jobbet `build-windows`. Både `lint-test` og `build-windows` er grønne. |
 
 ## Manuel test på Windows (spec 07)
@@ -115,3 +140,4 @@ Fundet og rettet under E2E: "Udløber snart" viste reklamationsret, der var udl�
 - En fuld automatiseret test af tastaturbetjeningen (fase 2 nr. 12).
 - Filvælgeren i Open Planner-importen og ved valg af opskriftsfoto (native dialoger kan ikke automatiseres i Xvfb). Import og fotos er dækket af core-tests med fixtures.
 - Mørkt tema er kun kontrolleret ved beregning af kontrast (tests), ikke med skærmbilleder.
+- Fase 3: Claude Desktop og Codex med rigtige klienter (kriterium 9). Installation og `PATH` på Windows verificeres kun i CI, ikke på en fysisk maskine.

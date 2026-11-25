@@ -1,0 +1,12 @@
+{
+  "name": "ppm",
+  "description": "PPM – lokalt husstandsarkiv. Plugin med MCP-forbindelse og arbejdsgange.",
+  "owner": { "name": "PPM open source" },
+  "plugins": [
+    {
+      "name": "ppm",
+      "source": "./plugins/ppm",
+      "description": "Forbinder Claude Code til dit lokale PPM-arkiv via ppm-mcp (installeres med PPM-appen)."
+    }
+  ]
+}

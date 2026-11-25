@@ -13,7 +13,7 @@
     "withGlobalTauri": false,
     "windows": [
       {
-        "title": "PPM \u2013 Hjemmets vedligehold",
+        "title": "PPM – Hjemmets vedligehold",
         "width": 1280,
         "height": 820,
         "minWidth": 900,
@@ -48,8 +48,12 @@
           "Danish",
           "English"
         ],
-        "installMode": "currentUser"
+        "installMode": "currentUser",
+        "installerHooks": "windows/installer-hooks.nsh"
       }
-    }
+    },
+    "resources": [
+      "resources/mcp/*"
+    ]
   }
 }
