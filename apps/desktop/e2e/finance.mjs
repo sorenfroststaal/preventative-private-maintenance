@@ -111,6 +111,20 @@ try {
   step("Arkivér-knap på rækken", Boolean(await js("return document.querySelector('button[aria-label^=\"Arkivér \"]')")));
   await shot("faste-udgifter");
 
+  await click("//button[@role='tab' and normalize-space()='Lån']");
+  await click("//button[normalize-space()='Nyt lån']");
+  await find("//div[@role='dialog']//label[contains(., 'Restgæld')]");
+  await type("//div[@role='dialog']//input[@id='f-name']", "Billån");
+  await click("//div[@role='dialog']//button[@type='submit']");
+  await sleep(800);
+  step("Lån oprettet med standardværdier og vist", Boolean(await find("//table//td[contains(., 'Billån')]")));
+  await shot("laan");
+  await click("//nav//a[contains(., 'Lister')]");
+  await sleep(800);
+  await click("//button[@role='tab' and normalize-space()='Kontakter']");
+  await sleep(800);
+  await click("//table//tbody/tr[1]/td[1]");
+  step("Bilag på kontakter", Boolean(await find("//aside//button[@role='tab' and normalize-space()='Bilag']")));
   await click("//nav//a[contains(., 'Forsikring')]");
   await click("//table//tbody/tr[1]/td[1]");
   await find("//div[@role='group' and @aria-label='Dækkede personer']");

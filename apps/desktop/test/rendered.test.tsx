@@ -318,4 +318,25 @@ describe("phase 2b.9 – rendered components", () => {
     await waitFor(() => expect(screen.queryByText("Streamingtjeneste", { selector: "td" })).toBeNull());
     checkButtons(container, "Faste udgifter");
   });
+
+  it("loans tab (migration 0006): list with totals, opened from the URL, with documents; contacts in Lister have a Bilag tab", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    await createEntity(ctx, "contact", { name: "Testkontakt", kind: "bank" });
+    const loan = await createEntity(ctx, "loan", { name: "Testlån", kind: "bank", balance_minor: 10000000, payment_minor: 300000, interest_rate: 5.5 });
+    const { container } = renderAt(`/okonomi?tab=loans&loan=${String(loan.id)}`);
+    await settle("Økonomi");
+    expect(screen.getByRole("tab", { name: "Lån", selected: true })).toBeInTheDocument();
+    const row = (await screen.findByText("Testlån", { selector: "td" })).closest("tr")!;
+    expect(within(row).getByText("Banklån")).toBeInTheDocument();
+    expect(within(row).getByText("5,5 %")).toBeInTheDocument();
+    const detail = await screen.findByRole("complementary", { name: "Lån" });
+    expect(within(detail).getByRole("tab", { name: "Bilag" })).toBeInTheDocument();
+    checkButtons(container, "Lån");
+    cleanup();
+    renderAt("/lister?liste=contact");
+    await settle("Lister");
+    fireEvent.click(await screen.findByText("Testkontakt", { selector: "td" }));
+    expect(await screen.findByRole("tab", { name: "Bilag" })).toBeInTheDocument();
+  });
 });
+

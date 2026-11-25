@@ -80,6 +80,7 @@ export const TYPE_SINGULAR: Partial<Record<EntityType, string>> = {
   category: "kategori",
   vehicle: "bil",
   pet: "husdyr",
+  loan: "lån",
   policy: "police",
   item: "genstand",
   building_part: "bygningsdel",

@@ -365,20 +365,23 @@ describe("propose: dry_run, all errors at once and coverage links", () => {
 describe("feedback from filling a real archive (round 2)", () => {
   it("attach_document to a type that cannot have documents is rejected at propose, also via $n", async () => {
     const { deps, ai } = await demo();
-    const [contact] = await ai.db.select<{ id: string }>("SELECT id FROM contact LIMIT 1");
+    const [task] = await ai.db.select<{ id: string }>("SELECT id FROM task LIMIT 1");
     const [doc] = await ai.db.select<{ id: string }>("SELECT id FROM document LIMIT 1");
-    const e1 = errText(await runTool(deps, "propose", { rationale: "x", ops: [{ op: "attach_document", data: { document: refOf(doc!.id), target: refOf(contact!.id), role: "other" } }] }));
-    expect(e1).toMatch(/Bilag kan ikke kobles til contact\. Bilag kan kobles til: .*item.*pet/);
+    const e1 = errText(await runTool(deps, "propose", { rationale: "x", ops: [{ op: "attach_document", data: { document: refOf(doc!.id), target: refOf(task!.id), role: "other" } }] }));
+    expect(e1).toMatch(/Bilag kan ikke kobles til task\. Bilag kan kobles til: .*item.*pet.*contact/);
     const e2 = errText(
       await runTool(deps, "propose", {
         rationale: "x",
         ops: [
-          { op: "create", type: "contact", data: { name: "Ny bank", kind: "bank" } },
+          { op: "create", type: "task", data: { title: "Ny opgave", module: "maintenance" } },
           { op: "attach_document", data: { document: refOf(doc!.id), target: "$1", role: "other" } },
         ],
       }),
     );
-    expect(e2).toMatch(/^Operation 2: Bilag kan ikke kobles til contact/);
+    expect(e2).toMatch(/^Operation 2: Bilag kan ikke kobles til task/);
+    // Since migration 0006 a contact can have documents, with the new roles.
+    const [contact] = await ai.db.select<{ id: string }>("SELECT id FROM contact LIMIT 1");
+    expect(json(await runTool(deps, "propose", { rationale: "x", ops: [{ op: "attach_document", data: { document: refOf(doc!.id), target: refOf(contact!.id), role: "contract" } }] })).n).toBe(1);
     // The target may be given as ref on the operation; the error lists all attach fields.
     const [item] = await ai.db.select<{ id: string }>("SELECT id FROM item LIMIT 1");
     expect(json(await runTool(deps, "propose", { rationale: "x", ops: [{ op: "attach_document", ref: refOf(item!.id), data: { document: refOf(doc!.id), role: "manual" } }] })).n).toBe(1);

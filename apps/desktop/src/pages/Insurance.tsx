@@ -134,7 +134,7 @@ function PolicyDetail({ policy }: { policy: Row }) {
         tabs={[
           { id: "cov", label: "Dækning", content: () => <Coverage policyId={id} /> },
           { id: "claims", label: "Skadesager", content: () => <Claims policyId={id} /> },
-          { id: "docs", label: "Dokumenter", content: () => <DocumentsTab targetType="policy" targetId={id} roles={["policy_terms", "letter", "invoice", "other"]} /> },
+          { id: "docs", label: "Dokumenter", content: () => <DocumentsTab targetType="policy" targetId={id} roles={["policy_terms", "contract", "letter", "invoice", "certificate", "other"]} /> },
           { id: "info", label: "Oplysninger", content: () => <EntityForm type="policy" row={policy} /> },
         ]}
       />

@@ -128,10 +128,39 @@ describe("migration 0005 – recurring expense priority", () => {
     const db = await env.openDb(join(tempDir(), "v4.sqlite"));
     await migrate(db, () => env.clock.nowIso(), migrations.filter((m) => m.version <= 4));
     await db.execute("INSERT INTO recurring_expense (id, name, amount_minor, period) VALUES ('00000000-0000-4000-8000-0000000000d1', 'Internet', 29900, 'month')");
-    await migrate(db, () => env.clock.nowIso());
+    await migrate(db, () => env.clock.nowIso(), migrations.filter((m) => m.version <= 5));
     expect(await getSchemaVersion(db)).toBe(5);
     expect(await db.select("SELECT name, priority FROM recurring_expense")).toEqual([{ name: "Internet", priority: null }]);
     await db.execute("UPDATE recurring_expense SET priority = 4");
     await expect(db.execute("UPDATE recurring_expense SET priority = 9")).rejects.toThrow();
   });
 });
+
+describe("migration 0006 – loans, more documents and fields", () => {
+  it("adds loan, documents on contacts/accounts/loans with new roles, loan transactions and new columns, keeping data", async () => {
+    const env = testEnv();
+    const db = await env.openDb(join(tempDir(), "v5.sqlite"));
+    await migrate(db, () => env.clock.nowIso(), migrations.filter((m) => m.version <= 5));
+    await db.execute("INSERT INTO document (id, sha256, filename, ext, mime, size_bytes, source, created_at) VALUES ('00000000-0000-4000-8000-0000000000e1', 'h', 'a.pdf', 'pdf', 'application/pdf', 1, 'drop', 'x')");
+    await db.execute("INSERT INTO document_link VALUES ('00000000-0000-4000-8000-0000000000e1', 'item', '00000000-0000-4000-8000-0000000000e2', 'receipt')");
+    await expect(db.execute("INSERT INTO document_link VALUES ('00000000-0000-4000-8000-0000000000e1', 'contact', '00000000-0000-4000-8000-0000000000e3', 'contract')")).rejects.toThrow();
+    await migrate(db, () => env.clock.nowIso());
+    expect(await getSchemaVersion(db)).toBe(6);
+    expect(await db.select("SELECT target_type, role FROM document_link")).toEqual([{ target_type: "item", role: "receipt" }]);
+    for (const [t, role] of [["contact", "contract"], ["account", "certificate"], ["loan", "warranty"]] as const)
+      await db.execute("INSERT INTO document_link VALUES ('00000000-0000-4000-8000-0000000000e1', ?, '00000000-0000-4000-8000-0000000000e3', ?)", [t, role]);
+    await db.execute("INSERT INTO loan (id, name, kind, created_at) VALUES ('00000000-0000-4000-8000-0000000000f1', 'Boliglån', 'mortgage', 'x')");
+    await expect(db.execute("INSERT INTO loan (id, name, kind, created_at) VALUES ('00000000-0000-4000-8000-0000000000f2', 'X', 'payday', 'x')")).rejects.toThrow();
+    await db.execute("INSERT INTO account (id, name) VALUES ('00000000-0000-4000-8000-0000000000a9', 'K')");
+    await db.execute("INSERT INTO bank_transaction (id, account_id, booking_date, text, amount_minor, dedupe_hash) VALUES ('00000000-0000-4000-8000-0000000000b9', '00000000-0000-4000-8000-0000000000a9', '2026-11-01', 'Afdrag', -500000, 'h1')");
+    await db.execute("INSERT INTO transaction_link VALUES ('00000000-0000-4000-8000-0000000000b9', 'loan', '00000000-0000-4000-8000-0000000000f1')");
+    await db.execute("DELETE FROM bank_transaction");
+    expect(await db.select("SELECT * FROM transaction_link")).toEqual([]); // ON DELETE CASCADE kept
+    await db.execute("INSERT INTO recurring_expense (id, name, amount_minor, period) VALUES ('00000000-0000-4000-8000-0000000000d2', 'El', 90000, 'month')");
+    expect(await db.select("SELECT amount_variable, end_date, property_id, vehicle_id FROM recurring_expense")).toEqual([{ amount_variable: 0, end_date: null, property_id: null, vehicle_id: null }]);
+    await expect(db.execute("UPDATE recurring_expense SET amount_variable = 2")).rejects.toThrow();
+    expect(await db.select("SELECT purchase_date, purchase_price_minor FROM vehicle")).toEqual([]);
+    await db.execute("INSERT INTO vehicle (id, name, purchase_date, purchase_price_minor, created_at) VALUES ('00000000-0000-4000-8000-0000000000c9', 'Bil', '2024-03-01', 18000000, 'x')");
+  });
+});
+

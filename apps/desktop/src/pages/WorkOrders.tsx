@@ -256,7 +256,7 @@ function WorkOrderDetail({ wo }: { wo: Row }) {
           {
             id: "docs",
             label: "Bilag",
-            content: () => <DocumentsTab targetType="work_order" targetId={id} roles={["quote", "invoice", "photo_before", "photo_after", "receipt", "report", "other"]} />,
+            content: () => <DocumentsTab targetType="work_order" targetId={id} roles={["quote", "invoice", "photo_before", "photo_after", "receipt", "warranty", "contract", "report", "other"]} />,
           },
           ...(wo.kind === "damage" ? [{ id: "claim", label: "Skadesag", content: () => <ClaimPanel wo={wo} /> }] : []),
         ]}

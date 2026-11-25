@@ -147,7 +147,7 @@ async function execute(env: Env, archive: Archive, ctx: Ctx, d: DraftRow, result
 }
 
 async function findType(db: DbAdapter, id: string): Promise<string> {
-  const types = ["property", "location", "item", "item_part", "building_part", "pet", "vehicle", "work_order", "claim", "policy", "person", "health_visit", "health_screening", "health_vaccination", "health_medication", "bank_transaction", "task_occurrence", "recurring_expense"];
+  const types = ["property", "location", "item", "item_part", "building_part", "pet", "vehicle", "work_order", "claim", "policy", "person", "contact", "account", "loan", "health_visit", "health_screening", "health_vaccination", "health_medication", "bank_transaction", "task_occurrence", "recurring_expense"];
   for (const t of types) if ((await db.select(`SELECT 1 FROM ${t} WHERE id = ?`, [id])).length) return t;
   throw new Error("Målet kan ikke få bilag koblet på.");
 }
@@ -263,6 +263,7 @@ export const DRAFT_TYPE_LABELS: Record<string, string> = {
   contact: "kontakt",
   vehicle: "bil",
   pet: "husdyr",
+  loan: "lån",
   odometer_reading: "km-stand",
   work_order: "arbejdsordre",
   task: "opgave",
@@ -293,6 +294,9 @@ const ROLE_LABELS: Record<string, string> = {
   photo_after: "foto efter",
   manual: "manual",
   policy_terms: "policevilkår",
+  warranty: "garantibevis",
+  contract: "kontrakt",
+  certificate: "certifikat",
   report: "rapport",
   letter: "brev",
   other: "andet",

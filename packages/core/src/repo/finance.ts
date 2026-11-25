@@ -483,7 +483,8 @@ export async function monthFinance(db: DbAdapter, yearMonth: string): Promise<Mo
 }
 
 export interface RecurringSummary {
-  items: (Row & { monthly_minor: number })[];
+  /** `ended`: the end date has passed; listed, but not counted in the totals. */
+  items: (Row & { monthly_minor: number; ended: boolean })[];
   monthly_total_minor: number;
   /** Monthly total per priority (migration 0005): keys "1".."5" and "none" (not rated). */
   monthly_by_priority: Record<string, number>;
@@ -498,19 +499,85 @@ export const RECURRING_PRIORITY: [number, string][] = [
   [1, "Kan undværes"],
 ];
 
-export async function recurringSummary(db: DbAdapter): Promise<RecurringSummary> {
+export async function recurringSummary(
+  db: DbAdapter,
+  opts: { today?: string; propertyId?: string; vehicleId?: string } = {},
+): Promise<RecurringSummary> {
+  const where = ["r.archived_at IS NULL"];
+  const params: string[] = [];
+  if (opts.propertyId) {
+    where.push("r.property_id = ?");
+    params.push(opts.propertyId);
+  }
+  if (opts.vehicleId) {
+    where.push("r.vehicle_id = ?");
+    params.push(opts.vehicleId);
+  }
   const rows = await db.select<Row>(
-    `SELECT r.*, c.name AS category_name FROM recurring_expense r LEFT JOIN category c ON c.id = r.category_id
-      WHERE r.archived_at IS NULL ORDER BY r.name`,
+    `SELECT r.*, c.name AS category_name, p.name AS property_name, v.name AS vehicle_name FROM recurring_expense r
+       LEFT JOIN category c ON c.id = r.category_id LEFT JOIN property p ON p.id = r.property_id LEFT JOIN vehicle v ON v.id = r.vehicle_id
+      WHERE ${where.join(" AND ")} ORDER BY r.name`,
+    params,
   );
-  const items = rows.map((r) => ({ ...r, monthly_minor: monthlyAverage(Number(r.amount_minor), String(r.period)) }));
+  const items = rows.map((r) => ({
+    ...r,
+    monthly_minor: monthlyAverage(Number(r.amount_minor), String(r.period)),
+    ended: Boolean(opts.today && r.end_date && String(r.end_date) < opts.today),
+  }));
+  const active = items.filter((i) => !i.ended);
   const byPriority: Record<string, number> = {};
-  for (const i of items) {
+  for (const i of active) {
     const p = (i as Row).priority;
     const k = p == null ? "none" : String(p);
     byPriority[k] = (byPriority[k] ?? 0) + i.monthly_minor;
   }
-  return { items, monthly_total_minor: items.reduce((a, i) => a + i.monthly_minor, 0), monthly_by_priority: byPriority };
+  return { items, monthly_total_minor: active.reduce((a, i) => a + i.monthly_minor, 0), monthly_by_priority: byPriority };
+}
+
+// ---------- Loans (migration 0006) ----------
+
+export const LOAN_KINDS: [string, string][] = [
+  ["mortgage", "Realkreditlån"],
+  ["bank", "Banklån"],
+  ["car", "Billån"],
+  ["student", "SU-lån"],
+  ["consumer", "Forbrugslån"],
+  ["private", "Privat lån"],
+  ["other", "Andet"],
+];
+
+export interface LoanSummary {
+  items: (Row & { monthly_payment_minor: number; lender_name: string | null })[];
+  balance_total_minor: number;
+  monthly_payment_total_minor: number;
+}
+
+/** Active loans with the payment as a monthly average, and totals. Optionally only one property's or vehicle's. */
+export async function loanSummary(db: DbAdapter, opts: { propertyId?: string; vehicleId?: string } = {}): Promise<LoanSummary> {
+  const where = ["l.archived_at IS NULL"];
+  const params: string[] = [];
+  if (opts.propertyId) {
+    where.push("l.property_id = ?");
+    params.push(opts.propertyId);
+  }
+  if (opts.vehicleId) {
+    where.push("l.vehicle_id = ?");
+    params.push(opts.vehicleId);
+  }
+  const rows = await db.select<Row>(
+    `SELECT l.*, c.name AS lender_name FROM loan l LEFT JOIN contact c ON c.id = l.lender_contact_id WHERE ${where.join(" AND ")} ORDER BY l.name`,
+    params,
+  );
+  const items = rows.map((r) => ({
+    ...r,
+    lender_name: (r.lender_name as string | null) ?? null,
+    monthly_payment_minor: r.payment_minor == null ? 0 : monthlyAverage(Number(r.payment_minor), String(r.payment_period)),
+  }));
+  return {
+    items,
+    balance_total_minor: items.reduce((a, i) => a + Number((i as Row).balance_minor ?? 0), 0),
+    monthly_payment_total_minor: items.reduce((a, i) => a + i.monthly_payment_minor, 0),
+  };
 }
 
 // ---------- Generic profiles stored in settings ----------

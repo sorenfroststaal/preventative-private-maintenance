@@ -7,6 +7,7 @@ import {
   removeTextListValue,
   renameTextListValue,
   TEXT_LISTS,
+  fields,
   textListValues,
   type EntityType,
   type Row,
@@ -15,6 +16,10 @@ import { errorText, useSession } from "../app/session";
 import { useToast } from "../layout/Shell";
 import { EntityForm, TYPE_SINGULAR } from "../components/EntityForm";
 import { ArchiveButton } from "../components/ArchiveButton";
+import { DocumentsTab } from "../components/DetailTabs";
+
+/** Types that can have documents (spec 03, migration 0006): contacts, persons, accounts, properties, rooms. */
+const ATTACHABLE = new Set<string>(fields.document_link.target_type.options);
 import { Modal, rowProps, SearchBox, Tabs, includesText } from "../components/ui";
 import { IconButton, PageHeader, StatusBadge, TextIconButton } from "../components/visual";
 import { CONTACT_KINDS, optionLabel } from "../lib/entityFields";
@@ -147,7 +152,16 @@ function EntityListTab({ list }: { list: EntityList }) {
               <h2>{String(sel.name)}</h2>
               <ArchiveButton type={list.type} id={String(sel.id)} label={singular.charAt(0).toUpperCase() + singular.slice(1)} onDone={() => setSelected(null)} />
             </div>
-            <EntityForm type={list.type} row={sel} invalidate={[[list.type]]} />
+            {ATTACHABLE.has(list.type) ? (
+              <Tabs
+                tabs={[
+                  { id: "info", label: "Oplysninger", content: () => <EntityForm type={list.type} row={sel} invalidate={[[list.type]]} /> },
+                  { id: "docs", label: "Bilag", content: () => <DocumentsTab targetType={list.type as never} targetId={String(sel.id)} roles={["contract", "letter", "certificate", "warranty", "invoice", "receipt", "photo", "other"]} /> },
+                ]}
+              />
+            ) : (
+              <EntityForm type={list.type} row={sel} invalidate={[[list.type]]} />
+            )}
           </aside>
         )}
       </div>

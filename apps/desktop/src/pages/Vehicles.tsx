@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
-import { latestOdometer, listEntities, vehicleCostsByYear, type Row } from "@ppm/core";
+import { latestOdometer, listEntities, loanSummary, recurringSummary, vehicleCostsByYear, type Row } from "@ppm/core";
 import { useSession } from "../app/session";
 import { EntityForm } from "../components/EntityForm";
 import { DocumentsTab, HistoryTab, TasksTab } from "../components/DetailTabs";
@@ -166,11 +166,40 @@ function Odometer({ vehicleId }: { vehicleId: string }) {
 }
 
 function Costs({ vehicleId }: { vehicleId: string }) {
-  const { archive } = useSession();
+  const { archive, env } = useSession();
   const q = useQuery({ queryKey: ["work_order", "costs", vehicleId], queryFn: () => vehicleCostsByYear(archive.db, vehicleId) });
-  if (q.data?.length === 0) return <Empty>Ingen udgifter registreret.</Empty>;
+  const rec = useQuery({ queryKey: ["recurring_expense", "vehicle", vehicleId], queryFn: () => recurringSummary(archive.db, { vehicleId, today: env.clock.today() }) });
+  const loans = useQuery({ queryKey: ["loan", "vehicle", vehicleId], queryFn: () => loanSummary(archive.db, { vehicleId }) });
+  const fixed = (rec.data?.items ?? []).filter((r) => !r.ended);
   return (
     <div>
+      {(fixed.length > 0 || (loans.data?.items.length ?? 0) > 0) && (
+        <div className="panel">
+          <h3>Faste udgifter og lån for bilen</h3>
+          <ul className="plain">
+            {fixed.map((r) => (
+              <li key={String(r.id)} className="line">
+                <span>{String(r.name)}</span>
+                <span className="num">
+                  {r.amount_variable ? "ca. " : ""}
+                  {formatMoney(r.monthly_minor)} pr. måned
+                </span>
+              </li>
+            ))}
+            {(loans.data?.items ?? []).map((l) => (
+              <li key={String(l.id)} className="line">
+                <span>{String(l.name)} (lån)</span>
+                <span className="num">{formatMoney(l.monthly_payment_minor)} pr. måned · restgæld {formatMoney(l.balance_minor as number)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="small">
+            I alt pr. måned: <strong>{formatMoney((rec.data?.monthly_total_minor ?? 0) + (loans.data?.monthly_payment_total_minor ?? 0))}</strong>
+          </p>
+        </div>
+      )}
+      {q.data?.length === 0 && <Empty>Ingen arbejdsordrer eller koblede posteringer endnu.</Empty>}
+      {(q.data?.length ?? 0) > 0 && (
       <table className="list">
         <thead>
           <tr>
@@ -193,8 +222,9 @@ function Costs({ vehicleId }: { vehicleId: string }) {
           ))}
         </tbody>
       </table>
+      )}
       <p className="small muted">
-        Posteringer kobles til bilen under <Link to="/okonomi">Økonomi</Link>.
+        Faste udgifter og lån kobles til bilen i deres formular under <Link to="/okonomi">Økonomi</Link>, og det samme gælder posteringer.
       </p>
     </div>
   );

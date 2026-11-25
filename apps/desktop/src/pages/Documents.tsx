@@ -23,6 +23,10 @@ const LINK_TARGETS: [string, string, string][] = [
   ["building_part", "Bygningsdel", "name"],
   ["claim", "Skadesag", "description"],
   ["person", "Person", "name"],
+  ["contact", "Kontakt", "name"],
+  ["account", "Konto", "name"],
+  ["pet", "Husdyr", "name"],
+  ["loan", "Lån", "name"],
   ["recurring_expense", "Fast udgift", "name"],
 ];
 

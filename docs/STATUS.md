@@ -129,17 +129,27 @@ Venter på brugerens beslutning (kræver migration 0005): dokumentroller (garant
 - **Dokumenter**: filteret hedder *Alle kategorier*, og feltet hedder *Kategori* (rollerne er uændrede i data).
 - Tests: `finance.test.ts` (indtægt/udgift pr. måned, kategorihistorik, madbudget, budget fra faste udgifter, prioritet og arkivering), `modules.test.ts` (dækkede personer), `lists.test.ts` (migration 0005) og `rendered.test.tsx` (initialer og personknapper, Overblik, madbudget, prioritet og arkivering). E2E i den rigtige app: `apps/desktop/e2e/finance.mjs`, 11/11 trin OK, skærmbilleder gennemset.
 
+**Migration 0006 (godkendt af brugeren 25.11.2026), bygget:**
+
+- **Lån**: ny tabel `loan` (type, långiver, lånenummer, hovedstol, restgæld pr. dato, rente, ydelse pr. termin, start, sidste ydelse, bolig, bil og konto). Ny fane **Økonomi → Lån** med restgæld og ydelse pr. måned i alt, detalje med bilag og arkivering. Lån kan foreslås og listes via MCP (`finance` med `kind: "loans"`), søges og kobles til posteringer.
+- **Bilag på flere posttyper**: kontakter, konti og lån (personer kunne allerede). Lister → Kontakter, Personer, Konti og Boliger har fanen *Bilag*. Dokumenter kan kobles til kontakt, konto, husdyr og lån.
+- **Nye dokumentroller**: garantibevis, kontrakt/aftale og certifikat/attest.
+- **Bil**: købsdato og købspris.
+- **Faste udgifter**: kobling til bolig eller bil, slutdato (derefter vises "Ophørt" og udgiften tælles ikke med) og *Beløbet er: fast / variabelt (skøn)*, vist som "ca.". Bilens fane *Driftsomkostninger* viser bilens faste udgifter og lån pr. måned.
+- Formularerne for nyt lån og ny fast udgift har standardværdier, så påkrævede rullelister ikke står tomme.
+- Tests: migrationen (data, `ON DELETE CASCADE` og CHECK-regler, `lists.test.ts`), lån og faste udgifter (`finance.test.ts`), bilag på kontakter via `propose` (`ai.test.ts`) og Lån-fanen samt *Bilag* i Lister (`rendered.test.tsx`). E2E `finance.mjs` 13/13.
+
 CI laver nu også artefaktet `ppm-demo-backup` med syntetiske demodata, som kan gendannes i appen (Indstillinger → Backup).
 
 ## Tests
 
 | Suite | Antal | Resultat |
 | --- | --- | --- |
-| core (Vitest) | 191 (heraf 29 for madplan, 18 for AI/MCP i `ai.test.ts`, 6 for migration 0003–0005 og værdilister og 5 for økonomihistorik) | Grøn |
+| core (Vitest) | 194 (heraf 29 for madplan, 18 for AI/MCP i `ai.test.ts`, 7 for migration 0003–0006 og værdilister og 6 for økonomihistorik og lån) | Grøn |
 | mcp-server (Vitest) | 4 (protokol, `tools/list`, log og versionsfejl) | Grøn |
-| desktop (Vitest) | 36 (kontrast, renderede sider, AI-indbakke, AI-adgang, fotos, rullelister, Lister, husdyr, forsikringsdækning og økonomioverblik) | Grøn |
+| desktop (Vitest) | 37 (kontrast, renderede sider, AI-indbakke, AI-adgang, fotos, rullelister, Lister, husdyr, forsikringsdækning, økonomioverblik og lån) | Grøn |
 | Rust (`cargo test`) | 17 (+1 ignoreret måletest) | Grøn |
-| **I alt** | **248** | **Grøn** |
+| **I alt** | **252** | **Grøn** |
 
 ESLint, `tsc -b`, `cargo fmt --check` og `cargo clippy -D warnings` er rene.
 

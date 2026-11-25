@@ -162,6 +162,14 @@ export const registry: Record<EntityType, EntityMeta> = {
   budget: plain("finance"),
   budget_line: plain("finance"),
   recurring_expense: plain("finance", { archivable: true }),
+  loan: plain("finance", {
+    createdAt: true,
+    archivable: true,
+    search: {
+      title: (r) => s(r.name),
+      body: async (r, db) => join(r.loan_number, await nameOf(db, "contact", r.lender_contact_id), r.notes),
+    },
+  }),
   health_visit: plain("health", {
     createdAt: true,
     search: { title: (r) => s(r.reason) || "Besøg", body: async (r) => join(r.notes, r.referral) },

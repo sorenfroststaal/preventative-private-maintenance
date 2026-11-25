@@ -1,7 +1,11 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { DocumentsTab } from "../components/DetailTabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   archiveEntity,
+  LOAN_KINDS,
+  loanSummary,
   budgetFromRecurring,
   budgetVsActual,
   categoryTrends,
@@ -46,16 +50,20 @@ import { ArchiveButton } from "../components/ArchiveButton";
 import { Archive } from "lucide-react";
 
 export function Finance() {
+  const [params, setParams] = useSearchParams();
   return (
     <section>
       <PageHeader module="finance" />
       <Tabs
+        active={params.get("tab") ?? "overview"}
+        onChange={(id) => setParams({ tab: id })}
         tabs={[
           { id: "overview", label: "Overblik", content: () => <FinanceOverview /> },
           { id: "tx", label: "Posteringer", content: () => <Transactions /> },
           { id: "import", label: "Importér kontoudtog", content: () => <ImportWizard /> },
           { id: "budget", label: "Budget", content: () => <Budget /> },
           { id: "recurring", label: "Faste udgifter", content: () => <Recurring /> },
+          { id: "loans", label: "Lån", content: () => <Loans /> },
           { id: "accounts", label: "Konti", content: () => <Accounts /> },
         ]}
       />
@@ -586,7 +594,8 @@ function Recurring() {
   const toast = useToast();
   const [editing, setEditing] = useState<Row | "new" | null>(null);
   const [sort, setSort] = useState<"name" | "priority" | "amount">("name");
-  const q = useQuery({ queryKey: ["recurring_expense", "summary"], queryFn: () => recurringSummary(archive.db) });
+  const today = session.env.clock.today();
+  const q = useQuery({ queryKey: ["recurring_expense", "summary", today], queryFn: () => recurringSummary(archive.db, { today }) });
   const archiveRow = useMutation({
     mutationFn: (r: Row) => archiveEntity(session.ctx(), "recurring_expense", String(r.id)),
     onSuccess: async (_, r) => {
@@ -628,7 +637,7 @@ function Recurring() {
             <th className="num">Beløb</th>
             <th>Pr.</th>
             <th className="num">Pr. måned</th>
-            <th>Binding</th>
+            <th>Binding / slut</th>
             <th>
               <span className="sr-only">Handlinger</span>
             </th>
@@ -637,13 +646,22 @@ function Recurring() {
         <tbody>
           {items.map((r) => (
             <tr key={String(r.id)} tabIndex={0} onClick={() => setEditing(r)} onKeyDown={(e) => e.key === "Enter" && e.target === e.currentTarget && setEditing(r)}>
-              <td>{String(r.name)}</td>
+              <td>
+                {String(r.name)}
+                {r.property_name || r.vehicle_name ? <div className="small muted">{String(r.property_name ?? r.vehicle_name)}</div> : null}
+              </td>
               <td>{String(r.category_name ?? "–")}</td>
               <td>{r.priority != null ? <PriorityDots value={Number(r.priority)} label={priorityLabel(r.priority)} /> : <span className="muted small">Ikke vurderet</span>}</td>
-              <td className="num">{formatMoney(r.amount_minor as number)}</td>
+              <td className="num" title={r.amount_variable ? "Variabelt beløb – et skøn" : undefined}>
+                {r.amount_variable ? "ca. " : ""}
+                {formatMoney(r.amount_minor as number)}
+              </td>
               <td>{optionLabel(PERIODS, r.period)}</td>
-              <td className="num">{formatMoney(r.monthly_minor)}</td>
-              <td>{formatDate(r.binding_until as string)}</td>
+              <td className="num">{r.ended ? <StatusBadge kind="missing">Ophørt</StatusBadge> : formatMoney(r.monthly_minor)}</td>
+              <td>
+                {formatDate(r.binding_until as string)}
+                {r.end_date ? <div className="small muted">Slutter {formatDate(r.end_date as string)}</div> : null}
+              </td>
               <td onClick={(e) => e.stopPropagation()}>
                 <IconButton
                   icon={Archive}
@@ -674,7 +692,7 @@ function Recurring() {
       {q.data?.items.length === 0 && <Empty>Ingen faste udgifter registreret.</Empty>}
       {editing && (
         <Modal title={editing === "new" ? "Ny fast udgift" : "Fast udgift"} onClose={() => setEditing(null)} wide>
-          <EntityForm type="recurring_expense" row={editing === "new" ? null : editing} onSaved={() => setEditing(null)} onCancel={() => setEditing(null)} />
+          <EntityForm type="recurring_expense" row={editing === "new" ? null : editing} defaults={{ amount_variable: 0, period: "month" }} onSaved={() => setEditing(null)} onCancel={() => setEditing(null)} />
           {editing !== "new" && (
             <div className="row" style={{ marginTop: "0.6rem" }}>
               <ArchiveButton type="recurring_expense" id={String(editing.id)} label="Den faste udgift" onDone={() => setEditing(null)} />
@@ -863,6 +881,99 @@ function FoodBudget({ months }: { months: number }) {
           </form>
           <p className="small muted">Tæller posteringer i "Mad og dagligvarer" og dens underkategorier. Budgettet gemmes som en linje i årets budget og bruges også på Madplan.</p>
         </>
+      )}
+    </div>
+  );
+}
+
+function Loans() {
+  const session = useSession();
+  const [params, setParams] = useSearchParams();
+  const [creating, setCreating] = useState(false);
+  const q = useQuery({ queryKey: ["loan", "summary"], queryFn: () => loanSummary(session.archive.db) });
+  const selectedId = params.get("loan");
+  const sel = q.data?.items.find((l) => l.id === selectedId) ?? null;
+  const select = (id: string | null) => setParams(id ? { tab: "loans", loan: id } : { tab: "loans" });
+  return (
+    <div>
+      <div className="row">
+        <button className="primary" onClick={() => setCreating(true)} disabled={session.archive.readOnly}>
+          Nyt lån
+        </button>
+      </div>
+      <div className="split">
+        <table className="list">
+          <thead>
+            <tr>
+              <th>Lån</th>
+              <th>Type</th>
+              <th className="num">Restgæld</th>
+              <th className="num">Rente</th>
+              <th className="num">Ydelse pr. måned</th>
+              <th>Sidste ydelse</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(q.data?.items ?? []).map((l) => (
+              <tr key={String(l.id)} {...rowProps(l.id === selectedId, () => select(String(l.id)))}>
+                <td>
+                  {String(l.name)}
+                  {l.lender_name && <div className="small muted">{l.lender_name}</div>}
+                </td>
+                <td>{optionLabel(LOAN_KINDS, l.kind)}</td>
+                <td className="num">
+                  {formatMoney(l.balance_minor as number)}
+                  {l.balance_date ? <div className="small muted">pr. {formatDate(l.balance_date as string)}</div> : null}
+                </td>
+                <td className="num">{l.interest_rate == null ? "–" : `${Number(l.interest_rate).toLocaleString("da-DK")} %`}</td>
+                <td className="num">{formatMoney(l.monthly_payment_minor)}</td>
+                <td>{formatDate(l.end_date as string)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={2}>I alt</td>
+              <td className="num">
+                <strong>{formatMoney(q.data?.balance_total_minor ?? 0)}</strong>
+              </td>
+              <td />
+              <td className="num">
+                <strong>{formatMoney(q.data?.monthly_payment_total_minor ?? 0)}</strong>
+              </td>
+              <td />
+            </tr>
+          </tfoot>
+        </table>
+        {sel && (
+          <aside className="detail wide-detail" aria-label="Lån" key={String(sel.id)}>
+            <div className="header-row">
+              <h2>{String(sel.name)}</h2>
+              <ArchiveButton type="loan" id={String(sel.id)} label="Lånet" onDone={() => select(null)} />
+            </div>
+            <Tabs
+              tabs={[
+                { id: "info", label: "Oplysninger", content: () => <EntityForm type="loan" row={sel} /> },
+                { id: "docs", label: "Bilag", content: () => <DocumentsTab targetType="loan" targetId={String(sel.id)} roles={["contract", "letter", "invoice", "other"]} /> },
+              ]}
+            />
+          </aside>
+        )}
+      </div>
+      {q.data?.items.length === 0 && <Empty>Ingen lån registreret. Opret fx boliglån, billån eller SU-lån med restgæld, rente og ydelse.</Empty>}
+      <p className="small muted">Ret restgælden, når du får en årsopgørelse. Posteringer med afdrag kan kobles til lånet.</p>
+      {creating && (
+        <Modal title="Nyt lån" onClose={() => setCreating(false)} wide>
+          <EntityForm
+            type="loan"
+            defaults={{ kind: "other", payment_period: "month" }}
+            onSaved={(r) => {
+              setCreating(false);
+              select(String(r.id));
+            }}
+            onCancel={() => setCreating(false)}
+          />
+        </Modal>
       )}
     </div>
   );

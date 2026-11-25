@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   archiveEntity,
+  loanSummary,
   budgetVsActual,
   budgetFromRecurring,
   categoryHistory,
@@ -291,6 +292,38 @@ describe("categories, learned rules, budget and recurring expenses", () => {
     expect(trends.rows.find((r) => r.name === "Fritid › Streaming")?.values).toEqual([12900, 12900]);
     expect(trends.rows.find((r) => r.name === "Fritid")?.values).toEqual([12900, 12900]);
     expect(trends.rows[0]!.name).toBe("Indtægt");
+  });
+
+  it("loans (migration 0006): monthly payment, totals, filtered by vehicle; recurring expenses end and link to a vehicle", async () => {
+    const { env, archive } = await newArchive();
+    const ctx = ctxFor(env, archive);
+    const db = archive.db;
+    const car = await createEntity(ctx, "vehicle", { name: "Familiebil", purchase_date: "2024-03-01", purchase_price_minor: 18000000 });
+    await createEntity(ctx, "loan", { name: "Boliglån", kind: "mortgage", balance_minor: 150000000, interest_rate: 4.25, payment_minor: 2400000, payment_period: "quarter" });
+    await createEntity(ctx, "loan", { name: "Billån", kind: "car", balance_minor: 9000000, payment_minor: 250000, vehicle_id: String(car.id) });
+    await expect(createEntity(ctx, "loan", { name: "X", balance_minor: -1 })).rejects.toThrow();
+    const all = await loanSummary(db);
+    expect(all.items.map((l) => [l.name, l.monthly_payment_minor])).toEqual([
+      ["Billån", 250000],
+      ["Boliglån", 800000],
+    ]);
+    expect(all.balance_total_minor).toBe(159000000);
+    expect(all.monthly_payment_total_minor).toBe(1050000);
+    expect((await loanSummary(db, { vehicleId: String(car.id) })).items.map((l) => l.name)).toEqual(["Billån"]);
+
+    await createEntity(ctx, "recurring_expense", { name: "Bilforsikring", amount_minor: 600000, period: "year", vehicle_id: String(car.id) });
+    await createEntity(ctx, "recurring_expense", { name: "El", amount_minor: 90000, period: "month", amount_variable: 1 });
+    await createEntity(ctx, "recurring_expense", { name: "Gammel avis", amount_minor: 20000, period: "month", end_date: "2026-10-31" });
+    const r = await recurringSummary(db, { today: "2026-11-25" });
+    expect(r.items.map((i) => [i.name, i.ended])).toEqual([
+      ["Bilforsikring", false],
+      ["El", false],
+      ["Gammel avis", true],
+    ]);
+    expect(r.monthly_total_minor).toBe(50000 + 90000);
+    expect(r.items.find((i) => i.name === "Bilforsikring")?.vehicle_name).toBe("Familiebil");
+    expect((await recurringSummary(db, { vehicleId: String(car.id) })).items.map((i) => i.name)).toEqual(["Bilforsikring"]);
+    expect((await recurringSummary(db)).monthly_total_minor).toBe(160000);
   });
 
   it("food budget can be set in one step, and a budget can be suggested from recurring expenses", async () => {

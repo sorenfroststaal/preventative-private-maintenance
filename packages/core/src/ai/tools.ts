@@ -16,7 +16,7 @@ import { formatShoppingItem, listForWeek, shoppingItems } from "../food/shopping
 import { addDays } from "../recurrence/dates";
 import { dashboard } from "../repo/dashboard";
 import { documentRelPath, MIME_BY_EXT } from "../repo/documents";
-import { budgetVsActual, monthFinance, recurringSummary } from "../repo/finance";
+import { budgetVsActual, loanSummary, monthFinance, recurringSummary } from "../repo/finance";
 import { getHistory } from "../repo/modules";
 import { search } from "../repo/search";
 import {
@@ -90,7 +90,7 @@ export const TOOL_INPUTS = {
     module: z.string().optional(),
   },
   history: { ref: zRefStr },
-  finance: { kind: z.enum(["budget", "month", "recurring"]), year: z.number().int().optional(), month: z.number().int().min(1).max(12).optional() },
+  finance: { kind: z.enum(["budget", "month", "recurring", "loans"]), year: z.number().int().optional(), month: z.number().int().min(1).max(12).optional() },
   health: { person: zRefStr },
   meal_plan: { week: zYmd.optional() },
   recipes: { q: z.string().optional(), tag: z.string().optional(), limit: zLimit },
@@ -123,7 +123,7 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   list: "List records of a type with simple field=value filters and from/to on the main date. Paginated with cursor.",
   tasks: "Task occurrences by status (overdue, upcoming, open, done), date range and module.",
   history: "Work orders and completed tasks for a target (item, vehicle, property, building_part), newest first.",
-  finance: "Budget vs actual per category for a year, one month's figures, or recurring expenses.",
+  finance: "Budget vs actual per category for a year, one month's figures, recurring expenses, or loans.",
   health: "Health overview for a person: medication, allergies, upcoming checks, recent visits and measurements.",
   meal_plan: "Meal plan for a week (Monday date): dishes, estimated price, budget, allergy warnings and shopping list.",
   recipes: "Recipes with ingredients in short form, filtered by text or tag.",
@@ -158,6 +158,7 @@ const LIST_TYPES: Record<string, string | null> = {
   building_part: "installed_date",
   vehicle: null,
   pet: "birth_date",
+  loan: "end_date",
   odometer_reading: "reading_date",
   policy: "renewal_date",
   claim: "incident_date",
@@ -405,9 +406,39 @@ async function financeTool(c: Call, a: { kind: string; year?: number; month?: nu
     return compact({ month: ym, rows: f.rows.map((r) => ({ cat: r.name, kind: r.kind, budget: r.budget, actual: r.actual })), uncategorized: f.uncategorized }) ?? {};
   }
   if (a.kind === "recurring") {
-    const r = await recurringSummary(c.db);
+    const r = await recurringSummary(c.db, { today: c.today });
     for (const i of r.items) seen(c, "recurring_expense", i.id);
-    return compact({ monthly_total: r.monthly_total_minor, items: r.items.map((i) => ({ ref: i.id, name: i.name, amount: i.amount_minor, period: i.period, next: i.next_date, cat: i.category_name, binding_until: i.binding_until })) }) ?? {};
+    return (
+      compact({
+        monthly_total: r.monthly_total_minor,
+        items: r.items.map((i) => ({
+          ref: i.id,
+          name: i.name,
+          amount: i.amount_minor,
+          variable: i.amount_variable ? true : undefined,
+          period: i.period,
+          next: i.next_date,
+          cat: i.category_name,
+          priority: i.priority,
+          binding_until: i.binding_until,
+          end: i.end_date,
+          ended: i.ended || undefined,
+          property: i.property_name,
+          vehicle: i.vehicle_name,
+        })),
+      }) ?? {}
+    );
+  }
+  if (a.kind === "loans") {
+    const r = await loanSummary(c.db);
+    for (const i of r.items) seen(c, "loan", i.id);
+    return (
+      compact({
+        balance_total: r.balance_total_minor,
+        monthly_payment_total: r.monthly_payment_total_minor,
+        items: r.items.map((i) => ({ ref: i.id, name: i.name, kind: i.kind, lender: i.lender_name, balance: i.balance_minor, balance_date: i.balance_date, rate: i.interest_rate, payment: i.payment_minor, period: i.payment_period, end: i.end_date })),
+      }) ?? {}
+    );
   }
   const budgets = await c.db.select<{ id: string; name: string }>("SELECT id, name FROM budget WHERE year = ? ORDER BY name", [year]);
   const out = [];

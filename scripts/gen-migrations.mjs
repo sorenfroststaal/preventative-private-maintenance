@@ -36,6 +36,7 @@ if (process.argv.includes("--check")) {
     ["0003_item_part_documents.sql", "docs/spec/schema-0003.sql"],
     ["0004_pets.sql", "docs/spec/schema-0004.sql"],
     ["0005_recurring_priority.sql", "docs/spec/schema-0005.sql"],
+    ["0006_loans_and_documents.sql", "docs/spec/schema-0006.sql"],
   ];
   for (const [name, specPath] of normative) {
     // 0003 is proposed on a spec branch; compare once it exists in docs/spec on this branch.

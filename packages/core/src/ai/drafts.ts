@@ -26,6 +26,7 @@ export const PROPOSE_TYPES = [
   "contact",
   "vehicle",
   "pet",
+  "loan",
   "odometer_reading",
   "work_order",
   "task",
@@ -159,7 +160,7 @@ export function describeFields(type: string): string {
   if (type === "recipe") parts.push("ingredients:[tekstlinjer]");
   if (type === "task") parts.push('recurrence:{kind=fixed|interval,unit=day|week|month|year,every,month?,day?}', "first_due_date:ÅÅÅÅ-MM-DD (create)", "due_date:ÅÅÅÅ-MM-DD (update, næste forekomst)");
   if (type === "attach_document") {
-    return "Gyldige felter for attach_document (* = påkrævet): document:ref ELLER file_path, target*:ref (eller ref på operationen), role*=receipt|invoice|quote|photo|photo_before|photo_after|manual|policy_terms|report|letter|other, title, doc_date:ÅÅÅÅ-MM-DD";
+    return `Gyldige felter for attach_document (* = påkrævet): document:ref ELLER file_path, target*:ref (eller ref på operationen), role*=${fields.document_link.role.options.join("|")}, title, doc_date:ÅÅÅÅ-MM-DD`;
   }
   return `Gyldige felter for ${type} (* = påkrævet): ${parts.join(", ")}`;
 }
@@ -388,7 +389,7 @@ async function prepareOp(ctx: ProposeContext, op: ProposeOp, index: number, grou
           document: z.string().optional(),
           file_path: z.string().optional(),
           target: z.string(),
-          role: z.enum(["receipt", "invoice", "quote", "photo", "photo_before", "photo_after", "manual", "policy_terms", "report", "letter", "other"]),
+          role: fields.document_link.role,
           title: z.string().optional(),
           doc_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         })
