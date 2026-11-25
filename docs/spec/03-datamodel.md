@@ -1,6 +1,6 @@
 # 03 Datamodel
 
-[schema.sql](schema.sql) er det normative skema for `schemaVersion 1`, [schema-0002.sql](schema-0002.sql) bringer det til `schemaVersion 2` (madplan), [schema-0003.sql](schema-0003.sql) bringer det til `schemaVersion 3` (bilag og fotos på reservedele, `document_link.target_type = 'item_part'`), og [schema-0004.sql](schema-0004.sql) bringer det til `schemaVersion 4` (husdyr: tabellen `pet`, som bilag og forsikringsdækning kan pege på). Dokumentet her forklarer regler, som skemaet ikke selv kan håndhæve.
+[schema.sql](schema.sql) er det normative skema for `schemaVersion 1`, [schema-0002.sql](schema-0002.sql) bringer det til `schemaVersion 2` (madplan), [schema-0003.sql](schema-0003.sql) bringer det til `schemaVersion 3` (bilag og fotos på reservedele, `document_link.target_type = 'item_part'`), [schema-0004.sql](schema-0004.sql) bringer det til `schemaVersion 4` (husdyr: tabellen `pet`, som bilag og forsikringsdækning kan pege på), og [schema-0005.sql](schema-0005.sql) bringer det til `schemaVersion 5` (`recurring_expense.priority` 1–5: 5 = obligatorisk, 1 = kan undværes). Dokumentet her forklarer regler, som skemaet ikke selv kan håndhæve.
 
 ## Polymorfe koblinger
 

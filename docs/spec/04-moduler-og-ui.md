@@ -97,11 +97,14 @@ Opgavelisten kan filtreres på modul, ansvarlig, status og periode. Den kan ogs�
 - **Konti:** opret en konto, og importér CSV (se 05).
 - **Transaktioner:** liste med kategori, som kan ændres direkte i listen. Når brugeren kategoriserer manuelt, tilbydes *"Brug altid for tekster der indeholder …"*, og der oprettes en `category_rule` med `created_from='learned'`.
 - **Budget:** et årsbudget med linjer pr. kategori. Visningen sammenligner budget og faktisk forbrug pr. måned og hele året.
-- **Faste udgifter:** liste med den beregnede månedlige gennemsnitsudgift og summen pr. måned.
+- **Overblik:** indtægter og udgifter pr. måned (6, 12 eller 24 måneder) som kurve med gennemsnit. Overførsler tælles ikke med; posteringer uden kategori tælles efter fortegn. **Madbudget:** forbruget i "Mad og dagligvarer" med underkategorier pr. måned mod budgettet; madbudgettet sættes i ét trin og gemmes som en budgetlinje uden måned i årets budget. **Historik pr. kategori:** alle kategorier med posteringer i perioden med minikurve og gennemsnit; valgt kategori vises som kurve.
+- **Budget** forklarer, at "faktisk" kommer fra kategoriserede posteringer, viser antal posteringer i året og hvor mange der mangler kategori, og kan hente månedlige linjer fra de faste udgifter (kun kategorier uden linje).
+- **Faste udgifter:** liste med den beregnede månedlige gennemsnitsudgift og summen pr. måned. Hver udgift har en valgfri prioritet 1–5 (5 obligatorisk, 4 vigtig, 3 nyttig, 2 rart at have, 1 kan undværes), listen kan sorteres efter den, og summen af prioritet 1–2 vises pr. måned og år. En udgift arkiveres fra listen (opsagt).
 - Standardkategorier (seed): Bolig, Forsyning, Mad og dagligvarer, Transport, Forsikring, Børn, Sundhed, Fritid, Abonnementer, Opsparing, Indtægt, Overførsel, Andet.
 
 ## Forsikring
 
+- Policelisten viser i kolonnen *Dækker* dækkede personer som runde initialer og andre dækninger som ikoner. Personer til- og fravælges med ét klik på fanen *Dækning*.
 - Liste over policer med årlig præmie (normaliseret fra perioden), fornyelse og selvrisiko.
 - Detaljevisning med dækning (genstande, biler, personer og bolig), skadesager og policedokumenter.
 - Knappen *Forsikringsrapport* (se 05).
