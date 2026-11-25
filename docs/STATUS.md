@@ -1,6 +1,6 @@
 # Status (branch `claude/app`)
 
-Opdateret: 25.11.2026 (fase 3). Aktuel fase: **Fase 3 – AI og MCP er bygget.** Kanalerne Claude Desktop og Codex er ikke afprøvet med en rigtig klient (se kriterium 9). Fase 1, 2 og 2b er færdige. Præciseringer af specifikationen efter fase 2b ligger på branchen `claude/spec-fase-2b-praeciseringer` (ingen PR oprettet).
+Opdateret: 25.11.2026 (fase 3). Aktuel fase: **Fase 3 – AI og MCP er bygget.** CI er grøn (kørsel 45568056010). Kanalerne Claude Desktop og Codex er ikke afprøvet med en rigtig klient (se kriterium 9). Fase 1, 2 og 2b er færdige. Præciseringer af specifikationen efter fase 2b ligger på branchen `claude/spec-fase-2b-praeciseringer` (ingen PR oprettet).
 
 ## Fase 1: kriterier
 
@@ -75,7 +75,7 @@ Fundet og rettet under E2E:
 | 7 | AI-indbakken **[T]** | Opfyldt | Godkend alle (via `ai_draft` i audit), godkend valgte, redigér (valideres med samme skema), afvis alle (filer i `indbakke/ai/` slettes), advarsel om konflikt med bekræftelse, og fuld tilbagerulning med `failed` og fejltekst. `attach_document` importerer filen ved godkendelse. Desuden en renderet UI-test, der godkender via knappen. |
 | 8 | Få tokens **[T]** | Opfyldt | 14 værktøjer, beskrivelser på højst 160 tegn, ingen `description` på felter, `tools/list` på 4.311 tegn, `overview` på 1.125 tegn for seed-arkivet, ingen `null`/tomme felter i svar og `ref` på 8 tegn i alle værktøjer (`ai.test.ts`, `server.test.ts`) |
 | 9 | Færdigpakket | Delvist | `ppm.mcpb` bygges i CI (artefakt `ppm-mcpb`). Claude Code-plugin og marketplace ligger i repoet. Indstillingssiden viser knap og kommandoer for de tre kanaler og datoen for seneste verifikation. **Claude Code: afprøvet** med en rigtig klient (`claude plugin validate .` bestod; `marketplace add` og `plugin install ppm@ppm` i en ren profil; `claude mcp list` viser `plugin:ppm:ppm: ppm-mcp – ✓ Connected`). **Claude Desktop: ikke afprøvet** (ingen Windows- eller macOS-maskine). Formatet er kontrolleret mod MCPB `MANIFEST.md` (version 0.3), og E2E viser, at knappen bygger en gyldig `ppm.mcpb`. **Codex: ikke afprøvet og ikke verificeret.** OpenAIs dokumentation kunne ikke hentes fra dette miljø, og installation af Codex-CLI'en blev afvist. |
-| 10 | `ppm-mcp.exe` uden Node og i `PATH` | Verificeres i CI | Binæren er en Node SEA med `better_sqlite3.node` ved siden af. På Linux er den testet uden Node i `PATH` (røgtest i CI-jobbet `lint-test` og lokalt). Jobbet `build-windows` installerer den byggede installer lydløst, tjekker `PATH` (HKCU), kører `ppm-mcp.exe --version` og MCP-røgtesten mod et seed-arkiv, afinstallerer og tjekker, at `PATH` er ryddet. NSIS-hooks er kompileret med `makensis -WX` lokalt. |
+| 10 | `ppm-mcp.exe` uden Node og i `PATH` | Opfyldt | CI-kørsel 45568056010: Windows-installeren er installeret lydløst. `ppm-mcp.exe` ligger i `%LOCALAPPDATA%\PPM\resources\mcp`, og den mappe står i brugerens `PATH`. `ppm-mcp.exe --version` virker, og MCP-røgtesten mod et seed-arkiv giver 14 værktøjer, `tools/list` på 4.311 tegn og `overview` på 1.125 tegn. Efter lydløs afinstallation er mappen fjernet fra `PATH`. Binæren er en Node SEA og bruger ikke en installeret Node. På Linux er den testet uden Node i `PATH`. |
 
 ### E2E for fase 3 i den rigtige app
 
@@ -126,7 +126,7 @@ Fundet og rettet under E2E: "Udløber snart" viste reklamationsret, der var udl�
 | Frontend-bundle efter fase 2b | 1,30 MB JavaScript (minificeret, før komprimering) | `vite build`. Kun de brugte Lucide-ikoner kommer med (tree-shaking). |
 | `ppm-mcp`, selvstændig binær (Linux) | 125,6 MB (`better_sqlite3.node` 2,1 MB ved siden af) | `pnpm build:mcp` (Node 22 SEA) |
 | Linux-pakke (`.deb`) efter fase 3 | 46,75 MiB | `pnpm build` lokalt. Næsten hele væksten er Node-runtimen i `ppm-mcp`. |
-| Installerstørrelse, Windows efter fase 3 | Måles i CI på denne commit | Trinnet "Installer size" i `build-windows` |
+| Installerstørrelse, Windows efter fase 3 | 25,31 MiB (26.541.138 byte, `PPM_0.1.0_x64-setup.exe`) | CI-kørsel 45568056010 (commit b19ef8a), trinnet "Installer size". Væksten fra 2,94 MiB er Node-runtimen i `ppm-mcp.exe`. `ppm.mcpb`-artefaktet er 34,9 MB som zip. |
 | Installerstørrelse, Windows efter fase 2b | 2,94 MiB (`PPM_0.1.0_x64-setup.exe`, +0,02 MiB i forhold til fase 2) | CI-kørsel 45512953033 (commit ff6c794), jobbet `build-windows`. Både `lint-test` og `build-windows` er grønne. |
 
 ## Manuel test på Windows (spec 07)
@@ -140,4 +140,4 @@ Fundet og rettet under E2E: "Udløber snart" viste reklamationsret, der var udl�
 - En fuld automatiseret test af tastaturbetjeningen (fase 2 nr. 12).
 - Filvælgeren i Open Planner-importen og ved valg af opskriftsfoto (native dialoger kan ikke automatiseres i Xvfb). Import og fotos er dækket af core-tests med fixtures.
 - Mørkt tema er kun kontrolleret ved beregning af kontrast (tests), ikke med skærmbilleder.
-- Fase 3: Claude Desktop og Codex med rigtige klienter (kriterium 9). Installation og `PATH` på Windows verificeres kun i CI, ikke på en fysisk maskine.
+- Fase 3: Claude Desktop og Codex med rigtige klienter (kriterium 9). Installation og `PATH` på Windows er verificeret i CI, ikke på en fysisk maskine.
