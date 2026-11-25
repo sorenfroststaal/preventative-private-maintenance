@@ -1,4 +1,5 @@
 import {
+  CalendarDays,
   Car,
   FileText,
   HeartPulse,
@@ -28,6 +29,7 @@ export interface ModuleDef {
 export type ModuleId =
   | "overview"
   | "tasks"
+  | "calendar"
   | "home"
   | "maintenance"
   | "vehicle"
@@ -43,6 +45,7 @@ export type ModuleId =
 export const MODULES: ModuleDef[] = [
   { id: "overview", to: "/", label: "Overblik", Icon: LayoutDashboard, token: "--c-overview" },
   { id: "tasks", to: "/opgaver", label: "Opgaver", Icon: ListChecks, token: "--c-tasks" },
+  { id: "calendar", to: "/kalender", label: "Kalender", Icon: CalendarDays, token: "--c-calendar" },
   { id: "home", to: "/bolig", label: "Bolig og inventar", Icon: House, token: "--c-home" },
   { id: "maintenance", to: "/arbejdsordrer", label: "Arbejdsordrer", Icon: Wrench, token: "--c-maintenance" },
   { id: "vehicle", to: "/bil", label: "Bil", Icon: Car, token: "--c-vehicle" },

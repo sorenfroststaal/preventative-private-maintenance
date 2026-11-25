@@ -99,7 +99,19 @@ export const registry: Record<EntityType, EntityMeta> = {
     },
   }),
   item_part: plain("home"),
-  building_part: plain("home", { createdAt: true, archivable: true }),
+  building_part: plain("home", {
+    createdAt: true,
+    archivable: true,
+    search: { title: (r) => s(r.name), body: async (r) => join(r.kind, r.brand, r.model, r.serial_number, r.notes) },
+  }),
+  lending: plain("home", {
+    createdAt: true,
+    deletable: true,
+    search: {
+      title: (r) => s(r.title) || "Udlån",
+      body: async (r, db) => join(await nameOf(db, "item", r.item_id), r.borrower_name, await nameOf(db, "person", r.borrower_person_id), await nameOf(db, "contact", r.borrower_contact_id), r.notes),
+    },
+  }),
   vehicle: plain("vehicle", {
     createdAt: true,
     archivable: true,

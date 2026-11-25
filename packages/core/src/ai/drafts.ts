@@ -27,6 +27,7 @@ export const PROPOSE_TYPES = [
   "vehicle",
   "pet",
   "loan",
+  "lending",
   "odometer_reading",
   "work_order",
   "task",

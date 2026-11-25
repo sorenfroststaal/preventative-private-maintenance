@@ -264,6 +264,7 @@ export const DRAFT_TYPE_LABELS: Record<string, string> = {
   vehicle: "bil",
   pet: "husdyr",
   loan: "lån",
+  lending: "udlån",
   odometer_reading: "km-stand",
   work_order: "arbejdsordre",
   task: "opgave",

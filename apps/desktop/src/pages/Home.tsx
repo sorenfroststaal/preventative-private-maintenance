@@ -13,10 +13,11 @@ import { ArchiveButton } from "../components/ArchiveButton";
 import { EmptyState, PageHeader } from "../components/visual";
 import { attachPending, PendingAttachments, PhotoStrip, type PendingFile } from "../components/Attachments";
 import { ReceiptSuggestionBanner } from "../components/ReceiptSuggest";
+import { ItemLending, LendingTab } from "../components/Lending";
 
 export function Home() {
   const [params, setParams] = useSearchParams();
-  const active = params.get("tab") ?? (params.get("part") ? "parts" : params.get("pet") ? "pets" : "items");
+  const active = params.get("tab") ?? (params.get("part") ? "parts" : params.get("pet") ? "pets" : params.get("udlaan") ? "lending" : "items");
   return (
     <section>
       <PageHeader module="home" />
@@ -28,6 +29,7 @@ export function Home() {
           { id: "property", label: "Boliger og rum", content: () => <Properties /> },
           { id: "parts", label: "Bygningsdele", content: () => <BuildingParts /> },
           { id: "pets", label: "Husdyr", content: () => <Pets /> },
+          { id: "lending", label: "Udlån", content: () => <LendingTab /> },
         ]}
       />
     </section>
@@ -184,6 +186,7 @@ function ItemDetail({ item, onArchived }: { item: Row; onArchived(): void }) {
         </button>
       </div>
       <PhotoStrip targetType="item" targetId={id} />
+      <ItemLending itemId={id} />
       <ReceiptSuggestionBanner itemId={id} />
       <Tabs
         tabs={[

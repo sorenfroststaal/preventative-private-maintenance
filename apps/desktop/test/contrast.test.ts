@@ -62,6 +62,7 @@ describe("phase 2b.9 – contrast of at least 4.5:1 in light and dark theme", ()
     expect(MODULES.map((m) => m.label)).toEqual([
       "Overblik",
       "Opgaver",
+      "Kalender",
       "Bolig og inventar",
       "Arbejdsordrer",
       "Bil",

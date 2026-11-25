@@ -6,6 +6,7 @@ import { useSession } from "../app/session";
 import { Modal } from "./ui";
 import { ModuleIcon } from "./visual";
 import { uiModuleOf } from "../lib/modules";
+import { routeFor } from "../lib/routes";
 
 const MODULE_LABEL: Record<string, string> = {
   home: "Bolig og inventar",
@@ -20,30 +21,10 @@ const MODULE_LABEL: Record<string, string> = {
 };
 
 function route(hit: SearchHit): string {
-  switch (hit.type) {
-    case "item":
-      return `/bolig?id=${hit.id}`;
-    case "work_order":
-      return `/arbejdsordrer?id=${hit.id}`;
-    case "task":
-      return `/opgaver?task=${hit.id}`;
-    case "vehicle":
-      return `/bil?id=${hit.id}`;
-    case "policy":
-      return `/forsikring?id=${hit.id}`;
-    case "document":
-      return `/dokumenter?id=${hit.id}`;
-    case "bank_transaction":
-      return `/okonomi`;
-    case "loan":
-      return `/okonomi?tab=loans&loan=${hit.id}`;
-    case "pet":
-      return `/bolig?tab=pets&pet=${hit.id}`;
-    case "recipe":
-      return `/madplan?tab=recipes&opskrift=${hit.id}`;
-    default:
-      return hit.module === "health" ? "/helbred" : "/indstillinger";
-  }
+  if (hit.type === "person") return "/lister?liste=person";
+  const r = routeFor(hit.type, hit.id);
+  if (r !== "/") return r;
+  return hit.module === "health" ? "/helbred" : "/indstillinger";
 }
 
 /** Global search (Ctrl+K) over search_index, grouped by module (spec 04). */

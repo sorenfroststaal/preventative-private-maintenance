@@ -13,7 +13,9 @@ import {
   createTask,
   createUser,
   importDocument,
+  lendItem,
   linkDocument,
+  returnLending,
   makeCtx,
   setSetting,
   addDays,
@@ -144,7 +146,7 @@ export async function createDemoArchive(env: Env, root: string): Promise<DemoInf
   await doc("manual-emhaette.pdf", syntheticPdf("Brugsanvisning emhaette (syntetisk)"), { type: "item", id: items[2]!.id, role: "manual" });
 
   const well = await createEntity(ctx, "building_part", { property_id: String(house.id), name: "Regnvandsbrønd", kind: "well" });
-  const heatPump = await createEntity(ctx, "building_part", { property_id: String(house.id), name: "Varmepumpe", kind: "heat_pump", installed_date: "2021-09-01" });
+  const heatPump = await createEntity(ctx, "building_part", { property_id: String(house.id), name: "Varmepumpe", kind: "heat_pump", installed_date: "2021-09-01", brand: "Eksempel Varme", model: "VP-9", serial_number: "VP9-000123" });
   await createEntity(ctx, "building_part", { property_id: String(house.id), name: "Tag", kind: "roof" });
 
   // ---- Work orders
@@ -287,6 +289,17 @@ export async function createDemoArchive(env: Env, root: string): Promise<DemoInf
   await createTask(ctx, { title: "Skift til vinterdæk", module: "vehicle", target_type: "vehicle", target_id: String(car.id), source: "template", template_id: "vehicle.tires.winter", template_version: 1, recurrence: { kind: "fixed", unit: "year", every: 1, month: 10, day: 15 }, firstDueDate: "2026-10-15" });
   await createTask(ctx, { title: "Tandlægetjek", module: "health", target_type: "person", target_id: String(ida.id), assignee_person_id: String(annaP!.id), recurrence: { kind: "interval", unit: "year", every: 1 }, firstDueDate: "2027-01-20" });
   await createTask(ctx, { title: "Gennemgå forsikringer", module: "insurance", recurrence: { kind: "interval", unit: "year", every: 1 }, firstDueDate: "2026-12-01" });
+
+  // ---- Lending and loans (migration 0006/0007; synthetic)
+  const today = env.clock.today();
+  const cellar = (await ctx.db.select<{ id: string }>("SELECT id FROM location WHERE name = 'Kælder' LIMIT 1"))[0]!;
+  const drill = await createEntity(ctx, "item", { name: "Boremaskine", category: "Værktøj", location_id: cellar.id, brand: "Eksempel", serial_number: "BM-0042", purchase_date: "2023-04-02", purchase_price_minor: kr(1299) });
+  await lendItem(ctx, { item_id: String(drill.id), borrower_name: "Naboen i nr. 3", lent_date: addDays(today, -12), due_date: addDays(today, -2) });
+  await lendItem(ctx, { title: "Brætspil: Eksempelspillet", borrower_person_id: String(ida.id), lent_date: addDays(today, -5), due_date: addDays(today, 9) });
+  const old = await lendItem(ctx, { title: "Stige", borrower_name: "Familien Hansen", lent_date: addDays(today, -60), due_date: addDays(today, -45) });
+  await returnLending(ctx, String(old.id), addDays(today, -44));
+  await createEntity(ctx, "loan", { name: "Boliglån", kind: "mortgage", balance_minor: kr(1450000), balance_date: `${today.slice(0, 4)}-01-01`, interest_rate: 4.0, payment_minor: kr(24000), payment_period: "quarter", start_date: "2019-06-01", end_date: "2049-06-01", property_id: String(house.id) });
+  await createEntity(ctx, "loan", { name: "Billån", kind: "car", balance_minor: kr(85000), interest_rate: 5.9, payment_minor: kr(2600), start_date: "2023-02-01", end_date: "2028-01-31", vehicle_id: String(car.id) });
 
   // ---- Meal plan (synthetic recipes, this week)
   const recipe = (name: string, data: Record<string, unknown>, ingredients: string[]) =>

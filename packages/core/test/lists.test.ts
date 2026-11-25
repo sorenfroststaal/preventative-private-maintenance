@@ -144,7 +144,7 @@ describe("migration 0006 – loans, more documents and fields", () => {
     await db.execute("INSERT INTO document (id, sha256, filename, ext, mime, size_bytes, source, created_at) VALUES ('00000000-0000-4000-8000-0000000000e1', 'h', 'a.pdf', 'pdf', 'application/pdf', 1, 'drop', 'x')");
     await db.execute("INSERT INTO document_link VALUES ('00000000-0000-4000-8000-0000000000e1', 'item', '00000000-0000-4000-8000-0000000000e2', 'receipt')");
     await expect(db.execute("INSERT INTO document_link VALUES ('00000000-0000-4000-8000-0000000000e1', 'contact', '00000000-0000-4000-8000-0000000000e3', 'contract')")).rejects.toThrow();
-    await migrate(db, () => env.clock.nowIso());
+    await migrate(db, () => env.clock.nowIso(), migrations.filter((m) => m.version <= 6));
     expect(await getSchemaVersion(db)).toBe(6);
     expect(await db.select("SELECT target_type, role FROM document_link")).toEqual([{ target_type: "item", role: "receipt" }]);
     for (const [t, role] of [["contact", "contract"], ["account", "certificate"], ["loan", "warranty"]] as const)

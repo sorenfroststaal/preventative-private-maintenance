@@ -16,7 +16,9 @@ import {
   createArchive,
   createEntity,
   createRecipe,
+  createTask,
   createUser,
+  timelineEvents,
   importDocument,
   linkDocument,
   updateEntity,
@@ -129,6 +131,8 @@ function checkButtons(container: HTMLElement, where: string) {
   for (const svg of container.querySelectorAll("svg")) {
     // lucide icons are decorative; charts carry role=img and a summary.
     if (svg.getAttribute("role") === "img") expect(svg.getAttribute("aria-label"), `${where}: chart`).toBeTruthy();
+    // An interactive chart (the timeline) exposes each event as a labelled button instead.
+    else if (svg.querySelector('[role="button"]')) for (const b of svg.querySelectorAll('[role="button"]')) expect(b.getAttribute("aria-label"), `${where}: chart event`).toBeTruthy();
     else expect(svg.closest('[aria-hidden="true"]') ?? (svg.getAttribute("aria-hidden") === "true" ? svg : null), `${where}: svg ${svg.outerHTML.slice(0, 80)}`).not.toBeNull();
   }
 }
@@ -435,6 +439,65 @@ describe("phase 2b.9 – rendered components", () => {
     const rows = await archive.db.select<{ template_id: string }>("SELECT template_id FROM task WHERE source = 'template' ORDER BY template_id");
     expect(rows.map((r) => r.template_id)).toEqual(expect.arrayContaining(["home.wood_stove.check", "home.wood_stove.sweep", "home.smoke_alarm.test", "insurance.review", "vehicle.inspection"]));
     expect(rows.map((r) => r.template_id)).not.toContain("vehicle.tires.summer");
+  });
+
+  it("calendar: month grid with week numbers and today's events; the day panel links to the record", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    await createTask(ctx, { title: "Kalendertest rens filter", module: "maintenance", firstDueDate: TODAY });
+    const { container } = renderAt("/kalender");
+    await settle("Kalender");
+    expect(screen.getByRole("tab", { name: "Månedsvisning", selected: true })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "november 2026" })).toBeInTheDocument();
+    const cell = container.querySelector(`[data-day="${TODAY}"]`)!;
+    await waitFor(() => expect(cell.textContent).toContain("Kalendertest rens filter"));
+    expect(cell.getAttribute("aria-label")).toMatch(/begivenhed/);
+    const panel = screen.getByRole("complementary", { name: /Begivenheder 24\.11\.2026/ });
+    expect(within(panel).getByText("Kalendertest rens filter")).toBeInTheDocument();
+    checkButtons(container, "Kalender");
+    // Kinds can be switched off.
+    fireEvent.click(screen.getByRole("button", { name: "Opgaver", pressed: true }));
+    await waitFor(() => expect(cell.textContent).not.toContain("Kalendertest rens filter"));
+    fireEvent.click(screen.getByRole("button", { name: "Opgaver", pressed: false }));
+    await waitFor(() => expect(cell.textContent).toContain("Kalendertest rens filter"));
+    fireEvent.click(within(panel).getByText("Kalendertest rens filter"));
+    await screen.findByRole("heading", { level: 1, name: "Opgaver" });
+  });
+
+  it("timeline: lanes per kind, events as labelled buttons, zoom presets change the range", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    await createEntity(ctx, "policy", { kind: "travel", title: "Rejseforsikring tidslinje", renewal_date: addDays(TODAY, 20) });
+    const { container } = renderAt("/kalender?visning=timeline");
+    await settle("Kalender");
+    const ev = await screen.findByRole("button", { name: /^Fornyelse: Rejseforsikring tidslinje, 14\.12\.2026/ });
+    expect(ev.querySelector("circle")).not.toBeNull();
+    expect(container.querySelector(".tl-lane-label")?.textContent).toMatch(/i visningen/);
+    const range = () => container.querySelector(".tl-range")!.textContent;
+    const before = range();
+    fireEvent.click(screen.getByRole("button", { name: "Uge" }));
+    await waitFor(() => expect(range()).not.toBe(before));
+    fireEvent.click(screen.getByRole("button", { name: /Vis som liste/ }));
+    expect(screen.getAllByRole("button", { name: /Fornyelse: Rejseforsikring tidslinje/ })).toHaveLength(2); // in the chart and in the list
+    checkButtons(container, "Tidslinje");
+  });
+
+  it("lending: lend a thing to a free name, see it in the list and on the calendar, mark it as returned", async () => {
+    const { container } = renderAt("/bolig?tab=lending");
+    await settle("Bolig og inventar");
+    fireEvent.click(await screen.findByRole("button", { name: "Lån noget ud" }));
+    const dialog = await screen.findByRole("dialog", { name: "Lån noget ud" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Registrér udlån" }));
+    expect(await within(dialog).findByText(/Vælg en genstand/)).toBeInTheDocument();
+    fireEvent.change(within(dialog).getByLabelText("Eller beskriv tingen"), { target: { value: "Stige 4 m" } });
+    fireEvent.change(within(dialog).getByLabelText(/^Eller lånerens navn/), { target: { value: "Naboen" } });
+    fireEvent.change(within(dialog).getByLabelText("Afleveres senest"), { target: { value: addDays(TODAY, 7) } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Registrér udlån" }));
+    const row = (await screen.findByText("Stige 4 m", { selector: "td" })).closest("tr")!;
+    expect(within(row).getByText("Naboen")).toBeInTheDocument();
+    checkButtons(container, "Udlån");
+    const ev = await timelineEvents(archive.db, { from: TODAY, to: addDays(TODAY, 30), kinds: ["lending"], today: TODAY, userId: user.id });
+    expect(ev.map((e) => e.title)).toContain("Stige 4 m lånt ud til Naboen");
+    fireEvent.click(within(row).getByRole("button", { name: "Markér Stige 4 m som afleveret" }));
+    await waitFor(() => expect(screen.queryByText("Stige 4 m", { selector: "td" })).toBeNull());
   });
 });
 

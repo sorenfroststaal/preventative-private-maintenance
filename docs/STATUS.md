@@ -83,6 +83,16 @@ Fundet og rettet under E2E:
 
 Fundet og rettet under E2E: typenavne stod på engelsk i AI-indbakken ("item", "recipe"). Nu på dansk, og ingredienser vises som korte linjer.
 
+## Ønsker 25.11.2026: kalender, tidslinje, udlån og serienumre (migration 0007)
+
+- **Kalender** (nyt menupunkt efter Opgaver, ikon `calendar-days`, farvetoken `--c-calendar`): *Månedsvisning* med ugenumre, mandag først, i dag fremhævet, op til tre begivenheder pr. dag (+n flere) og et dagspanel, hvor hver begivenhed fører til posten. Piletasterne flytter mellem dagene. Perioder vises på første og sidste dag; igangværende perioder kun på første.
+- **Tidslinje**: SVG med en bane pr. type, zoom med rullehjul omkring markøren, +/− og forvalg (uge, måned, kvartal, år, 5 år) med blød animation, træk og piletaster for at flytte, "I dag"-linje, akse der skifter mellem dage, uger, måneder, kvartaler og år, perioder som bjælker (etiket i bjælken, hvis der er plads), punkter som prikker, forfaldne med rød kant, udførte nedtonet, værktøjstip og *Vis som liste*. Hver begivenhed er en knap med en tekst, der kan læses op.
+- **Typer, der kan vælges til og fra** (huskes pr. bruger): opgaver, arbejdsordrer, køb, garanti og reklamationsret, udlån, forsikringer, faste udgifter og bindinger, lån, madplan, helbred og dokumenter. Helbred respekterer private helbredsdata. Kernen samler begivenhederne i `timelineEvents`.
+- **Udlån** (Bolig og inventar → Udlån): ting (genstand eller fri tekst) lånes ud til en person, kontakt eller et frit navn med udlånsdato og afleveringsdato. Overskredne udlån markeres. *Markér afleveret* afslutter udlånet, og historikken kan vises. En genstand kan kun være udlånt én gang ad gangen, og genstandens detalje viser "Udlånt til …" eller *Lån ud…*. Udlån kan søges og foreslås via MCP.
+- **Serienumre**: genstande havde det allerede. Nu også serienummer, mærke og model på bygningsdele (fx varmepumpe) og serienummer på reservedele. Bygningsdele kan søges.
+- **Sparekassen Kronjylland** er standardprofilen `sparkron` ved import af kontoudtog og genkendes automatisk.
+- Tests: `lendingTimeline.test.ts` (migration 0007, udlån, begivenheder og privatliv) og `rendered.test.tsx` (måned, tidslinje og udlån). E2E `calendar.mjs` 4/4, skærmbilleder gennemset.
+
 ## Fase 4: kriterier
 
 Kriterierne er udkastet på spec-branchen `claude/spec-fase-2b-praeciseringer` (07 "Fase 4: Uddybning"). Brugeren bad om at starte 25.11.2026 i rækkefølgen 2, 1, 3, 4, 6, 5, 7.
@@ -92,6 +102,7 @@ Kriterierne er udkastet på spec-branchen `claude/spec-fase-2b-praeciseringer` (
 | 4.1 | Mindst fire bankprofiler ud over `sparkron`, genkendt på overskrifter, kan rettes som generisk profil, én beløbskolonne eller ud/ind, "ikke verificeret" i UI | Opfyldt (formaterne er ikke verificeret mod rigtige filer) | `bankPresets.test.ts` (10) med `fixtures/bank/`, `rendered.test.tsx` |
 | 4.3 | Lokal OCR af jpg/png med Tesseract og dansk sprogdata pakket med appen, uden netværk, i baggrunden, søgbar | Opfyldt (verificeret i den rigtige app på Linux; Windows ikke verificeret endnu) | `ocr.test.ts` (2) med `fixtures/ocr/kvittering-syntetisk.png`, E2E `phase4.mjs` 3/3 |
 | 4.4 | Forslag fra kvitteringer: totalbeløb, dato og forhandler fra OCR- eller PDF-tekst, udfyldes på genstanden efter bekræftelse | Opfyldt | `receipt.test.ts` (10, heraf 7 syntetiske kvitteringstekster og 4 som én linje), `ocr.test.ts` (parseren på rigtig OCR-tekst), `rendered.test.tsx` |
+| 4.5 | Skabeloner med officielle kilder | **Ikke opfyldt endnu**: kilderne kunne ikke kontrolleres, fordi miljøets netværk blokerer retsinformation.dk, borger.dk, sst.dk, brs.dk og fstyr.dk. Ingen kilder er skrevet ind uden kontrol | – |
 | 4.6 | Opstartsguide i nyt arkiv: bolig, ejer/lejer, brændeovn, regnvandsbrønd, varmepumpe, bil og børn giver skabelonforslag, der vælges til og fra og oprettes med `template_id`/`template_version` uden dubletter; kan springes over og åbnes fra Indstillinger | Opfyldt | `onboarding.test.ts` (3), `rendered.test.tsx` |
 | 4.2 | Kategoriforslag ud fra modtagernøgle, 2-eller-1-reglen, regler først, godkend enkeltvis eller alle, gør til regel | Opfyldt | `categorySuggest.test.ts` (4), `rendered.test.tsx` |
 

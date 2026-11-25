@@ -6,6 +6,7 @@ import { getSetting, importDocument, ocrPendingDocuments, pendingDraftGroupCount
 import { errorText, useSession } from "../app/session";
 import { Overview } from "../pages/Overview";
 import { Tasks } from "../pages/Tasks";
+import { Calendar } from "../pages/Calendar";
 import { Documents } from "../pages/Documents";
 import { Settings } from "../pages/Settings";
 import { AiInbox } from "../pages/AiInbox";
@@ -196,6 +197,7 @@ export function Shell() {
             <Routes>
               <Route path="/" element={<Overview />} />
               <Route path="/opgaver" element={<Tasks />} />
+              <Route path="/kalender" element={<Calendar />} />
               <Route path="/bolig" element={<Home />} />
               <Route path="/arbejdsordrer" element={<WorkOrders />} />
               <Route path="/bil" element={<Vehicles />} />
