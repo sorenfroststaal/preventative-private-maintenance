@@ -1,3 +1,6 @@
+import { saveRecipe, readRecipe, archiveRecipe } from './food/recipes';
+import { weekPlan, saveSlot, copyWeek, generateShopping, editShopping, shopping, shoppingLabel, shoppingText } from './food/week';
+import { previewPlanner, applyPlanner, exportPlanner } from './food/planner';
 import { addStarterCatalog, recipes } from './food/catalog';
 import { Console } from 'node:console';
 import { lstat, mkdir, readFile } from 'node:fs/promises';
@@ -88,6 +91,26 @@ async function call(action: string, data: unknown) {
   if (!userId) throw new Error('Vælg en bruger først.');
   const ctx = { via: 'ui', userId } as const;
   switch (action) {
+    case 'food': {
+      const req=z.object({op:z.string(),id:z.uuid().optional(),day:z.iso.date().optional(),values:z.unknown(),selected:z.array(z.string()).optional(),checked:z.boolean().optional()}).parse(data);
+      const day=req.day??today();
+      switch(req.op) {
+        case 'read': return readRecipe(db,req.id);
+        case 'save': return saveRecipe(db,ctx,req.values,req.id);
+        case 'archive': return archiveRecipe(db,ctx,req.id);
+        case 'week': return weekPlan(db,day,userId);
+        case 'slot': return saveSlot(db,ctx,req.values,req.id);
+        case 'copyWeek': return copyWeek(db,ctx,day);
+        case 'generate': return generateShopping(db,ctx,day);
+        case 'editShopping': return editShopping(db,ctx,req.values);
+        case 'shopping': return (await shopping(db,day)).items.map(r=>({...r,label:shoppingLabel(r)}));
+        case 'text': return shoppingText((await shopping(db,day)).items,Boolean(req.checked));
+        case 'preview': return previewPlanner(db,req.values);
+        case 'apply': return applyPlanner(archive,ctx,req.values,req.selected??[]);
+        case 'export': return exportPlanner(archive,req.selected??[]);
+        default: throw new Error('Ukendt handling i Madplan.');
+      }
+    }
     case 'recipes': return recipes(db);
     case 'addStarterCatalog': return addStarterCatalog(db, ctx);
     case 'logout': userId = undefined; pendingBank = undefined; return true;

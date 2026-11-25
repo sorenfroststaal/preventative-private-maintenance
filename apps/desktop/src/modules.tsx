@@ -237,6 +237,7 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
     <div className="actions"><label>Filtrér listen<input value={filter} onChange={e => setFilter(e.target.value)} /></label>
       {archivedTables.has(type) && <label><input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.checked)} />Vis arkiverede</label>}
     </div>
+    {!rows.length && <div className="empty-state"><ModuleIcon name={name}/><p>Her kan du registrere {tabs.find(([key])=>key===type)?.[1].toLowerCase()}.</p><button onClick={()=>document.querySelector<HTMLInputElement>('#record-editor input, #record-editor select')?.focus()}>Opret første post</button></div>}
     <ul className="records">{rows.filter(r => (showArchived || !r.archived_at) && (!personFilter || name !== 'Helbred' || r.person_id === personFilter) &&
       display(r).toLocaleLowerCase('da').includes(filter.toLocaleLowerCase('da'))).map(row =>
       <li key={row.id}>{type === 'item' && typeof row.photo_id === 'string' && <InventoryPhoto key={row.photo_id} id={row.photo_id} local={local} />}<button onClick={() => edit(row)}><ModuleIcon name={name} />{display(row)}</button>
@@ -294,7 +295,7 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
       <details key={selected.id}><summary>Historik</summary>{aux.length ? <ul>{aux.map((value, i) => <li key={i}>{value}</li>)}</ul> : <p>Ingen historik.</p>}</details>}
     {selected && <button onClick={() => edit()}>Ny post</button>}
     <h2>{selected ? 'Redigér post' : 'Ny post'}</h2>
-    <form key={type + (selected?.id ?? '')} onSubmit={save}>
+    <form id="record-editor" key={type + (selected?.id ?? '')} onSubmit={save}>
       {Object.entries(tableFields).map(([key, field]) => {
         const info = shape(field);
         const ref = referenceFor(key);

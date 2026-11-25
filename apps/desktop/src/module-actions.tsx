@@ -1,3 +1,4 @@
+import { TriangleAlert, Clock, CircleHelp, CircleCheck } from 'lucide-react';
 import { ModuleTitle } from './module-icon';
 import { useEffect, useState, type FormEvent } from 'react';
 
@@ -77,17 +78,18 @@ export function Overview({ local, run, backup, openTasks }: { local: Local; run:
   if (!summary) return <ModuleTitle name="Overblik" />;
   const lists = [['Forfaldne', summary.overdue], [`Næste ${summary.horizon} dage`, summary.upcoming], ['Udløber snart', summary.expires]] as const;
   const cards = [...lists.map(([title, entries]) => [title, entries.length] as const), ['Mangler oplysninger', summary.missing.length] as const];
+  const cardIcons = [TriangleAlert, Clock, Clock, CircleHelp];
   const amounts = summary.spending.map(row => row.amount);
   const low = Math.min(0, ...amounts);
   const high = Math.max(1, ...amounts);
   const points = amounts.map((amount, i) => [4 + i * 40, 74 - 68 * (amount - low) / (high - low)].join(',')).join(' ');
   return <><ModuleTitle name="Overblik" />
-    <div className="metrics">{cards.map(([title, count], i) => <a href={'#overview-' + i} key={title}><strong>{count}</strong>{title}</a>)}</div>
+    <div className="metrics">{cards.map(([title, count], i) => {const Icon=cardIcons[i]; return <a href={'#overview-' + i} key={title}><Icon aria-hidden="true" size={18}/><strong>{count}</strong>{title}</a>;})}</div>
     {summary.meals.length > 0 && <section><h2>Madplan</h2><ul>{summary.meals.map((meal, i) =>
       <li key={i}>{meal.day === summary.current ? 'I dag' : 'I morgen'} · {meal.name}</li>)}</ul></section>}
     {lists.map(([title, entries], i) => <section id={'overview-' + i} key={title}><h2>{title}</h2>
-    {entries.length === 0 && <p>Ingen opgaver.</p>}
-    <ul className="records">{entries.map(task => <li key={task.id}><span><strong>{task.title}</strong> · {task.due_date?.split('-').reverse().join('.')}</span>
+    {entries.length === 0 && <p className="empty-state"><CircleCheck aria-hidden="true"/> Ingen opgaver.</p>}
+    <ul className="records">{entries.map(task => <li key={task.id}><span>{(i===0 || task.due_date===summary.current) && <span className="warning-badge"><Clock size={16} aria-hidden="true"/>{i===0?'Forfalden':'I dag'}</span>}<strong>{task.title}</strong> · {task.due_date?.split('-').reverse().join('.')}</span>
       <div className="actions">
         <button onClick={() => void run(async () => { await local('completeTask', { id: task.id, status: 'done' }); await load(); })}>Udført</button>
         <button onClick={() => setPostpone(postpone === task.id ? '' : task.id)}>Udskyd</button>
@@ -104,7 +106,7 @@ export function Overview({ local, run, backup, openTasks }: { local: Local; run:
   <h2>AI-indbakke</h2><p>{summary.drafts} kladder venter</p>
   <h2>Økonomi denne måned</h2><p>{summary.uncategorized} transaktioner uden kategori</p>
   <table><thead><tr><th>Kategori</th><th>Budget</th><th>Faktisk</th></tr></thead><tbody>
-    {summary.finances.map(row => <tr key={row.category}><td>{row.category}</td><td>{money(row.budget)}</td><td>{money(row.actual)}</td></tr>)}
+    {summary.finances.map(row => <tr key={row.category}><td>{row.category}</td><td>{money(row.budget)}</td><td>{money(row.actual)} {row.actual>row.budget && <span className="warning-badge"><TriangleAlert aria-hidden="true" size={16}/>Over budget</span>}<svg role="img" aria-label={'Budget '+money(row.budget)+' og forbrug '+money(row.actual)} width="100" height="14" viewBox="0 0 100 14"><rect width={100*Math.max(0,row.budget)/Math.max(1,row.budget,row.actual)} height="5" fill="currentColor"/><rect y="8" width={100*Math.max(0,row.actual)/Math.max(1,row.budget,row.actual)} height="5" fill={row.actual>row.budget?'var(--danger)':'currentColor'}/></svg></td></tr>)}
   </tbody></table>
   <h3>Forbrug de seneste seks måneder</h3>
   <svg className="spending" viewBox="0 0 208 80" role="img" aria-label={summary.spending.map(row => row.month + ' ' + money(row.amount)).join(', ')}>

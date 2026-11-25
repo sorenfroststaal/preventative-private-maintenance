@@ -50,7 +50,9 @@ Branchen indeholder merge af `main` efter PR #3. Migration 0001 er byteidentisk 
 9. Delvist. Modulmenu, sidehoveder og søgeresultater har Lucide-ikoner. Der er lyse og mørke modultokens, nøgletalskort og en graf over seks måneders forbrug. Status-badges, tomme tilstande og visuel kontrol udestår.
 10. Overblikket viser dagens og morgendagens ret. Datoafgrænsningen og de seks måneders datagrundlag er testet. Søgningen finder opskrifter fra startkataloget.
 
-Kriterium 2 og 4–7 udestår.
+2, 4–7. Opskriftseditor, ugeplan, indkøbsliste og Open Planner er tilføjet. Fem nye integrationstests dækker transaktion, audit, portionsskalering, månedsskifte, private advarsler, bevaring af afkrydsning, begge importfixtures, valg ved overskrivning og indlejret foto. Lokal lint og 60 tests bestod.
+
+CI på `f3cb4bd` bestod Linux, Windows og WebDriver i Xvfb. Skærmbilleder af Overblik og Madplan er gennemset. Installeren var **27.420.549 byte**. Median for tre Windows-starter var **906 ms**. [Kørsel](https://github.com/sorenfroststaal/preventative-private-maintenance/actions/runs/45575224292)
 
 ## Byg og manuel afprøvning
 

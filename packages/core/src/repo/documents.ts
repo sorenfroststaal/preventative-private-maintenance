@@ -51,7 +51,7 @@ export async function importDocument(
 
 export function listDocuments(db: DbAdapter) {
   return db.select<DocumentRow>(`SELECT id, sha256, ext, filename, title, source,
-    EXISTS(SELECT 1 FROM document_link l WHERE l.document_id = d.id) AS linked,
+    (EXISTS(SELECT 1 FROM document_link l WHERE l.document_id = d.id) OR EXISTS(SELECT 1 FROM recipe WHERE photo_document_id=d.id)) AS linked,
     (SELECT GROUP_CONCAT(DISTINCT l.role) FROM document_link l WHERE l.document_id = d.id) AS roles FROM document d
     WHERE NOT EXISTS (SELECT 1 FROM document_link l WHERE l.document_id = d.id AND l.target_type IN
       ('person', 'task_occurrence', 'health_visit', 'health_screening', 'health_vaccination', 'health_medication'))
