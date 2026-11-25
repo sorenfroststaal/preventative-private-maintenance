@@ -309,7 +309,9 @@ describe("propose errors teach the AI client the valid fields; persons and prope
     const [anna] = await ai.db.select<{ id: string }>("SELECT id FROM app_user LIMIT 1");
     const bad = errText(await runTool(deps, "propose", { rationale: "x", ops: [{ op: "create", type: "person", data: { name: "X", health_private_user_id: anna!.id } }] }));
     expect(bad).toMatch(/health_private_user_id kan kun ændres af brugeren/);
-    expect(errText(await runTool(deps, "propose", { rationale: "x", ops: [{ op: "create", type: "pet", data: {} }] }))).toMatch(/Husdyr/);
+    // Pets (migration 0004): a dog with its vet, and an error listing the fields.
+    expect(errText(await runTool(deps, "propose", { rationale: "x", ops: [{ op: "create", type: "pet", data: { chip: "1" } }] }))).toMatch(/species=dog\|cat.*chip_number/s);
+    expect(json(await runTool(deps, "propose", { rationale: "Hunde", ops: [{ op: "create", type: "pet", data: { name: "Fido", species: "dog", breed: "Eksempelrace", chip_number: "208000000000001" } }] })).n).toBe(1);
   });
 });
 

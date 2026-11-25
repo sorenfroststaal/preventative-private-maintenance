@@ -255,6 +255,17 @@ describe("phase 2b.9 – rendered components", () => {
     expect(await screen.findByText("Mad og dagligvarer")).toBeInTheDocument();
   });
 
+  it("pets: tab under Bolig og inventar, opened from the URL", async () => {
+    const { container } = renderAt("/bolig?tab=pets");
+    await settle("Bolig og inventar");
+    expect(screen.getByRole("tab", { name: "Husdyr", selected: true })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Opret dit første husdyr" })).toBeInTheDocument();
+    checkButtons(container, "Husdyr");
+    fireEvent.click(screen.getByRole("button", { name: "Nyt husdyr" }));
+    const dialog = await screen.findByRole("dialog", { name: "Nyt husdyr" });
+    for (const f of ["Navn", "Art", "Race", "Chipnummer", "Ejer", "Dyrlæge"]) expect(within(dialog).getByLabelText(new RegExp(f))).toBeInTheDocument();
+  });
+
   it("empty states show the module icon, a sentence and the primary action", async () => {
     renderAt("/bil");
     await settle("Bil");

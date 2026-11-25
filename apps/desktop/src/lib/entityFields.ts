@@ -127,6 +127,17 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
     d("complaint_until", "Reklamationsret til"),
     ta("notes", "Noter"),
   ],
+  pet: [
+    t("name", "Navn", { required: true }),
+    s("species", "Art", [["dog", "Hund"], ["cat", "Kat"], ["horse", "Hest"], ["rabbit", "Kanin"], ["bird", "Fugl"], ["other", "Andet"]], { required: true }),
+    t("breed", "Race"),
+    s("sex", "Køn", [["female", "Hun"], ["male", "Han"]]),
+    d("birth_date", "Født"),
+    t("chip_number", "Chipnummer"),
+    r("owner_person_id", "Ejer", "person"),
+    r("vet_contact_id", "Dyrlæge", "contact"),
+    ta("notes", "Noter"),
+  ],
   item_part: [t("name", "Navn", { required: true }), t("part_number", "Varenummer"), t("vendor", "Leverandør"), ta("notes", "Noter")],
   building_part: [
     r("property_id", "Bolig", "property", "name", { required: true }),

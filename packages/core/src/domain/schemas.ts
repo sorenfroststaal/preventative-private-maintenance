@@ -170,6 +170,17 @@ export const fields = {
     fuel: opt(z.enum(["petrol", "diesel", "electric", "hybrid", "plugin_hybrid", "other"])),
     notes: opt(z.string()),
   },
+  pet: {
+    name: zText,
+    species: z.enum(["dog", "cat", "horse", "rabbit", "bird", "other"]).default("dog"),
+    breed: opt(z.string()),
+    sex: opt(z.enum(["female", "male"])),
+    birth_date: opt(zDate),
+    chip_number: opt(z.string()),
+    owner_person_id: opt(zId),
+    vet_contact_id: opt(zId),
+    notes: opt(z.string()),
+  },
   odometer_reading: {
     vehicle_id: zId,
     reading_date: zDate,
@@ -204,7 +215,7 @@ export const fields = {
   },
   policy_coverage: {
     policy_id: zId,
-    target_type: z.enum(["property", "item", "vehicle", "person"]),
+    target_type: z.enum(["property", "item", "vehicle", "person", "pet"]),
     target_id: zId,
   },
   claim: {
@@ -402,6 +413,7 @@ export const fields = {
       "item_part",
       "building_part",
       "vehicle",
+      "pet",
       "work_order",
       "claim",
       "policy",

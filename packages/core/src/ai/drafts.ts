@@ -25,6 +25,7 @@ export const PROPOSE_TYPES = [
   "location",
   "contact",
   "vehicle",
+  "pet",
   "odometer_reading",
   "work_order",
   "task",
@@ -217,7 +218,7 @@ async function prepareOp(ctx: ProposeContext, op: ProposeOp, index: number, grou
     if (op.op === "create" || op.op === "update") {
       const type = op.type;
       if (!type || !(PROPOSE_TYPES as readonly string[]).includes(type)) {
-        throw new ProposeError(index, `type skal være en af: ${PROPOSE_TYPES.join(", ")}. Husdyr har ingen type endnu; skriv dem i noter.`);
+        throw new ProposeError(index, `type skal være en af: ${PROPOSE_TYPES.join(", ")}.`);
       }
       assertModule(access, aiModuleOf(type));
       const { ingredients, ...rest } = (op.data ?? {}) as Record<string, unknown> & { ingredients?: unknown };

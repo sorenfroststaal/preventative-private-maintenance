@@ -95,6 +95,8 @@ Fundet og rettet under E2E: typenavne stod på engelsk i AI-indbakken ("item", "
 
 **Claude Desktop virker (brugerens test 25.11.2026):** Claude Desktop forbandt til `ppm-mcp` og brugte værktøjerne. `propose` fejlede dog fem gange, fordi Claude ikke kunne se de gyldige feltnavne, og fordi husstand (`person`) og boliger (`property`) ikke kunne foreslås. Nu viser fejlen fra `propose` de gyldige felter, og `person`, `property` og `policy_coverage` kan foreslås, så fx en husforsikring kan kobles til huset. `dry_run` validerer uden at oprette en kladde, og alle fejlende operationer rapporteres på én gang (feedback fra brugerens Claude Desktop-session). Tests i `ai.test.ts`.
 
+**Husdyr (godkendt af brugeren 25.11.2026):** Migration 0004 tilføjer tabellen `pet` (navn, art, race, køn, fødselsdato, chipnummer, ejer, dyrlæge og noter) og udvider `document_link` og `policy_coverage`, så fotos, bilag og forsikringsdækning kan pege på et husdyr. Bolig og inventar har fanen **Husdyr**, og Forsikring kan dække et husdyr. Husdyr kan foreslås via `propose`, listes og søges. Skemaet er foreslået på spec-branchen (`schema-0004.sql`). Tests: migrationen (data og `ON DELETE CASCADE` bevaret), søgning og audit (`lists.test.ts`), `propose` (`ai.test.ts`) og fanen (`rendered.test.tsx`).
+
 **Ønsker fra brugerens test (bygget):**
 
 - Fotos og kvittering kan vælges allerede i *Ny genstand*. Fotos kan vælges i *Ny bygningsdel*, *Ny bil* og *Tilføj reservedel*. Detaljevisningen viser fotos som miniaturer med *Flere fotos…*.
@@ -109,11 +111,11 @@ CI laver nu også artefaktet `ppm-demo-backup` med syntetiske demodata, som kan 
 
 | Suite | Antal | Resultat |
 | --- | --- | --- |
-| core (Vitest) | 136 (heraf 29 for madplan og 14 for AI/MCP i `ai.test.ts`) | Grøn |
+| core (Vitest) | 144 (heraf 29 for madplan, 18 for AI/MCP i `ai.test.ts` og 5 for migration 0003/0004 og værdilister) | Grøn |
 | mcp-server (Vitest) | 4 (protokol, `tools/list`, log og versionsfejl) | Grøn |
-| desktop (Vitest) | 29 (kontrast, renderede sider, AI-indbakke og AI-adgang) | Grøn |
+| desktop (Vitest) | 34 (kontrast, renderede sider, AI-indbakke, AI-adgang, fotos, rullelister, Lister og husdyr) | Grøn |
 | Rust (`cargo test`) | 17 (+1 ignoreret måletest) | Grøn |
-| **I alt** | **193** | **Grøn** |
+| **I alt** | **199** | **Grøn** |
 
 ESLint, `tsc -b`, `cargo fmt --check` og `cargo clippy -D warnings` er rene.
 

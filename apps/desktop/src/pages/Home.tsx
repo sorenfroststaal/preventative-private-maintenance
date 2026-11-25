@@ -14,14 +14,19 @@ import { EmptyState, PageHeader } from "../components/visual";
 import { attachPending, PendingAttachments, PhotoStrip, type PendingFile } from "../components/Attachments";
 
 export function Home() {
+  const [params, setParams] = useSearchParams();
+  const active = params.get("tab") ?? (params.get("part") ? "parts" : params.get("pet") ? "pets" : "items");
   return (
     <section>
       <PageHeader module="home" />
       <Tabs
+        active={active}
+        onChange={(tab) => setParams({ tab })}
         tabs={[
           { id: "items", label: "Genstande", content: () => <Items /> },
           { id: "property", label: "Boliger og rum", content: () => <Properties /> },
           { id: "parts", label: "Bygningsdele", content: () => <BuildingParts /> },
+          { id: "pets", label: "Husdyr", content: () => <Pets /> },
         ]}
       />
     </section>
@@ -392,3 +397,121 @@ function BuildingParts() {
   );
 }
 
+
+const SPECIES: Record<string, string> = { dog: "Hund", cat: "Kat", horse: "Hest", rabbit: "Kanin", bird: "Fugl", other: "Andet" };
+
+/** Husdyr (migration 0004): name, species, chip, owner, vet, photos, documents and insurance. */
+function Pets() {
+  const session = useSession();
+  const { archive } = session;
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [params, setParams] = useSearchParams();
+  const [creating, setCreating] = useState(false);
+  const [pending, setPending] = useState<PendingFile[]>([]);
+  const pets = useQuery({
+    queryKey: ["pet", "list"],
+    queryFn: () =>
+      archive.db.select<Row>(
+        `SELECT p.*, o.name AS owner_name, c.name AS vet_name FROM pet p LEFT JOIN person o ON o.id = p.owner_person_id
+           LEFT JOIN contact c ON c.id = p.vet_contact_id WHERE p.archived_at IS NULL ORDER BY p.name`,
+      ),
+  });
+  const selectedId = params.get("pet");
+  const selected = pets.data?.find((p) => p.id === selectedId);
+  return (
+    <div>
+      <button className="primary" onClick={() => setCreating(true)} disabled={archive.readOnly}>
+        Nyt husdyr
+      </button>
+      <div className="split">
+        <table className="list">
+          <thead>
+            <tr>
+              <th>Navn</th>
+              <th>Art og race</th>
+              <th>Chipnummer</th>
+              <th>Dyrlæge</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(pets.data ?? []).map((p) => (
+              <tr key={String(p.id)} {...rowProps(p.id === selectedId, () => setParams({ tab: "pets", pet: String(p.id) }))}>
+                <td>{String(p.name)}</td>
+                <td>
+                  {SPECIES[String(p.species)] ?? String(p.species)}
+                  {p.breed ? `, ${String(p.breed)}` : ""}
+                </td>
+                <td>{String(p.chip_number ?? "–")}</td>
+                <td>{String(p.vet_name ?? "–")}</td>
+              </tr>
+            ))}
+            {pets.data?.length === 0 && (
+              <tr>
+                <td colSpan={4}>
+                  <EmptyState module="home" text="Saml husdyrenes chipnummer, dyrlæge, forsikring og papirer ét sted." action="Opret dit første husdyr" onAction={() => setCreating(true)} disabled={archive.readOnly} />
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+        {selected && (
+          <aside className="detail wide-detail" key={String(selected.id)} aria-label="Husdyr">
+            <div className="header-row">
+              <h2>{String(selected.name)}</h2>
+              <ArchiveButton type="pet" id={String(selected.id)} label="Husdyret" onDone={() => setParams({ tab: "pets" })} />
+            </div>
+            <PhotoStrip targetType="pet" targetId={String(selected.id)} />
+            <Tabs
+              tabs={[
+                { id: "info", label: "Oplysninger", content: () => <EntityForm type="pet" row={selected} /> },
+                { id: "docs", label: "Bilag", content: () => <DocumentsTab targetType="pet" targetId={String(selected.id)} /> },
+                { id: "ins", label: "Forsikring", content: () => <PetPolicies petId={String(selected.id)} /> },
+              ]}
+            />
+          </aside>
+        )}
+      </div>
+      {creating && (
+        <Modal title="Nyt husdyr" onClose={() => setCreating(false)} wide>
+          <EntityForm
+            type="pet"
+            renderAfter={(key) => (key === "notes" ? <PendingAttachments value={pending} onChange={setPending} receipt={false} /> : null)}
+            onSaved={async (r) => {
+              const res = await attachPending(session, "pet", String(r.id), pending);
+              for (const e of res.errors) toast(e, "error");
+              await qc.invalidateQueries({ queryKey: ["documents"] });
+              setPending([]);
+              setCreating(false);
+              setParams({ tab: "pets", pet: String(r.id) });
+            }}
+            onCancel={() => setCreating(false)}
+          />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function PetPolicies({ petId }: { petId: string }) {
+  const { archive } = useSession();
+  const q = useQuery({
+    queryKey: ["policy", "forPet", petId],
+    queryFn: () =>
+      archive.db.select<Row>(
+        "SELECT p.* FROM policy p JOIN policy_coverage c ON c.policy_id = p.id WHERE c.target_type = 'pet' AND c.target_id = ? AND p.archived_at IS NULL ORDER BY p.title",
+        [petId],
+      ),
+  });
+  if (q.data?.length === 0) return <Empty>Ingen police dækker husdyret. Tilføj dækning under Forsikring.</Empty>;
+  return (
+    <ul className="plain">
+      {(q.data ?? []).map((p) => (
+        <li key={String(p.id)} className="line">
+          <span>{String(p.title)}</span>
+          <span className="muted">{formatMoney(p.premium_minor as number)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}

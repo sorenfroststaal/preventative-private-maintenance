@@ -109,6 +109,14 @@ export const registry: Record<EntityType, EntityMeta> = {
     },
   }),
   odometer_reading: plain("vehicle"),
+  pet: plain("home", {
+    createdAt: true,
+    archivable: true,
+    search: {
+      title: (r) => s(r.name),
+      body: async (r, db) => join(r.breed, r.chip_number, await nameOf(db, "contact", r.vet_contact_id), r.notes),
+    },
+  }),
   policy: plain("insurance", {
     createdAt: true,
     archivable: true,

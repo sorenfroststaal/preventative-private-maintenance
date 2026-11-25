@@ -35,6 +35,8 @@ function route(hit: SearchHit): string {
       return `/dokumenter?id=${hit.id}`;
     case "bank_transaction":
       return `/okonomi`;
+    case "pet":
+      return `/bolig?tab=pets&pet=${hit.id}`;
     case "recipe":
       return `/madplan?tab=recipes&opskrift=${hit.id}`;
     default:

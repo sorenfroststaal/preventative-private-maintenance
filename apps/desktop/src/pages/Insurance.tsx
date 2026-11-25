@@ -117,6 +117,7 @@ const COVER_TYPES: [string, string, string][] = [
   ["item", "Genstand", "name"],
   ["vehicle", "Bil", "name"],
   ["person", "Person", "name"],
+  ["pet", "Husdyr", "name"],
 ];
 
 function Coverage({ policyId }: { policyId: string }) {
@@ -129,11 +130,12 @@ function Coverage({ policyId }: { policyId: string }) {
     queryKey: ["policy_coverage", policyId],
     queryFn: () =>
       session.archive.db.select<Row>(
-        `SELECT c.*, COALESCE(p.name, i.name, v.name, pe.name) AS name FROM policy_coverage c
+        `SELECT c.*, COALESCE(p.name, i.name, v.name, pe.name, pt.name) AS name FROM policy_coverage c
            LEFT JOIN property p ON c.target_type = 'property' AND p.id = c.target_id
            LEFT JOIN item i ON c.target_type = 'item' AND i.id = c.target_id
            LEFT JOIN vehicle v ON c.target_type = 'vehicle' AND v.id = c.target_id
            LEFT JOIN person pe ON c.target_type = 'person' AND pe.id = c.target_id
+           LEFT JOIN pet pt ON c.target_type = 'pet' AND pt.id = c.target_id
           WHERE c.policy_id = ?`,
         [policyId],
       ),

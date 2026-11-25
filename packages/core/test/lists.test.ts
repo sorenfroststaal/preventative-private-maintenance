@@ -9,6 +9,7 @@ import {
   migrate,
   removeTextListValue,
   renameTextListValue,
+  search,
   textListValues,
 } from "../src";
 import { migrations } from "../src/db/migrations.generated";
@@ -23,7 +24,7 @@ describe("migration 0003 – documents on spare parts", () => {
     await db.execute("INSERT INTO document (id, sha256, filename, ext, mime, size_bytes, source, created_at) VALUES ('00000000-0000-4000-8000-000000000001', ?, 'a.pdf', 'pdf', 'application/pdf', 1, 'drop', 'x')", ["a".repeat(64)]);
     await db.execute("INSERT INTO document_link VALUES ('00000000-0000-4000-8000-000000000001', 'item', '00000000-0000-4000-8000-000000000002', 'receipt')");
     await expect(db.execute("INSERT INTO document_link VALUES ('00000000-0000-4000-8000-000000000001', 'item_part', 'x', 'photo')")).rejects.toThrow();
-    await migrate(db, () => env.clock.nowIso());
+    await migrate(db, () => env.clock.nowIso(), migrations.filter((m) => m.version <= 3));
     expect(await getSchemaVersion(db)).toBe(3);
     expect(await db.select("SELECT target_type, role FROM document_link")).toEqual([{ target_type: "item", role: "receipt" }]);
     await db.execute("INSERT INTO document_link VALUES ('00000000-0000-4000-8000-000000000001', 'item_part', 'x', 'photo')");
@@ -41,6 +42,36 @@ describe("migration 0003 – documents on spare parts", () => {
     const r = await importDocument(env, archive, ctx, png, { source: "drop" });
     await linkDocument(ctx, { document_id: String(r.document.id), target_type: "item_part", target_id: String(part.id), role: "photo" });
     expect(await archive.db.select("SELECT role FROM document_link WHERE target_type = 'item_part'")).toEqual([{ role: "photo" }]);
+  });
+});
+
+describe("migration 0004 – pets", () => {
+  it("adds pet, lets documents and insurance coverage point at a pet and keeps existing rows", async () => {
+    const env = testEnv();
+    const db = await env.openDb(join(tempDir(), "v3.sqlite"));
+    await migrate(db, () => env.clock.nowIso(), migrations.filter((m) => m.version <= 3));
+    await db.execute("INSERT INTO policy (id, kind, title, created_at) VALUES ('00000000-0000-4000-8000-0000000000a1', 'pet', 'Hundeforsikring', 'x')");
+    await db.execute("INSERT INTO policy_coverage VALUES ('00000000-0000-4000-8000-0000000000a1', 'person', '00000000-0000-4000-8000-0000000000b1')");
+    await migrate(db, () => env.clock.nowIso());
+    expect(await getSchemaVersion(db)).toBe(4);
+    expect(await db.select("SELECT target_type FROM policy_coverage")).toEqual([{ target_type: "person" }]);
+    await db.execute("INSERT INTO pet (id, name, species, created_at) VALUES ('00000000-0000-4000-8000-0000000000c1', 'Fido', 'dog', 'x')");
+    await db.execute("INSERT INTO policy_coverage VALUES ('00000000-0000-4000-8000-0000000000a1', 'pet', '00000000-0000-4000-8000-0000000000c1')");
+    await expect(db.execute("INSERT INTO pet (id, name, species, created_at) VALUES ('00000000-0000-4000-8000-0000000000c2', 'X', 'dragon', 'x')")).rejects.toThrow();
+    // Cascade still works after the rebuild.
+    await db.execute("PRAGMA foreign_keys = ON");
+    await db.execute("DELETE FROM policy WHERE id = '00000000-0000-4000-8000-0000000000a1'");
+    expect(await db.select("SELECT * FROM policy_coverage")).toEqual([]);
+    await db.close();
+  });
+
+  it("a pet is created with audit and found by search", async () => {
+    const { env, archive } = await newArchive();
+    const ctx = ctxFor(env, archive);
+    const vet = await createEntity(ctx, "contact", { name: "Eksempel Dyreklinik", kind: "other" });
+    await createEntity(ctx, "pet", { name: "Fido", species: "dog", breed: "Eksempelrace", vet_contact_id: String(vet.id) });
+    expect((await search(archive.db, "dyreklinik")).map((h) => h.type)).toContain("pet");
+    expect((await archive.db.select<{ n: number }>("SELECT count(*) AS n FROM audit_log WHERE entity_type = 'pet'"))[0]!.n).toBe(1);
   });
 });
 

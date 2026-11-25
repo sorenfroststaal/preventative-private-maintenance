@@ -157,6 +157,7 @@ const LIST_TYPES: Record<string, string | null> = {
   item_part: null,
   building_part: "installed_date",
   vehicle: null,
+  pet: "birth_date",
   odometer_reading: "reading_date",
   policy: "renewal_date",
   claim: "incident_date",
