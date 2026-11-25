@@ -108,6 +108,7 @@ export const TOOL_INPUTS = {
       )
       .min(1),
     rationale: z.string().min(1),
+    dry_run: z.boolean().optional(),
   },
   draft_status: { group: z.string().min(8) },
 } as const;
@@ -128,12 +129,12 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   recipes: "Recipes with ingredients in short form, filtered by text or tag.",
   document: "Document metadata and extracted text; content=file also returns the image or PDF itself (max 10 MB).",
   inbox: "Documents without links and files waiting in the archive's inbox folder.",
-  propose: "Propose changes as one draft group (create/update/complete_task/attach_document); user approves in app. $1,$2 = earlier creates. Errors list valid fields.",
+  propose: "Propose changes as one draft group; user approves in app. $1,$2 = earlier creates. dry_run validates only. Errors list valid fields per type.",
   draft_status: "Status of a draft group created by propose.",
 };
 
 export const SERVER_INSTRUCTIONS =
-  "Du har adgang til brugerens lokale husstandsarkiv. Start med `overview` eller `search`. Hent kun de felter, du har brug for. Du kan ikke ændre data direkte: saml ændringer i ét `propose`-kald, og fortæl brugeren, at forslaget skal godkendes i appen under AI-indbakke. Fejler propose, viser fejlen de gyldige felter. Beløb er i øre. Gæt ikke datoer eller beløb. Spørg hellere. Helbredsoplysninger er følsomme. Gentag kun det, der er nødvendigt.";
+  "Du har adgang til brugerens lokale husstandsarkiv. Start med `overview` eller `search`. Hent kun de felter, du har brug for. Du kan ikke ændre data direkte: saml ændringer i ét `propose`-kald, og fortæl brugeren, at forslaget skal godkendes i appen under AI-indbakke. Brug propose med dry_run for at tjekke felterne; fejlen viser de gyldige felter. Beløb er i øre. Gæt ikke datoer eller beløb. Spørg hellere. Helbredsoplysninger er følsomme. Gentag kun det, der er nødvendigt.";
 
 const text = (v: unknown): ToolResult => ({ content: [{ type: "text", text: toJson(v) }] });
 
@@ -607,7 +608,7 @@ export async function runTool(deps: ToolDeps, name: string, args: unknown): Prom
       case "propose": {
         const pctx: ProposeContext = { env: deps.env, archive: deps.archive, access, homeDir: deps.homeDir, realpath: deps.realpath, sep: deps.sep };
         const r = await proposeGroup(pctx, a);
-        result = text({ group: r.group, n: r.n, status: r.status });
+        result = text(r.status === "valid" ? { dry_run: true, n: r.n, status: "valid" } : { group: r.group, n: r.n, status: r.status });
         break;
       }
       case "draft_status":

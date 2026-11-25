@@ -42,7 +42,11 @@ export const PROPOSE_TYPES = [
   "recipe",
   "meal_plan_entry",
   "shopping_item",
+  "policy_coverage",
 ] as const;
+
+/** Link tables: create only (no update), result is the composite key. */
+const LINK_TYPES = new Set(["policy_coverage"]);
 
 export const zProposeOp = z
   .object({
@@ -54,14 +58,16 @@ export const zProposeOp = z
   .strict();
 export type ProposeOp = z.infer<typeof zProposeOp>;
 
-export const zPropose = z.object({ ops: z.array(zProposeOp).min(1).max(100), rationale: z.string().trim().min(1) }).strict();
+export const zPropose = z
+  .object({ ops: z.array(zProposeOp).min(1).max(100), rationale: z.string().trim().min(1), dry_run: z.boolean().optional() })
+  .strict();
 
 export class ProposeError extends Error {
   constructor(
     readonly index: number,
     message: string,
   ) {
-    super(`Operation ${index}: ${message}`);
+    super(index > 0 ? `Operation ${index}: ${message}` : message);
     this.name = "ProposeError";
   }
 }
@@ -238,7 +244,13 @@ async function prepareOp(ctx: ProposeContext, op: ProposeOp, index: number, grou
           throw new ProposeError(index, "meal_plan_entry kræver recipe_id eller title.");
         }
         if (type === "bank_transaction") throw new ProposeError(index, "bank_transaction kan kun opdateres (kategori og note).");
-        creates.add(index);
+        if (type === "policy_coverage") {
+          // Polymorphic target: check that it exists (unless it is created in the same group).
+          const target = String(expanded.target_id ?? "");
+          if (!DOLLAR.test(target)) await resolveRef(db, target, [String(expanded.target_type)]);
+          if (!DOLLAR.test(String(expanded.policy_id ?? ""))) await resolveRef(db, String(expanded.policy_id), ["policy"]);
+        }
+        if (!LINK_TYPES.has(type)) creates.add(index);
         return {
           payload: { group, index, op: op.op, type, data: expanded, ...(rows ? { ingredients: rows } : {}) },
           action: "create",
@@ -246,6 +258,7 @@ async function prepareOp(ctx: ProposeContext, op: ProposeOp, index: number, grou
           entity_id: null,
         };
       }
+      if (LINK_TYPES.has(type)) throw new ProposeError(index, `${type} kan kun oprettes (create).`);
       if (!op.ref) throw new ProposeError(index, "update kræver ref.");
       const target = await resolveRef(db, op.ref, [type]);
       const row = (await db.select<Row>(`SELECT * FROM ${type} WHERE id = ?`, [target.id]))[0]!;
@@ -338,7 +351,8 @@ async function prepareOp(ctx: ProposeContext, op: ProposeOp, index: number, grou
 export interface ProposeResult {
   group: string;
   n: number;
-  status: "pending";
+  /** "valid" for dry_run: everything validated, nothing stored. */
+  status: "pending" | "valid";
 }
 
 /**
@@ -348,11 +362,22 @@ export interface ProposeResult {
 export async function proposeGroup(ctx: ProposeContext, input: unknown): Promise<ProposeResult> {
   const parsed = zPropose.safeParse(input);
   if (!parsed.success) throw new ProposeError(0, parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "));
-  const { ops, rationale } = parsed.data;
+  const { ops, rationale, dry_run } = parsed.data;
   const group = ctx.env.newId();
   const creates = new Set<number>();
   const prepared: Prepared[] = [];
-  for (const [i, op] of ops.entries()) prepared.push(await prepareOp(ctx, op, i + 1, group, creates));
+  // Validate every operation and report all failures at once; nothing is stored if one fails.
+  const errors: string[] = [];
+  for (const [i, op] of ops.entries()) {
+    try {
+      prepared.push(await prepareOp(ctx, op, i + 1, group, creates));
+    } catch (e) {
+      if (!(e instanceof ProposeError)) throw e;
+      errors.push(e.message);
+    }
+  }
+  if (errors.length) throw new ProposeError(0, errors.join("\n"));
+  if (dry_run) return { group: "", n: prepared.length, status: "valid" };
 
   const copied: string[] = [];
   try {

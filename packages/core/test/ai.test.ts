@@ -313,6 +313,53 @@ describe("propose errors teach the AI client the valid fields; persons and prope
   });
 });
 
+describe("propose: dry_run, all errors at once and coverage links", () => {
+  it("dry_run validates without storing; every failing operation is reported", async () => {
+    const { deps, ai } = await demo();
+    const ok = json(await runTool(deps, "propose", { rationale: "x", dry_run: true, ops: [{ op: "create", type: "contact", data: { name: "VVS", kind: "craftsman" } }] }));
+    expect(ok).toEqual({ dry_run: true, n: 1, status: "valid" });
+    const bad = errText(
+      await runTool(deps, "propose", {
+        rationale: "x",
+        dry_run: true,
+        ops: [
+          { op: "create", type: "policy", data: { title: "Husforsikring", kind: "building", premium: 1000, end_date: "2027-01-01" } },
+          { op: "create", type: "contact", data: { name: "OK", kind: "shop" } },
+          { op: "create", type: "location", data: { name: "Kælder", notes: "x" } },
+        ],
+      }),
+    );
+    expect(bad).toMatch(/^Operation 1: ukendte felter: premium, end_date\..*premium_minor:øre.*renewal_date:ÅÅÅÅ-MM-DD/s);
+    expect(bad).toMatch(/\nOperation 3: .*property_id/s);
+    expect(bad).not.toMatch(/Operation 2/);
+    expect(await ai.db.select("SELECT * FROM ai_draft")).toEqual([]);
+  });
+
+  it("a home insurance policy and its coverage of the house in one group", async () => {
+    const d = await demo();
+    await d.ai.close();
+    const app = track(await openArchive(d.env, d.info.root, { appVersion: "t" }));
+    const deps: ToolDeps = { ...d.deps, archive: app };
+    const [house] = await app.db.select<{ id: string }>("SELECT id FROM property LIMIT 1");
+    const r = json(
+      await runTool(deps, "propose", {
+        rationale: "Husforsikring",
+        ops: [
+          { op: "create", type: "policy", data: { title: "Husforsikring", kind: "building", premium_minor: 450000, premium_period: "year", renewal_date: "2027-01-01" } },
+          { op: "create", type: "policy_coverage", data: { policy_id: "$1", target_type: "property", target_id: refOf(house!.id) } },
+        ],
+      }),
+    );
+    expect(errText(await runTool(deps, "propose", { rationale: "x", ops: [{ op: "create", type: "policy_coverage", data: { policy_id: "$1", target_type: "property", target_id: "ffffffff" } }] }))).toMatch(/Operation 1/);
+    await approveGroup(d.env, app, makeCtx(d.env, app.db, d.info.annaUserId, "ui"), r.group);
+    const cov = await app.db.select<{ title: string }>(
+      "SELECT p.title FROM policy_coverage c JOIN policy p ON p.id = c.policy_id WHERE c.target_type = 'property' AND c.target_id = ?",
+      [house!.id],
+    );
+    expect(cov.map((c) => c.title)).toContain("Husforsikring");
+  });
+});
+
 describe("phase 3.7 – AI inbox: approve all, approve selected, edit, reject, conflicts and rollback", () => {
   async function setup() {
     const d = await demo();

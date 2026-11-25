@@ -10,7 +10,7 @@ import type { Env } from "../env";
 import { planMeal } from "../food/mealplan";
 import { createRecipe, updateRecipe } from "../food/recipes";
 import { importDocument, linkDocument } from "../repo/documents";
-import { createEntity, getEntity, parseOrThrow, updateEntity, withDb, writeAudit, type Ctx } from "../repo/entities";
+import { createEntity, entityKey, getEntity, parseOrThrow, updateEntity, withDb, writeAudit, type Ctx } from "../repo/entities";
 import { completeOccurrence, createTask, parseRecurrence } from "../repo/tasks";
 import { groupStatus, toDraft, type DraftPayload, type DraftRow } from "./drafts";
 
@@ -99,7 +99,8 @@ async function execute(env: Env, archive: Archive, ctx: Ctx, d: DraftRow, result
         data.source ??= "ai";
       }
       if (p.type === "odometer_reading") data.source ??= "ai";
-      return String((await createEntity(ctx, p.type as EntityType, data as never)).id);
+      const created = await createEntity(ctx, p.type as EntityType, data as never);
+      return created.id ? String(created.id) : entityKey(p.type as EntityType, created);
     }
     case "update": {
       const id = p.target_id!;
@@ -264,6 +265,7 @@ export const DRAFT_TYPE_LABELS: Record<string, string> = {
   recipe: "opskrift",
   meal_plan_entry: "ret i madplanen",
   shopping_item: "vare på indkøbslisten",
+  policy_coverage: "dækning på police",
 };
 
 const ROLE_LABELS: Record<string, string> = {
