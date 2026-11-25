@@ -95,6 +95,8 @@ Fundet og rettet under E2E: typenavne stod på engelsk i AI-indbakken ("item", "
 
 **Claude Desktop virker (brugerens test 25.11.2026):** Claude Desktop forbandt til `ppm-mcp` og brugte værktøjerne. `propose` fejlede dog fem gange, fordi Claude ikke kunne se de gyldige feltnavne, og fordi husstand (`person`) og boliger (`property`) ikke kunne foreslås. Nu viser fejlen fra `propose` de gyldige felter, og `person`, `property` og `policy_coverage` kan foreslås, så fx en husforsikring kan kobles til huset. `dry_run` validerer uden at oprette en kladde, og alle fejlende operationer rapporteres på én gang (feedback fra brugerens Claude Desktop-session). Tests i `ai.test.ts`.
 
+**Geninstallation, mens Claude Desktop kører (fundet ved brugerens test):** Installeren kunne ikke skrive `better_sqlite3.node`, fordi en kørende `ppm-mcp.exe` (startet af Claude Desktop) låser filen. NSIS-hooks stopper nu `ppm-mcp.exe` før installation og afinstallation (`taskkill`), og AI-klienten starter den igen efter behov. CI geninstallerer, mens `ppm-mcp.exe` kører, og kører derefter MCP-røgtesten igen.
+
 **Husdyr (godkendt af brugeren 25.11.2026):** Migration 0004 tilføjer tabellen `pet` (navn, art, race, køn, fødselsdato, chipnummer, ejer, dyrlæge og noter) og udvider `document_link` og `policy_coverage`, så fotos, bilag og forsikringsdækning kan pege på et husdyr. Bolig og inventar har fanen **Husdyr**, og Forsikring kan dække et husdyr. Husdyr kan foreslås via `propose`, listes og søges. Skemaet er foreslået på spec-branchen (`schema-0004.sql`). Tests: migrationen (data og `ON DELETE CASCADE` bevaret), søgning og audit (`lists.test.ts`), `propose` (`ai.test.ts`) og fanen (`rendered.test.tsx`).
 
 **Ønsker fra brugerens test (bygget):**

@@ -97,6 +97,21 @@ jobs:
           pnpm seed -- --archive ./local-data/ci-win
           node packages/mcp-server/scripts/smoke.mjs $exe ./local-data/ci-win
           if ($LASTEXITCODE -ne 0) { throw "MCP-røgtest fejlede" }
+          # Reinstall while an AI client keeps ppm-mcp.exe running (it locks better_sqlite3.node).
+          $psi = New-Object System.Diagnostics.ProcessStartInfo $exe
+          $psi.Arguments = "--archive ./local-data/ci-win"
+          $psi.RedirectStandardInput = $true
+          $psi.RedirectStandardOutput = $true
+          $psi.UseShellExecute = $false
+          $running = [System.Diagnostics.Process]::Start($psi)
+          Start-Sleep -Seconds 2
+          if ($running.HasExited) { throw "ppm-mcp.exe stoppede før geninstallationen" }
+          Start-Process -FilePath $setup -ArgumentList "/S" -Wait
+          if (-not $running.HasExited) { throw "Installeren stoppede ikke den kørende ppm-mcp.exe" }
+          & $exe --version
+          if ($LASTEXITCODE -ne 0) { throw "ppm-mcp.exe virker ikke efter geninstallation" }
+          node packages/mcp-server/scripts/smoke.mjs $exe ./local-data/ci-win
+          if ($LASTEXITCODE -ne 0) { throw "MCP-røgtest fejlede efter geninstallation" }
           Start-Process -FilePath (Join-Path $env:LOCALAPPDATA "PPM\uninstall.exe") -ArgumentList "/S" -Wait
           Start-Sleep -Seconds 5
           $userPath = [Environment]::GetEnvironmentVariable("Path", "User")

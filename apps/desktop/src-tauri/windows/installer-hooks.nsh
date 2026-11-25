@@ -63,6 +63,23 @@ Function un.PPM_RemoveFromPath
   Pop $R3
 FunctionEnd
 
+; A running ppm-mcp.exe (started by Claude Desktop, Claude Code or Codex) locks
+; better_sqlite3.node, so files cannot be replaced. Stop it before copying or removing files;
+; the AI client starts it again when needed.
+!macro PPM_STOP_MCP
+  nsExec::Exec 'taskkill /F /T /IM ppm-mcp.exe'
+  Pop $0
+  Sleep 500
+!macroend
+
+!macro NSIS_HOOK_PREINSTALL
+  !insertmacro PPM_STOP_MCP
+!macroend
+
+!macro NSIS_HOOK_PREUNINSTALL
+  !insertmacro PPM_STOP_MCP
+!macroend
+
 !macro NSIS_HOOK_POSTINSTALL
   Push $R0
   Push $R1
