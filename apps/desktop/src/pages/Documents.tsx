@@ -81,8 +81,8 @@ export function Documents({ onImport }: { onImport(paths: string[]): Promise<voi
             </option>
           ))}
         </select>
-        <select aria-label="Rolle" value={role} onChange={(e) => setRole(e.target.value)}>
-          <option value="">Alle roller</option>
+        <select aria-label="Kategori" value={role} onChange={(e) => setRole(e.target.value)}>
+          <option value="">Alle kategorier</option>
           {DOC_ROLES.map(([k, l]) => (
             <option key={k} value={k}>
               {l}
@@ -171,7 +171,7 @@ function LinkPanel({ doc, roles }: { doc: Row; roles: string[] }) {
           <RefSelect type={type as never} labelCol={labelCol} value={target} onChange={setTarget} />
         </label>
         <label>
-          Rolle
+          Kategori
           <select value={role} onChange={(e) => setRole(e.target.value)}>
             {DOC_ROLES.map(([k, l]) => (
               <option key={k} value={k}>

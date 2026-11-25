@@ -78,3 +78,59 @@ export function Sparkline({ values, label, width = 90, height = 24 }: { values: 
     </svg>
   );
 }
+
+export interface Series {
+  label: string;
+  /** CSS class for the colour: "s-income", "s-expense", "s-budget" (dashed) or "s-main". */
+  kind: "s-income" | "s-expense" | "s-budget" | "s-main";
+  values: number[];
+}
+
+/**
+ * Several lines over the same months with a legend. The text summary (aria-label and the
+ * legend) says the same as the chart, so colour is never the only carrier of meaning.
+ */
+export function MultiLineChart({ months, series, label, width = 560, height = 180 }: { months: string[]; series: Series[]; label: string; width?: number; height?: number }) {
+  const pad = { l: 52, r: 10, t: 10, b: 22 };
+  const max = Math.max(1, ...series.flatMap((s) => s.values));
+  const step = months.length > 1 ? (width - pad.l - pad.r) / (months.length - 1) : 0;
+  const y = (v: number) => pad.t + (1 - v / max) * (height - pad.t - pad.b);
+  const ticks = [0, max / 2, max];
+  const summary = `${label}. ${series.map((s) => `${s.label}: ${months.map((m, i) => `${monthShort(m)} ${formatMoney(s.values[i] ?? 0)}`).join(", ")}`).join(". ")}`;
+  return (
+    <figure className="chart-multi" style={{ margin: 0 }}>
+      <svg width="100%" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={summary} preserveAspectRatio="xMinYMin meet">
+        {ticks.map((t) => (
+          <g key={t}>
+            <line className="grid" x1={pad.l} x2={width - pad.r} y1={y(t)} y2={y(t)} />
+            <text x={pad.l - 6} y={y(t) + 4} textAnchor="end">
+              {Math.round(t / 100).toLocaleString("da-DK")}
+            </text>
+          </g>
+        ))}
+        {series.map((s) => (
+          <g key={s.label} className={s.kind}>
+            <path d={s.values.map((v, i) => `${i ? "L" : "M"}${(pad.l + i * step).toFixed(1)},${y(v).toFixed(1)}`).join(" ")} fill="none" />
+            {s.kind !== "s-budget" && s.values.map((v, i) => <circle key={months[i]} cx={pad.l + i * step} cy={y(v)} r="3" />)}
+          </g>
+        ))}
+        {months.map((m, i) => (
+          <text key={m} x={pad.l + i * step} y={height - 6} textAnchor="middle">
+            {monthShort(m)}
+          </text>
+        ))}
+      </svg>
+      <figcaption className="legend small">
+        {series.map((s) => (
+          <span key={s.label} className={s.kind}>
+            <svg width="22" height="10" aria-hidden="true">
+              <line x1="1" x2="21" y1="5" y2="5" />
+            </svg>
+            {s.label}
+          </span>
+        ))}
+        <span className="muted">kr. pr. måned</span>
+      </figcaption>
+    </figure>
+  );
+}

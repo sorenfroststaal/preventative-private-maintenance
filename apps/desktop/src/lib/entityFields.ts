@@ -208,6 +208,9 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
     d("binding_until", "Binding til"),
     r("contact_id", "Leverandør", "contact"),
     r("policy_id", "Police", "policy", "title"),
+    s("priority", "Prioritet", [["5", "5 – Obligatorisk"], ["4", "4 – Vigtig"], ["3", "3 – Nyttig"], ["2", "2 – Rart at have"], ["1", "1 – Kan undværes"]], {
+      help: "Hvor nødvendig er udgiften? 5 = obligatorisk (fx husleje), 1 = kan undværes (fx en ekstra streamingtjeneste).",
+    }),
     ta("notes", "Noter"),
   ],
   health_visit: [

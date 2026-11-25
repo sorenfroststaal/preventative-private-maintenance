@@ -274,4 +274,48 @@ describe("phase 2b.9 – rendered components", () => {
     expect(box.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
     expect(box.querySelector("p")?.textContent).toMatch(/servicebog/);
   });
+
+  it("insurance list: covered persons as round initials; persons can be toggled on the coverage tab", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const pol = await createEntity(ctx, "policy", { kind: "accident", title: "Ulykkesforsikring" });
+    const bo = await createEntity(ctx, "person", { name: "Bo Testesen" });
+    await createEntity(ctx, "policy_coverage", { policy_id: String(pol.id), target_type: "person", target_id: String(bo.id) });
+    const { container } = renderAt(`/forsikring?id=${String(pol.id)}`);
+    await settle("Forsikring");
+    const row = (await screen.findByText("Ulykkesforsikring", { selector: "td" })).closest("tr")!;
+    expect(within(row).getByRole("img", { name: "Bo Testesen" }).textContent).toBe("BT");
+    const group = await screen.findByRole("group", { name: "Dækkede personer" });
+    expect(within(group).getByRole("button", { name: /Bo Testesen/ })).toHaveAttribute("aria-pressed", "true");
+    const ida = within(group).getByRole("button", { name: /Ida/ });
+    expect(ida).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(ida);
+    await waitFor(() => expect(within(row).getByRole("img", { name: "Ida" })).toBeInTheDocument());
+    checkButtons(container, "Forsikring");
+  });
+
+  it("finance: overview with income/expense chart and food budget; recurring expenses have priority and can be archived", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const acc = await createEntity(ctx, "account", { name: "Budgetkonto" });
+    const [food] = await archive.db.select<{ id: string }>("SELECT id FROM category WHERE name = 'Mad og dagligvarer'");
+    await createEntity(ctx, "bank_transaction", { account_id: String(acc.id), booking_date: "2026-10-03", text: "Netto", amount_minor: -123400, category_id: food!.id, dedupe_hash: "ui1" });
+    await createEntity(ctx, "recurring_expense", { name: "Streamingtjeneste", amount_minor: 12900, period: "month", priority: 1 });
+    const { container } = renderAt("/okonomi");
+    await settle("Økonomi");
+    expect(screen.getByRole("tab", { name: "Overblik", selected: true })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: /^Indtægter og udgifter.*Udgifter: .*okt 1\.234,00/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Madbudget" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Sæt madbudget pr. måned"), { target: { value: "5000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Gem" }));
+    expect(await screen.findByRole("img", { name: /Budget: .*nov 5\.000,00/ })).toBeInTheDocument();
+    checkButtons(container, "Økonomi overblik");
+
+    fireEvent.click(screen.getByRole("tab", { name: "Faste udgifter" }));
+    const row = (await screen.findByText("Streamingtjeneste", { selector: "td" })).closest("tr")!;
+    expect(within(row).getByText("Kan undværes")).toBeInTheDocument();
+    expect(screen.getByText(/Udgifter med prioritet 1–2/)).toBeInTheDocument();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    fireEvent.click(within(row).getByRole("button", { name: "Arkivér Streamingtjeneste" }));
+    await waitFor(() => expect(screen.queryByText("Streamingtjeneste", { selector: "td" })).toBeNull());
+    checkButtons(container, "Faste udgifter");
+  });
 });

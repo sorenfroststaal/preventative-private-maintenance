@@ -164,3 +164,32 @@ export function FileTypeIcon({ ext, size = 16 }: { ext: string; size?: number })
   const Icon = ["jpg", "jpeg", "png", "heic"].includes(e) ? ImageIcon : ["eml", "msg"].includes(e) ? Mail : FileText;
   return <Icon size={size} aria-hidden="true" className="icon" />;
 }
+
+/** "Anna Marie Jensen" → "AJ"; one word → the first two letters. */
+export function initials(name: string): string {
+  const w = name.trim().split(/\s+/).filter(Boolean);
+  if (w.length === 0) return "?";
+  if (w.length === 1) return w[0]!.slice(0, 2).toUpperCase();
+  return (w[0]![0]! + w[w.length - 1]![0]!).toUpperCase();
+}
+
+/** Round initials badge for a person; the full name is the accessible name and tooltip. */
+export function Avatar({ name, icon: Icon }: { name: string; icon?: LucideIcon }) {
+  return (
+    <span className={`avatar${Icon ? " other" : ""}`} title={name} role="img" aria-label={name}>
+      {Icon ? <Icon size={14} aria-hidden="true" /> : initials(name)}
+    </span>
+  );
+}
+
+/** Priority 1-5 as filled dots, with the label in text next to it. */
+export function PriorityDots({ value, label }: { value: number; label: string }) {
+  return (
+    <span className="priority" title={`Prioritet ${value} af 5: ${label}`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <span key={n} className={`dot${n <= value ? " on" : ""}`} aria-hidden="true" />
+      ))}
+      <span className="small">&nbsp;{label}</span>
+    </span>
+  );
+}

@@ -1,7 +1,16 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  archiveEntity,
+  budgetFromRecurring,
   budgetVsActual,
+  categoryTrends,
+  foodHistory,
+  monthlyFlow,
+  RECURRING_PRIORITY,
+  setFoodBudget,
+  transactionYearStats,
+  parseDanishAmount,
   commitBankImport,
   createEntity,
   decodeBankFile,
@@ -27,11 +36,14 @@ import {
 import { errorText, useSession } from "../app/session";
 import { pickFiles } from "../platform/tauri";
 import { EntityForm, RefSelect } from "../components/EntityForm";
-import { Empty, Modal, SearchBox, Tabs } from "../components/ui";
+import { Empty, Modal, rowProps, SearchBox, Tabs } from "../components/ui";
 import { formatDate, formatMoney, MONTH_NAMES } from "../lib/format";
 import { optionLabel, PERIODS } from "../lib/entityFields";
 import { useToast } from "../layout/Shell";
-import { PageHeader } from "../components/visual";
+import { IconButton, PageHeader, PriorityDots, StatusBadge } from "../components/visual";
+import { HBar, MultiLineChart, Sparkline, monthShort } from "../components/charts";
+import { ArchiveButton } from "../components/ArchiveButton";
+import { Archive } from "lucide-react";
 
 export function Finance() {
   return (
@@ -39,6 +51,7 @@ export function Finance() {
       <PageHeader module="finance" />
       <Tabs
         tabs={[
+          { id: "overview", label: "Overblik", content: () => <FinanceOverview /> },
           { id: "tx", label: "Posteringer", content: () => <Transactions /> },
           { id: "import", label: "Importér kontoudtog", content: () => <ImportWizard /> },
           { id: "budget", label: "Budget", content: () => <Budget /> },
@@ -460,8 +473,35 @@ function Budget() {
     queryFn: () => (budget ? budgetVsActual(session.archive.db, String(budget.id)) : Promise.resolve([])),
   });
   const [key, setKey] = useState(0);
+  const qc = useQueryClient();
+  const toast = useToast();
+  const txCount = useQuery({ queryKey: ["bank_transaction", "count", selectedYear], queryFn: () => transactionYearStats(session.archive.db, selectedYear) });
+  const nTx = txCount.data?.count ?? 0;
+  const nUnc = txCount.data?.uncategorized ?? 0;
+  const suggest = useMutation({
+    mutationFn: () => budgetFromRecurring(session.ctx(), String(budget!.id)),
+    onSuccess: async (n) => {
+      toast(n === 0 ? "Alle kategorier med faste udgifter har allerede en budgetlinje" : `${n} budgetlinjer er tilføjet fra de faste udgifter`);
+      await qc.invalidateQueries({ queryKey: ["budget"] });
+    },
+    onError: (e) => toast(errorText(e), "error"),
+  });
+  const hasLines = (rows.data ?? []).some((r) => r.budget_total !== 0);
   return (
     <div>
+      <details className="panel" open={!budget || !hasLines}>
+        <summary>Sådan virker budgettet</summary>
+        <p className="small">
+          Budgettet sammenligner det, du <strong>planlægger</strong> at bruge pr. kategori, med det, du <strong>faktisk</strong> har brugt ifølge posteringerne fra dine kontoudtog.
+        </p>
+        <ol className="small">
+          <li>Opret et budget for året (ét pr. år er nok).</li>
+          <li>Tilføj et beløb pr. kategori – fx 5.000 kr. til "Mad og dagligvarer". Lader du måneden stå tom, gælder beløbet hver måned. Du kan også hente beløbene fra dine faste udgifter.</li>
+          <li>
+            Importér kontoudtog under fanen <em>Importér kontoudtog</em>. Posteringerne får en kategori automatisk eller af dig under <em>Posteringer</em> – først da fyldes "faktisk" ud.
+          </li>
+        </ol>
+      </details>
       <div className="row">
         <label className="inline-label">
           År
@@ -479,7 +519,20 @@ function Budget() {
         </Modal>
       )}
       {budget && (
+        <p className="small muted">
+          {nTx === 0
+            ? `Der er ingen posteringer fra ${selectedYear} endnu, så "faktisk" er 0. Importér et kontoudtog for at se forbruget.`
+            : `${nTx} posteringer i ${selectedYear}${nUnc > 0 ? `, heraf ${nUnc} uden kategori (de tælles ikke med her – giv dem en kategori under Posteringer)` : ""}.`}
+        </p>
+      )}
+      {budget && !hasLines && (rows.data ?? []).length === 0 && <Empty>Budgettet har ingen linjer endnu. Tilføj en budgetlinje nedenfor, eller hent dem fra de faste udgifter.</Empty>}
+      {budget && (
         <>
+          <div className="row">
+            <button onClick={() => suggest.mutate()} disabled={session.archive.readOnly || suggest.isPending}>
+              Hent beløb fra faste udgifter
+            </button>
+          </div>
           <div className="scroll-x">
             <table className="list budget">
               <thead>
@@ -524,52 +577,109 @@ function Budget() {
   );
 }
 
+const priorityLabel = (p: unknown) => RECURRING_PRIORITY.find(([n]) => n === Number(p))?.[1] ?? "";
+
 function Recurring() {
-  const { archive } = useSession();
+  const session = useSession();
+  const { archive } = session;
+  const qc = useQueryClient();
+  const toast = useToast();
   const [editing, setEditing] = useState<Row | "new" | null>(null);
+  const [sort, setSort] = useState<"name" | "priority" | "amount">("name");
   const q = useQuery({ queryKey: ["recurring_expense", "summary"], queryFn: () => recurringSummary(archive.db) });
+  const archiveRow = useMutation({
+    mutationFn: (r: Row) => archiveEntity(session.ctx(), "recurring_expense", String(r.id)),
+    onSuccess: async (_, r) => {
+      toast(`${String(r.name)} er arkiveret`);
+      await qc.invalidateQueries({ queryKey: ["recurring_expense"] });
+    },
+    onError: (e) => toast(errorText(e), "error"),
+  });
+  const items = [...(q.data?.items ?? [])].sort((a, b) =>
+    sort === "priority"
+      ? Number(a.priority ?? 0) - Number(b.priority ?? 0) || b.monthly_minor - a.monthly_minor
+      : sort === "amount"
+        ? b.monthly_minor - a.monthly_minor
+        : String(a.name).localeCompare(String(b.name), "da"),
+  );
+  const byP = q.data?.monthly_by_priority ?? {};
+  const optional = (byP["1"] ?? 0) + (byP["2"] ?? 0);
   return (
     <div>
-      <button className="primary" onClick={() => setEditing("new")} disabled={archive.readOnly}>
-        Ny fast udgift
-      </button>
+      <div className="row">
+        <button className="primary" onClick={() => setEditing("new")} disabled={archive.readOnly}>
+          Ny fast udgift
+        </button>
+        <label className="inline-label">
+          Sortér efter
+          <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
+            <option value="name">Navn</option>
+            <option value="priority">Prioritet (laveste først)</option>
+            <option value="amount">Beløb pr. måned</option>
+          </select>
+        </label>
+      </div>
       <table className="list">
         <thead>
           <tr>
             <th>Navn</th>
             <th>Kategori</th>
+            <th>Prioritet</th>
             <th className="num">Beløb</th>
             <th>Pr.</th>
             <th className="num">Pr. måned</th>
             <th>Binding</th>
+            <th>
+              <span className="sr-only">Handlinger</span>
+            </th>
           </tr>
         </thead>
         <tbody>
-          {(q.data?.items ?? []).map((r) => (
-            <tr key={String(r.id)} tabIndex={0} onClick={() => setEditing(r)} onKeyDown={(e) => e.key === "Enter" && setEditing(r)}>
+          {items.map((r) => (
+            <tr key={String(r.id)} tabIndex={0} onClick={() => setEditing(r)} onKeyDown={(e) => e.key === "Enter" && e.target === e.currentTarget && setEditing(r)}>
               <td>{String(r.name)}</td>
               <td>{String(r.category_name ?? "–")}</td>
+              <td>{r.priority != null ? <PriorityDots value={Number(r.priority)} label={priorityLabel(r.priority)} /> : <span className="muted small">Ikke vurderet</span>}</td>
               <td className="num">{formatMoney(r.amount_minor as number)}</td>
               <td>{optionLabel(PERIODS, r.period)}</td>
               <td className="num">{formatMoney(r.monthly_minor)}</td>
               <td>{formatDate(r.binding_until as string)}</td>
+              <td onClick={(e) => e.stopPropagation()}>
+                <IconButton
+                  icon={Archive}
+                  label={`Arkivér ${String(r.name)}`}
+                  disabled={archive.readOnly || archiveRow.isPending}
+                  onClick={() => window.confirm(`Arkivér "${String(r.name)}"? Den forsvinder fra listen, men data bevares og kan findes i eksporten.`) && archiveRow.mutate(r)}
+                />
+              </td>
             </tr>
           ))}
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan={4}>I alt pr. måned</td>
+            <td colSpan={5}>I alt pr. måned</td>
             <td className="num">
               <strong>{formatMoney(q.data?.monthly_total_minor ?? 0)}</strong>
             </td>
-            <td />
+            <td colSpan={2} />
           </tr>
         </tfoot>
       </table>
+      {optional > 0 && (
+        <p className="small">
+          Udgifter med prioritet 1–2 (rart at have / kan undværes): <strong>{formatMoney(optional)}</strong> pr. måned, {formatMoney(optional * 12)} pr. år.
+        </p>
+      )}
+      <p className="small muted">Arkivér en udgift, du har opsagt. Den forsvinder fra listen og summerne, men historikken bevares.</p>
       {q.data?.items.length === 0 && <Empty>Ingen faste udgifter registreret.</Empty>}
       {editing && (
         <Modal title={editing === "new" ? "Ny fast udgift" : "Fast udgift"} onClose={() => setEditing(null)} wide>
           <EntityForm type="recurring_expense" row={editing === "new" ? null : editing} onSaved={() => setEditing(null)} onCancel={() => setEditing(null)} />
+          {editing !== "new" && (
+            <div className="row" style={{ marginTop: "0.6rem" }}>
+              <ArchiveButton type="recurring_expense" id={String(editing.id)} label="Den faste udgift" onDone={() => setEditing(null)} />
+            </div>
+          )}
         </Modal>
       )}
     </div>
@@ -592,6 +702,168 @@ function Accounts() {
         ))}
       </ul>
       <EntityForm key={key} type="account" title="Ny konto" invalidate={[["account"]]} onSaved={() => setKey((k) => k + 1)} />
+    </div>
+  );
+}
+
+/** Økonomi → Overblik: income/expense over time, the food budget and history per category. */
+function FinanceOverview() {
+  const session = useSession();
+  const today = session.env.clock.today();
+  const [months, setMonths] = useState(12);
+  const flow = useQuery({ queryKey: ["bank_transaction", "flow", today, months], queryFn: () => monthlyFlow(session.archive.db, today, months) });
+  const trends = useQuery({ queryKey: ["bank_transaction", "trends", today, months], queryFn: () => categoryTrends(session.archive.db, today, months) });
+  const [picked, setPicked] = useState<string | null>(null);
+  const data = flow.data ?? [];
+  const ms = data.map((d) => d.month);
+  const full = data.slice(0, -1).filter((d) => d.income_minor || d.expense_minor);
+  const avg = (f: (d: (typeof data)[number]) => number) => (full.length ? Math.round(full.reduce((a, d) => a + f(d), 0) / full.length) : 0);
+  const avgIn = avg((d) => d.income_minor);
+  const avgOut = avg((d) => d.expense_minor);
+  const rows = trends.data?.rows ?? [];
+  const sel = rows.find((r) => r.category_id === picked) ?? rows.find((r) => r.kind === "expense");
+  const empty = data.length > 0 && data.every((d) => !d.income_minor && !d.expense_minor);
+  return (
+    <div>
+      <div className="row">
+        <label className="inline-label">
+          Periode
+          <select value={months} onChange={(e) => setMonths(Number(e.target.value))}>
+            <option value={6}>6 måneder</option>
+            <option value={12}>12 måneder</option>
+            <option value={24}>24 måneder</option>
+          </select>
+        </label>
+      </div>
+      {empty && (
+        <Empty>
+          Der er ingen posteringer i perioden. Importér et kontoudtog under <em>Importér kontoudtog</em>, så vises indtægter, udgifter og historik her.
+        </Empty>
+      )}
+      <div className="panel">
+        <h2>Indtægter og udgifter</h2>
+        <MultiLineChart
+          months={ms}
+          label={`Indtægter og udgifter de seneste ${months} måneder`}
+          series={[
+            { label: "Indtægter", kind: "s-income", values: data.map((d) => d.income_minor) },
+            { label: "Udgifter", kind: "s-expense", values: data.map((d) => d.expense_minor) },
+          ]}
+        />
+        <p className="small">
+          Gennemsnit pr. hele måned: indtægter <strong>{formatMoney(avgIn)}</strong> · udgifter <strong>{formatMoney(avgOut)}</strong> ·{" "}
+          {avgIn - avgOut >= 0 ? "overskud" : "underskud"} <strong className={avgIn - avgOut < 0 ? "danger" : ""}>{formatMoney(Math.abs(avgIn - avgOut))}</strong>
+        </p>
+        <p className="small muted">Overførsler mellem egne konti tælles ikke med. Posteringer uden kategori tælles efter fortegn. Indeværende måned er ikke slut.</p>
+      </div>
+      <FoodBudget months={months} />
+      <div className="panel">
+        <h2>Historik pr. kategori</h2>
+        {rows.length === 0 ? (
+          <p className="small muted">Ingen kategoriserede posteringer i perioden.</p>
+        ) : (
+          <>
+            {sel && (
+              <MultiLineChart
+                months={trends.data!.months}
+                label={`${sel.name} de seneste ${months} måneder`}
+                series={[{ label: sel.name, kind: sel.kind === "income" ? "s-income" : "s-expense", values: sel.values }]}
+              />
+            )}
+            <p className="small muted">Vælg en kategori for at se kurven. Lav fx underkategorier som "Streaming" og "Internet" under Lister → Kategorier for at følge dem hver for sig.</p>
+            <table className="list">
+              <thead>
+                <tr>
+                  <th>Kategori</th>
+                  <th>Udvikling</th>
+                  <th className="num" title="Gennemsnit af de måneder, der har posteringer">Gns. pr. måned</th>
+                  <th className="num">I alt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.category_id} {...rowProps(sel?.category_id === r.category_id, () => setPicked(r.category_id))}>
+                    <td>
+                      {r.name} {r.kind === "income" && r.name !== "Indtægt" && <StatusBadge kind="done">Indtægt</StatusBadge>}
+                    </td>
+                    <td>
+                      <Sparkline values={r.values} label={`${r.name}: ${trends.data!.months.map((m, i) => `${monthShort(m)} ${formatMoney(r.values[i]!)}`).join(", ")}`} />
+                    </td>
+                    <td className="num">{formatMoney(Math.round(r.total_minor / Math.max(1, r.values.filter((v) => v !== 0).length)))}</td>
+                    <td className="num">{formatMoney(r.total_minor)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FoodBudget({ months }: { months: number }) {
+  const session = useSession();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const today = session.env.clock.today();
+  const q = useQuery({ queryKey: ["budget", "food", today, months], queryFn: () => foodHistory(session.archive.db, today, months) });
+  const [amount, setAmount] = useState("");
+  const save = useMutation({
+    mutationFn: () => {
+      const v = parseDanishAmount(amount);
+      if (v === null || v < 0) throw new ValidationError([{ path: "amount_minor", message: "Skriv beløbet som fx 5.000" }]);
+      return setFoodBudget(session.ctx(), Number(today.slice(0, 4)), v);
+    },
+    onSuccess: async () => {
+      setAmount("");
+      toast("Madbudgettet er gemt");
+      await qc.invalidateQueries({ queryKey: ["budget"] });
+    },
+    onError: (e) => toast(errorText(e), "error"),
+  });
+  const f = q.data;
+  if (!f) return null;
+  const now = f.months[f.months.length - 1]!;
+  const hasBudget = now.budget_minor > 0;
+  return (
+    <div className="panel module" style={{ ["--mc" as string]: "var(--c-food)" }}>
+      <h2>Madbudget</h2>
+      {!f.has_category ? (
+        <p className="small">Opret kategorien "Mad og dagligvarer" under Lister → Kategorier for at følge madforbruget.</p>
+      ) : (
+        <>
+          <HBar label={`Mad i ${monthShort(now.month)}`} value={now.amount_minor} max={Math.max(now.amount_minor, now.budget_minor)} budget={now.budget_minor} />
+          <MultiLineChart
+            months={f.months.map((m) => m.month)}
+            label={`Mad og dagligvarer de seneste ${months} måneder`}
+            series={[
+              { label: "Brugt på mad", kind: "s-main", values: f.months.map((m) => m.amount_minor) },
+              ...(f.months.some((m) => m.budget_minor > 0) ? [{ label: "Budget", kind: "s-budget" as const, values: f.months.map((m) => m.budget_minor) }] : []),
+            ]}
+          />
+          <p className="small">
+            Gennemsnit pr. hele måned: <strong>{formatMoney(f.average_minor)}</strong>
+            {hasBudget && ` · budget ${formatMoney(now.budget_minor)} pr. måned`}
+          </p>
+          <form
+            className="row"
+            onSubmit={(e) => {
+              e.preventDefault();
+              save.mutate();
+            }}
+          >
+            <label className="inline-label">
+              {hasBudget ? "Nyt madbudget pr. måned" : "Sæt madbudget pr. måned"}
+              <input inputMode="decimal" className="short" placeholder={f.average_minor ? String(Math.round(f.average_minor / 100)) : "5000"} value={amount} onChange={(e) => setAmount(e.target.value)} />
+            </label>
+            <button type="submit" disabled={!amount || session.archive.readOnly || save.isPending}>
+              Gem
+            </button>
+          </form>
+          <p className="small muted">Tæller posteringer i "Mad og dagligvarer" og dens underkategorier. Budgettet gemmes som en linje i årets budget og bruges også på Madplan.</p>
+        </>
+      )}
     </div>
   );
 }

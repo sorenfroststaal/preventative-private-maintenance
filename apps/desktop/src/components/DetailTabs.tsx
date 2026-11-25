@@ -58,7 +58,7 @@ export function DocumentsTab({ targetType, targetId, roles }: { targetType: DocT
     <div>
       <div className="row">
         <label className="inline-label">
-          Rolle
+          Kategori
           <select value={role} onChange={(e) => setRole(e.target.value)}>
             {roleOptions.map(([k, l]) => (
               <option key={k} value={k}>

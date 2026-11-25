@@ -120,17 +120,26 @@ Venter på brugerens beslutning (kræver migration 0005): dokumentroller (garant
 - Nyt menupunkt **Lister**: rum og placeringer, boliger, kontakter, personer, konti, økonomikategorier, genstandskategorier og bygningsdelstyper. Alle rullelister, der henviser til poster, har *+ Ny …*.
 - Tests: migration 0003 (opgradering fra version 2 bevarer koblinger) og værdilister (`lists.test.ts`). Rullelister, *+ Ny rum…* og Lister i `rendered.test.tsx`.
 
+**Feedback runde 3 fra brugerens test (25.11.2026), bygget:**
+
+- **Økonomi → Overblik** (ny første fane): kurve over indtægter og udgifter for 6, 12 eller 24 måneder med gennemsnit og over-/underskud, **Madbudget** (forbrug i "Mad og dagligvarer" med underkategorier pr. måned mod budgettet, gennemsnit og et felt til at sætte madbudgettet i ét trin) og **Historik pr. kategori** (tabel med minikurver; klik viser kurven, fx for Abonnementer eller en underkategori "Streaming"). Grafer har tekstresumé og forklaring, så farve ikke bærer betydningen alene.
+- **Budget** forklarer sig selv: "Sådan virker budgettet" (åben, indtil der er budgetlinjer), antal posteringer i året og hvor mange der mangler kategori, og *Hent beløb fra faste udgifter*, som laver månedlige linjer ud fra de faste udgifter.
+- **Faste udgifter** kan arkiveres (ikon på rækken og *Arkivér* i dialogen; data bevares jf. spec README "Sletning"). Ny **prioritet 1–5** (5 = obligatorisk, 1 = kan undværes) vises som prikker med tekst, kan sorteres, og summen for prioritet 1–2 vises pr. måned og år. Kræver **migration 0005** (`recurring_expense.priority`), foreslået på spec-branchen som `schema-0005.sql`.
+- **Forsikring**: kolonnen *Dækker* viser dækkede personer som runde initialer og andre dækninger som små ikoner. Fanen *Dækning* har personknapper, der til- og fravælger personer med ét klik.
+- **Dokumenter**: filteret hedder *Alle kategorier*, og feltet hedder *Kategori* (rollerne er uændrede i data).
+- Tests: `finance.test.ts` (indtægt/udgift pr. måned, kategorihistorik, madbudget, budget fra faste udgifter, prioritet og arkivering), `modules.test.ts` (dækkede personer), `lists.test.ts` (migration 0005) og `rendered.test.tsx` (initialer og personknapper, Overblik, madbudget, prioritet og arkivering). E2E i den rigtige app: `apps/desktop/e2e/finance.mjs`, 11/11 trin OK, skærmbilleder gennemset.
+
 CI laver nu også artefaktet `ppm-demo-backup` med syntetiske demodata, som kan gendannes i appen (Indstillinger → Backup).
 
 ## Tests
 
 | Suite | Antal | Resultat |
 | --- | --- | --- |
-| core (Vitest) | 144 (heraf 29 for madplan, 18 for AI/MCP i `ai.test.ts` og 5 for migration 0003/0004 og værdilister) | Grøn |
+| core (Vitest) | 191 (heraf 29 for madplan, 18 for AI/MCP i `ai.test.ts`, 6 for migration 0003–0005 og værdilister og 5 for økonomihistorik) | Grøn |
 | mcp-server (Vitest) | 4 (protokol, `tools/list`, log og versionsfejl) | Grøn |
-| desktop (Vitest) | 34 (kontrast, renderede sider, AI-indbakke, AI-adgang, fotos, rullelister, Lister og husdyr) | Grøn |
+| desktop (Vitest) | 36 (kontrast, renderede sider, AI-indbakke, AI-adgang, fotos, rullelister, Lister, husdyr, forsikringsdækning og økonomioverblik) | Grøn |
 | Rust (`cargo test`) | 17 (+1 ignoreret måletest) | Grøn |
-| **I alt** | **199** | **Grøn** |
+| **I alt** | **248** | **Grøn** |
 
 ESLint, `tsc -b`, `cargo fmt --check` og `cargo clippy -D warnings` er rene.
 

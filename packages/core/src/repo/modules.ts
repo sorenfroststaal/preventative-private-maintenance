@@ -212,3 +212,25 @@ export async function healthRecords(db: DbAdapter, table: HealthTable, personId:
   if (!canSeeHealth(person, userId)) throw new HealthAccessError();
   return db.select<Row>(`SELECT * FROM ${table} WHERE person_id = ? ORDER BY ${HEALTH_ORDER[table]}`, [personId]);
 }
+
+export interface CoveredTarget {
+  policy_id: string;
+  target_type: string;
+  target_id: string;
+  name: string | null;
+}
+
+/** Everything the policies cover, with names, for the policy list and the coverage tab. */
+export async function policyCoverages(db: DbAdapter, policyId?: string): Promise<CoveredTarget[]> {
+  return db.select<CoveredTarget>(
+    `SELECT c.policy_id, c.target_type, c.target_id, COALESCE(p.name, i.name, v.name, pe.name, pt.name) AS name FROM policy_coverage c
+       LEFT JOIN property p ON c.target_type = 'property' AND p.id = c.target_id
+       LEFT JOIN item i ON c.target_type = 'item' AND i.id = c.target_id
+       LEFT JOIN vehicle v ON c.target_type = 'vehicle' AND v.id = c.target_id
+       LEFT JOIN person pe ON c.target_type = 'person' AND pe.id = c.target_id
+       LEFT JOIN pet pt ON c.target_type = 'pet' AND pt.id = c.target_id
+      WHERE ? IS NULL OR c.policy_id = ?
+      ORDER BY c.target_type = 'person' DESC, name`,
+    [policyId ?? null, policyId ?? null],
+  );
+}

@@ -341,6 +341,7 @@ export const fields = {
     binding_until: opt(zDate),
     contact_id: opt(zId),
     policy_id: opt(zId),
+    priority: opt(z.number().int().min(1).max(5)),
     notes: opt(z.string()),
   },
   health_visit: {

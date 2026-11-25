@@ -8,6 +8,8 @@ import {
   deleteLink,
   generateInsuranceReport,
   listEntities,
+  policyCoverages,
+  type CoveredTarget,
   type Row,
 } from "@ppm/core";
 import { errorText, useSession } from "../app/session";
@@ -18,7 +20,28 @@ import { CLAIM_STATUS, optionLabel, POLICY_KIND } from "../lib/entityFields";
 import { formatDate, formatMoney } from "../lib/format";
 import { useToast } from "../layout/Shell";
 import { ArchiveButton } from "../components/ArchiveButton";
-import { EmptyState, PageTitle } from "../components/visual";
+import { Avatar, EmptyState, initials, PageTitle } from "../components/visual";
+import { Car, House, Package, PawPrint } from "lucide-react";
+
+const TARGET_ICON = { property: House, item: Package, vehicle: Car, pet: PawPrint } as const;
+
+/** Round initials for covered persons, small icons for property, items, cars and pets. */
+function CoveredAvatars({ targets }: { targets: CoveredTarget[] }) {
+  const persons = targets.filter((t) => t.target_type === "person");
+  const others = targets.filter((t) => t.target_type !== "person");
+  const shown = others.slice(0, 3);
+  return (
+    <span className="avatars">
+      {persons.map((t) => (
+        <Avatar key={t.target_id} name={t.name ?? "?"} />
+      ))}
+      {shown.map((t) => (
+        <Avatar key={t.target_id} name={`${COVER_TYPES.find(([k]) => k === t.target_type)?.[1] ?? ""}: ${t.name ?? "?"}`} icon={TARGET_ICON[t.target_type as keyof typeof TARGET_ICON] ?? Package} />
+      ))}
+      {others.length > shown.length && <span className="small muted">+{others.length - shown.length}</span>}
+    </span>
+  );
+}
 
 export function Insurance() {
   const { archive } = useSession();
@@ -26,6 +49,9 @@ export function Insurance() {
   const [creating, setCreating] = useState(false);
   const [report, setReport] = useState(false);
   const list = useQuery({ queryKey: ["policy", "list"], queryFn: () => listEntities(archive.db, "policy", { orderBy: "title" }) });
+  const coverages = useQuery({ queryKey: ["policy_coverage", "all"], queryFn: () => policyCoverages(archive.db) });
+  const coverBy = new Map<string, CoveredTarget[]>();
+  for (const c of coverages.data ?? []) coverBy.set(c.policy_id, [...(coverBy.get(c.policy_id) ?? []), c]);
   const total = (list.data ?? []).reduce((a, p) => a + (annualAmount(p.premium_minor as number, p.premium_period as string) ?? 0), 0);
   const selectedId = params.get("id");
   const selected = list.data?.find((p) => p.id === selectedId);
@@ -46,6 +72,7 @@ export function Insurance() {
             <tr>
               <th>Police</th>
               <th>Type</th>
+              <th>Dækker</th>
               <th className="num">Præmie pr. år</th>
               <th>Fornyelse</th>
               <th className="num">Selvrisiko</th>
@@ -56,6 +83,9 @@ export function Insurance() {
               <tr key={String(p.id)} {...rowProps(p.id === selectedId, () => setParams({ id: String(p.id) }))}>
                 <td>{String(p.title)}</td>
                 <td>{optionLabel(POLICY_KIND, p.kind)}</td>
+                <td>
+                  <CoveredAvatars targets={coverBy.get(String(p.id)) ?? []} />
+                </td>
                 <td className="num">{formatMoney(annualAmount(p.premium_minor as number, p.premium_period as string))}</td>
                 <td>{formatDate(p.renewal_date as string)}</td>
                 <td className="num">{formatMoney(p.deductible_minor as number)}</td>
@@ -64,7 +94,7 @@ export function Insurance() {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={2}>Samlet præmie pr. år</td>
+              <td colSpan={3}>Samlet præmie pr. år</td>
               <td className="num">
                 <strong>{formatMoney(total)}</strong>
               </td>
@@ -128,17 +158,17 @@ function Coverage({ policyId }: { policyId: string }) {
   const [target, setTarget] = useState("");
   const covered = useQuery({
     queryKey: ["policy_coverage", policyId],
-    queryFn: () =>
-      session.archive.db.select<Row>(
-        `SELECT c.*, COALESCE(p.name, i.name, v.name, pe.name, pt.name) AS name FROM policy_coverage c
-           LEFT JOIN property p ON c.target_type = 'property' AND p.id = c.target_id
-           LEFT JOIN item i ON c.target_type = 'item' AND i.id = c.target_id
-           LEFT JOIN vehicle v ON c.target_type = 'vehicle' AND v.id = c.target_id
-           LEFT JOIN person pe ON c.target_type = 'person' AND pe.id = c.target_id
-           LEFT JOIN pet pt ON c.target_type = 'pet' AND pt.id = c.target_id
-          WHERE c.policy_id = ?`,
-        [policyId],
-      ),
+    queryFn: () => policyCoverages(session.archive.db, policyId),
+  });
+  const persons = useQuery({ queryKey: ["person", "list"], queryFn: () => listEntities(session.archive.db, "person", { orderBy: "name" }) });
+  const coveredPersons = new Set((covered.data ?? []).filter((c) => c.target_type === "person").map((c) => c.target_id));
+  const togglePerson = useMutation({
+    mutationFn: async (personId: string): Promise<unknown> =>
+      coveredPersons.has(personId)
+        ? deleteLink(session.ctx(), "policy_coverage", { policy_id: policyId, target_type: "person", target_id: personId })
+        : createEntity(session.ctx(), "policy_coverage", { policy_id: policyId, target_type: "person", target_id: personId }),
+    onSuccess: () => refresh(),
+    onError: (e) => toast(errorText(e), "error"),
   });
   const summary = useQuery({ queryKey: ["policy_coverage", "summary", policyId], queryFn: () => coverageSummary(session.archive.db, policyId) });
   const refresh = () => qc.invalidateQueries({ queryKey: ["policy_coverage"] }).then(() => qc.invalidateQueries({ queryKey: ["policy"] }));
@@ -151,7 +181,7 @@ function Coverage({ policyId }: { policyId: string }) {
     onError: (e) => toast(errorText(e), "error"),
   });
   const remove = useMutation({
-    mutationFn: (c: Row) => deleteLink(session.ctx(), "policy_coverage", c),
+    mutationFn: (c: CoveredTarget) => deleteLink(session.ctx(), "policy_coverage", c as unknown as Row),
     onSuccess: refresh,
   });
   return (
@@ -165,8 +195,32 @@ function Coverage({ policyId }: { policyId: string }) {
           {summary.data.underinsured && <p role="alert">Den samlede købspris er større end dækningssummen. Du kan være underforsikret.</p>}
         </div>
       )}
+      {(persons.data ?? []).length > 0 && (
+        <div>
+          <div className="small">Personer, policen dækker (klik for at til- eller fravælge)</div>
+          <div className="row" role="group" aria-label="Dækkede personer">
+            {(persons.data ?? []).map((p) => {
+              const on = coveredPersons.has(String(p.id));
+              return (
+                <button
+                  key={String(p.id)}
+                  className="person-toggle"
+                  aria-pressed={on}
+                  disabled={session.archive.readOnly || togglePerson.isPending}
+                  onClick={() => togglePerson.mutate(String(p.id))}
+                >
+                  <span className={`avatar${on ? "" : " other"}`} aria-hidden="true">
+                    {initials(String(p.name))}
+                  </span>
+                  {String(p.name)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       <ul className="plain">
-        {(covered.data ?? []).map((c) => (
+        {(covered.data ?? []).filter((c) => c.target_type !== "person").map((c) => (
           <li key={`${c.target_type}:${c.target_id}`} className="line">
             <span>{String(c.name ?? "?")}</span>
             <span className="muted">{COVER_TYPES.find(([k]) => k === c.target_type)?.[1]}</span>

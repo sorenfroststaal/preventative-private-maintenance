@@ -14,6 +14,7 @@ import {
   HealthAccessError,
   createTask,
   policiesForItem,
+  policyCoverages,
   setPin,
   updateEntity,
   vehicleCostsByYear,
@@ -201,6 +202,24 @@ describe("phase 2.5 – insurance", () => {
     await createEntity(ctx, "policy_coverage", { policy_id: String(pol.id), target_type: "item", target_id: String(bike.id) });
     expect(await coverageSummary(db, String(pol.id))).toMatchObject({ items: 2, items_value_minor: 3500000, underinsured: true });
     expect((await policiesForItem(db, String(sofa.id))).map((p) => p.title)).toEqual(["Indbo"]);
+  });
+
+  it("lists covered persons first with names, for the avatars on the policy list", async () => {
+    const { ctx, db } = await setup();
+    const pol = await createEntity(ctx, "policy", { kind: "accident", title: "Ulykke" });
+    const other = await createEntity(ctx, "policy", { kind: "home_contents", title: "Indbo" });
+    const a = await createEntity(ctx, "person", { name: "Bo Testesen" });
+    const b = await createEntity(ctx, "person", { name: "Anna Testesen" });
+    const car = await createEntity(ctx, "vehicle", { name: "Familiebil" });
+    for (const [t, id] of [["vehicle", car.id], ["person", a.id], ["person", b.id]] as const)
+      await createEntity(ctx, "policy_coverage", { policy_id: String(pol.id), target_type: t, target_id: String(id) });
+    await createEntity(ctx, "policy_coverage", { policy_id: String(other.id), target_type: "person", target_id: String(a.id) });
+    expect((await policyCoverages(db, String(pol.id))).map((c) => [c.target_type, c.name])).toEqual([
+      ["person", "Anna Testesen"],
+      ["person", "Bo Testesen"],
+      ["vehicle", "Familiebil"],
+    ]);
+    expect(await policyCoverages(db)).toHaveLength(4);
   });
 });
 

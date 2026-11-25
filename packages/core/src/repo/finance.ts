@@ -485,7 +485,18 @@ export async function monthFinance(db: DbAdapter, yearMonth: string): Promise<Mo
 export interface RecurringSummary {
   items: (Row & { monthly_minor: number })[];
   monthly_total_minor: number;
+  /** Monthly total per priority (migration 0005): keys "1".."5" and "none" (not rated). */
+  monthly_by_priority: Record<string, number>;
 }
+
+/** Labels for recurring_expense.priority: 5 = obligatorisk … 1 = kan undværes. */
+export const RECURRING_PRIORITY: [number, string][] = [
+  [5, "Obligatorisk"],
+  [4, "Vigtig"],
+  [3, "Nyttig"],
+  [2, "Rart at have"],
+  [1, "Kan undværes"],
+];
 
 export async function recurringSummary(db: DbAdapter): Promise<RecurringSummary> {
   const rows = await db.select<Row>(
@@ -493,7 +504,13 @@ export async function recurringSummary(db: DbAdapter): Promise<RecurringSummary>
       WHERE r.archived_at IS NULL ORDER BY r.name`,
   );
   const items = rows.map((r) => ({ ...r, monthly_minor: monthlyAverage(Number(r.amount_minor), String(r.period)) }));
-  return { items, monthly_total_minor: items.reduce((a, i) => a + i.monthly_minor, 0) };
+  const byPriority: Record<string, number> = {};
+  for (const i of items) {
+    const p = (i as Row).priority;
+    const k = p == null ? "none" : String(p);
+    byPriority[k] = (byPriority[k] ?? 0) + i.monthly_minor;
+  }
+  return { items, monthly_total_minor: items.reduce((a, i) => a + i.monthly_minor, 0), monthly_by_priority: byPriority };
 }
 
 // ---------- Generic profiles stored in settings ----------

@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  archiveEntity,
   budgetVsActual,
+  budgetFromRecurring,
+  categoryHistory,
+  categoryTrends,
+  ensureBudget,
+  setFoodBudget,
+  foodHistory,
+  monthlyFlow,
   commitBankImport,
   createEntity,
   decodeBankFile,
@@ -214,5 +222,94 @@ describe("categories, learned rules, budget and recurring expenses", () => {
       ["Vand", 30000],
     ]);
     expect(s.monthly_total_minor).toBe(58650);
+  });
+
+  it("recurring expenses have a priority 1-5 (migration 0005), totals per priority, and can be archived", async () => {
+    const { env, archive } = await newArchive();
+    const ctx = ctxFor(env, archive);
+    const st = await createEntity(ctx, "recurring_expense", { name: "Streaming", amount_minor: 12900, period: "month", priority: 1 });
+    await createEntity(ctx, "recurring_expense", { name: "Husleje", amount_minor: 800000, period: "month", priority: 5 });
+    await createEntity(ctx, "recurring_expense", { name: "Avis", amount_minor: 30000, period: "quarter" });
+    await expect(createEntity(ctx, "recurring_expense", { name: "x", amount_minor: 1, period: "month", priority: 6 })).rejects.toThrow();
+    await expect(archive.db.execute("UPDATE recurring_expense SET priority = 0 WHERE id = ?", [String(st.id)])).rejects.toThrow();
+    let s = await recurringSummary(archive.db);
+    expect(s.monthly_by_priority).toEqual({ "1": 12900, "5": 800000, none: 10000 });
+    await archiveEntity(ctx, "recurring_expense", String(st.id));
+    s = await recurringSummary(archive.db);
+    expect(s.items.map((i) => i.name)).toEqual(["Avis", "Husleje"]);
+  });
+
+  it("history: income/expense per month, one category over time, and the food budget", async () => {
+    const { env, archive } = await newArchive();
+    const ctx = ctxFor(env, archive);
+    const db = archive.db;
+    const cats = Object.fromEntries((await db.select<{ id: string; name: string }>("SELECT id, name FROM category")).map((c) => [c.name, c.id]));
+    const acc = await createEntity(ctx, "account", { name: "K" });
+    const sub = await createEntity(ctx, "category", { name: "Streaming", kind: "expense", parent_id: cats["Fritid"]! });
+    const tx = (date: string, amount: number, cat: string | null, h: string) =>
+      createEntity(ctx, "bank_transaction", { account_id: String(acc.id), booking_date: date, text: "x", amount_minor: amount, category_id: cat, dedupe_hash: h });
+    await tx("2026-10-01", 3000000, cats["Indtægt"]!, "1");
+    await tx("2026-10-05", -400000, cats["Mad og dagligvarer"]!, "2");
+    await tx("2026-10-06", 10000, cats["Mad og dagligvarer"]!, "3"); // refund lowers food expense
+    await tx("2026-10-07", -12900, String(sub.id), "4");
+    await tx("2026-11-07", -12900, String(sub.id), "5");
+    await tx("2026-11-08", -5000, null, "6");
+    await tx("2026-11-09", 2000, null, "7");
+    const transfer = Object.entries(cats).find(([n]) => /overf/i.test(n));
+    if (transfer) await tx("2026-11-10", -100000, transfer[1], "8");
+    await tx("2025-01-01", -999999, cats["Mad og dagligvarer"]!, "9"); // outside the range
+
+    const flow = await monthlyFlow(db, "2026-11-25", 3);
+    expect(flow).toEqual([
+      { month: "2026-09", income_minor: 0, expense_minor: 0 },
+      { month: "2026-10", income_minor: 3000000, expense_minor: 402900 },
+      { month: "2026-11", income_minor: 2000, expense_minor: 17900 },
+    ]);
+
+    const b = await createEntity(ctx, "budget", { year: 2026, name: "Familie" });
+    await createEntity(ctx, "budget_line", { budget_id: String(b.id), category_id: cats["Mad og dagligvarer"]!, amount_minor: 450000 });
+    await createEntity(ctx, "budget_line", { budget_id: String(b.id), category_id: cats["Fritid"]!, month: 11, amount_minor: 20000 });
+
+    const fritid = await categoryHistory(db, cats["Fritid"]!, "2026-11-25", 2);
+    expect(fritid).toEqual([
+      { month: "2026-10", amount_minor: 12900, budget_minor: 0 },
+      { month: "2026-11", amount_minor: 12900, budget_minor: 20000 },
+    ]);
+    expect((await categoryHistory(db, cats["Indtægt"]!, "2026-11-25", 2))[0]!.amount_minor).toBe(3000000);
+
+    const food = await foodHistory(db, "2026-11-25", 3);
+    expect(food.has_category).toBe(true);
+    expect(food.months.map((m) => [m.month, m.amount_minor, m.budget_minor])).toEqual([
+      ["2026-09", 0, 450000],
+      ["2026-10", 390000, 450000],
+      ["2026-11", 0, 450000],
+    ]);
+    expect(food.average_minor).toBe(390000);
+
+    const trends = await categoryTrends(db, "2026-11-25", 2);
+    expect(trends.months).toEqual(["2026-10", "2026-11"]);
+    expect(trends.rows.find((r) => r.name === "Fritid › Streaming")?.values).toEqual([12900, 12900]);
+    expect(trends.rows.find((r) => r.name === "Fritid")?.values).toEqual([12900, 12900]);
+    expect(trends.rows[0]!.name).toBe("Indtægt");
+  });
+
+  it("food budget can be set in one step, and a budget can be suggested from recurring expenses", async () => {
+    const { env, archive } = await newArchive();
+    const ctx = ctxFor(env, archive);
+    const db = archive.db;
+    const cats = Object.fromEntries((await db.select<{ id: string; name: string }>("SELECT id, name FROM category")).map((c) => [c.name, c.id]));
+    await setFoodBudget(ctx, 2026, 500000);
+    await setFoodBudget(ctx, 2026, 550000);
+    expect(await db.select("SELECT b.year, l.month, l.amount_minor FROM budget_line l JOIN budget b ON b.id = l.budget_id")).toEqual([{ year: 2026, month: null, amount_minor: 550000 }]);
+    expect((await foodHistory(db, "2026-11-25", 1)).months[0]!.budget_minor).toBe(550000);
+
+    await createEntity(ctx, "recurring_expense", { name: "Streaming", amount_minor: 12900, period: "month", category_id: cats["Fritid"]! });
+    await createEntity(ctx, "recurring_expense", { name: "Netflix", amount_minor: 120000, period: "year", category_id: cats["Fritid"]! });
+    await createEntity(ctx, "recurring_expense", { name: "Mad-abonnement", amount_minor: 1, period: "month", category_id: cats["Mad og dagligvarer"]! });
+    const budgetId = await ensureBudget(ctx, 2026);
+    expect(await budgetFromRecurring(ctx, budgetId)).toBe(1);
+    expect(await budgetFromRecurring(ctx, budgetId)).toBe(0);
+    const fritid = await db.select<{ amount_minor: number }>("SELECT amount_minor FROM budget_line WHERE category_id = ?", [cats["Fritid"]!]);
+    expect(fritid).toEqual([{ amount_minor: 22900 }]);
   });
 });

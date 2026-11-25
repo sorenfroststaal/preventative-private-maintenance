@@ -53,7 +53,7 @@ describe("migration 0004 – pets", () => {
     await db.execute("INSERT INTO policy (id, kind, title, created_at) VALUES ('00000000-0000-4000-8000-0000000000a1', 'pet', 'Hundeforsikring', 'x')");
     await db.execute("INSERT INTO policy_coverage VALUES ('00000000-0000-4000-8000-0000000000a1', 'person', '00000000-0000-4000-8000-0000000000b1')");
     await migrate(db, () => env.clock.nowIso());
-    expect(await getSchemaVersion(db)).toBe(4);
+    expect(await getSchemaVersion(db)).toBe(migrations.length);
     expect(await db.select("SELECT target_type FROM policy_coverage")).toEqual([{ target_type: "person" }]);
     await db.execute("INSERT INTO pet (id, name, species, created_at) VALUES ('00000000-0000-4000-8000-0000000000c1', 'Fido', 'dog', 'x')");
     await db.execute("INSERT INTO policy_coverage VALUES ('00000000-0000-4000-8000-0000000000a1', 'pet', '00000000-0000-4000-8000-0000000000c1')");
@@ -119,5 +119,19 @@ describe("dashboard: an invoice counts as receipt (feedback 25.11.2026)", () => 
     expect(isTempFolder("C:\\tmp\\Ny mappe")).toBe(true);
     expect(isTempFolder("C:\\Users\\a\\AppData\\Local\\Temp\\x")).toBe(true);
     expect(isTempFolder("C:\\Users\\a\\Documents\\PPM-arkiv")).toBe(false);
+  });
+});
+
+describe("migration 0005 – recurring expense priority", () => {
+  it("adds priority 1-5 and keeps existing recurring expenses", async () => {
+    const env = testEnv();
+    const db = await env.openDb(join(tempDir(), "v4.sqlite"));
+    await migrate(db, () => env.clock.nowIso(), migrations.filter((m) => m.version <= 4));
+    await db.execute("INSERT INTO recurring_expense (id, name, amount_minor, period) VALUES ('00000000-0000-4000-8000-0000000000d1', 'Internet', 29900, 'month')");
+    await migrate(db, () => env.clock.nowIso());
+    expect(await getSchemaVersion(db)).toBe(5);
+    expect(await db.select("SELECT name, priority FROM recurring_expense")).toEqual([{ name: "Internet", priority: null }]);
+    await db.execute("UPDATE recurring_expense SET priority = 4");
+    await expect(db.execute("UPDATE recurring_expense SET priority = 9")).rejects.toThrow();
   });
 });

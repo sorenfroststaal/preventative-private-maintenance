@@ -994,3 +994,106 @@ button.part-head[aria-expanded="true"] {
 .part-body {
   padding: 0.6rem 0.2rem 0.8rem;
 }
+.chart-multi svg {
+  display: block;
+  max-width: min(100%, 720px);
+}
+.chart-multi .grid {
+  stroke: var(--border);
+}
+.chart-multi text {
+  fill: var(--muted);
+  font-size: 11px;
+}
+.chart-multi path,
+.chart-multi .legend line {
+  stroke: currentColor;
+  stroke-width: 2.5;
+}
+.chart-multi circle {
+  fill: currentColor;
+}
+.chart-multi .s-income {
+  color: var(--c-finance);
+}
+.chart-multi .s-expense {
+  color: var(--danger);
+}
+.chart-multi .s-main {
+  color: var(--c-food);
+}
+.chart-multi .s-budget {
+  color: var(--text);
+}
+.chart-multi .s-budget path,
+.chart-multi .s-budget line {
+  stroke-dasharray: 5 4;
+  stroke-width: 1.5;
+}
+.chart-multi .legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 0.3rem;
+}
+.chart-multi .legend > span {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+.avatars {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  align-items: center;
+}
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  background: var(--c-insurance);
+  color: var(--c-on);
+  font-size: 0.72rem;
+  font-weight: 600;
+  flex: none;
+}
+.avatar.other {
+  background: var(--border);
+  color: var(--text);
+}
+.person-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem 0.15rem 0.15rem;
+}
+.person-toggle[aria-pressed="true"] {
+  outline: 2px solid var(--c-insurance);
+}
+.priority {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+}
+.priority .dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  border: 1px solid var(--c-finance);
+}
+.priority .dot.on {
+  background: var(--c-finance);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
