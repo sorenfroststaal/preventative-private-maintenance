@@ -89,5 +89,40 @@
     "module": "insurance", "applies_to": "property",
     "recurrence": { "kind": "interval", "unit": "year", "every": 1 },
     "basis": "suggestion", "source": null
+  },
+  {
+    "id": "home.wood_stove.sweep", "version": 1, "title": "Skorstensfejning af brændeovn",
+    "description": "Skorstensfejeren kommer og fejer og laver brandsyn. Hold øje med varslet, og sørg for adgang til skorsten og ovn.",
+    "module": "maintenance", "applies_to": "building_part",
+    "recurrence": { "kind": "interval", "unit": "year", "every": 1 },
+    "basis": "suggestion", "source": null
+  },
+  {
+    "id": "home.wood_stove.check", "version": 1, "title": "Efterse brændeovn før fyringssæsonen",
+    "description": "Kontrollér pakninger, glas og røgvenderplade, og fjern aske.",
+    "module": "maintenance", "applies_to": "building_part",
+    "recurrence": { "kind": "fixed", "unit": "year", "every": 1, "month": 9, "day": 15 },
+    "basis": "suggestion", "source": null
+  },
+  {
+    "id": "home.roof.inspect", "version": 1, "title": "Efterse tag",
+    "description": "Se efter løse eller knækkede tagsten, mos og utætheder omkring skorsten og ovenlys.",
+    "module": "maintenance", "applies_to": "property",
+    "recurrence": { "kind": "fixed", "unit": "year", "every": 1, "month": 4, "day": 15 },
+    "basis": "suggestion", "source": null
+  },
+  {
+    "id": "home.drain.clean", "version": 1, "title": "Rens gulvafløb",
+    "description": "Fjern hår og snavs fra afløb i bad og bryggers, og hæld vand i afløb, der sjældent bruges.",
+    "module": "maintenance", "applies_to": "property",
+    "recurrence": { "kind": "interval", "unit": "month", "every": 6 },
+    "basis": "suggestion", "source": null
+  },
+  {
+    "id": "health.child_exam", "version": 1, "title": "Børneundersøgelse hos egen læge",
+    "description": "Børn tilbydes forebyggende undersøgelser hos egen læge. Book tid, når barnet nærmer sig næste alder.",
+    "module": "health", "applies_to": "person",
+    "recurrence": null,
+    "basis": "suggestion", "source": null
   }
 ]

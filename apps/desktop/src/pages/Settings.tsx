@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { OnboardingDialog } from "../components/Onboarding";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createBackup,
@@ -40,6 +41,7 @@ export function Settings() {
     <section>
       <PageHeader module="settings" />
       <ArchivePanel />
+      <OnboardingPanel />
       <BackupPanel />
       <UsersPanel />
       <PersonsPanel />
@@ -48,6 +50,21 @@ export function Settings() {
       <FoodPanel />
       <AiAccessPanel />
     </section>
+  );
+}
+
+function OnboardingPanel() {
+  const { archive } = useSession();
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="panel">
+      <h2>Opstartsguide</h2>
+      <p className="small muted">Spørgsmål om bolig, bil og børn, der giver forslag til opgaver. Opgaver, der allerede findes, oprettes ikke igen.</p>
+      <button onClick={() => setOpen(true)} disabled={archive.readOnly}>
+        Åbn opstartsguiden
+      </button>
+      {open && <OnboardingDialog onClose={() => setOpen(false)} />}
+    </div>
   );
 }
 

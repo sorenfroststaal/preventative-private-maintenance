@@ -44,3 +44,4 @@ import type { Ctx, Via } from "./repo/entities";
 export function makeCtx(env: Env, db: DbAdapter, userId: string | null, via: Via = "ui"): Ctx {
   return { db, clock: env.clock, newId: env.newId, userId, via };
 }
+export * from "./onboarding";

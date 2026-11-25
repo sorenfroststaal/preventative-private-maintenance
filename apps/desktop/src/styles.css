@@ -1097,3 +1097,17 @@ button.part-head[aria-expanded="true"] {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+fieldset.yesno {
+  border: none;
+  padding: 0;
+  margin: 0.5rem 0;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+fieldset.yesno legend {
+  float: left;
+  min-width: 16rem;
+  padding: 0;
+}

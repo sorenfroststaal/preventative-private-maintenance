@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { OnboardingOffer } from "../components/Onboarding";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { completeOccurrence, dashboard, setOccurrenceDueDate, type DashboardTask } from "@ppm/core";
@@ -34,6 +35,7 @@ export function Overview() {
   return (
     <section>
       <PageTitle />
+      <OnboardingOffer />
       <div className="kpis">
         <KpiCard module="tasks" icon={TriangleAlert} n={d.overdue.length} label="Forfaldne" target="forfaldne" />
         <KpiCard module="tasks" icon={CalendarClock} n={d.upcoming.length} label={`Næste ${d.horizonDays} dage`} target="naeste" />

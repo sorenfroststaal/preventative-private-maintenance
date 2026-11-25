@@ -413,5 +413,28 @@ describe("phase 2b.9 – rendered components", () => {
       }),
     );
   });
+
+  it("phase 4.6: the onboarding guide opens from Indstillinger, maps answers to suggestions and creates the chosen tasks", async () => {
+    const { container } = renderAt("/indstillinger");
+    await settle("Indstillinger");
+    fireEvent.click(screen.getByRole("button", { name: "Åbn opstartsguiden" }));
+    const dialog = await screen.findByRole("dialog", { name: "Opstartsguide" });
+    fireEvent.change(within(dialog).getByLabelText("Hvor bor I?"), { target: { value: "apartment" } });
+    fireEvent.click(within(within(dialog).getByRole("group", { name: "Ejer eller lejer I boligen?" })).getByLabelText("Lejer"));
+    fireEvent.click(within(within(dialog).getByRole("group", { name: "Har I brændeovn?" })).getByLabelText("Ja"));
+    fireEvent.click(within(within(dialog).getByRole("group", { name: "Har I bil?" })).getByLabelText("Ja"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Vis forslag" }));
+    const list = within(dialog).getByRole("list", { name: "Foreslåede opgaver" });
+    expect(within(list).getByLabelText("Skorstensfejning af brændeovn")).toBeChecked();
+    expect(within(list).queryByLabelText("Rens tagrender")).toBeNull(); // renting an apartment
+    expect(within(list).getByLabelText("Rens gulvafløb")).not.toBeChecked();
+    for (const t of ["Skift til sommerdæk", "Skift til vinterdæk", "Service af bil"]) fireEvent.click(within(list).getByLabelText(t));
+    checkButtons(container, "Opstartsguide");
+    fireEvent.click(within(dialog).getByRole("button", { name: /^Opret \d+ opgaver$/ }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Opstartsguide" })).toBeNull());
+    const rows = await archive.db.select<{ template_id: string }>("SELECT template_id FROM task WHERE source = 'template' ORDER BY template_id");
+    expect(rows.map((r) => r.template_id)).toEqual(expect.arrayContaining(["home.wood_stove.check", "home.wood_stove.sweep", "home.smoke_alarm.test", "insurance.review", "vehicle.inspection"]));
+    expect(rows.map((r) => r.template_id)).not.toContain("vehicle.tires.summer");
+  });
 });
 
