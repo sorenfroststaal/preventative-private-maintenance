@@ -218,6 +218,7 @@ Fundet og rettet under E2E: "Udløber snart" viste reklamationsret, der var udl�
 | `ppm-mcp`, selvstændig binær (Linux) | 125,6 MB (`better_sqlite3.node` 2,1 MB ved siden af) | `pnpm build:mcp` (Node 22 SEA) |
 | Linux-pakke (`.deb`) efter fase 3 | 46,75 MiB | `pnpm build` lokalt. Næsten hele væksten er Node-runtimen i `ppm-mcp`. |
 | Installerstørrelse, Windows efter fase 3 | 25,31 MiB (26.541.138 byte, `PPM_0.1.0_x64-setup.exe`) | CI-kørsel 45568056010 (commit b19ef8a), trinnet "Installer size". Væksten fra 2,94 MiB er Node-runtimen i `ppm-mcp.exe`. `ppm.mcpb`-artefaktet er 34,9 MB som zip. |
+| Installerstørrelse, Windows efter fase 4 (OCR, kalender, udlån) | 30,87 MiB (32.368.916 byte) | CI-kørsel 45713196379 (commit 8716c60). Væksten fra 25,31 MiB er især OCR-motoren og den danske sprogmodel. |
 | Installerstørrelse, Windows efter fase 2b | 2,94 MiB (`PPM_0.1.0_x64-setup.exe`, +0,02 MiB i forhold til fase 2) | CI-kørsel 45512953033 (commit ff6c794), jobbet `build-windows`. Både `lint-test` og `build-windows` er grønne. |
 
 ## Manuel test på Windows (spec 07)
