@@ -87,6 +87,8 @@ Fundet og rettet under E2E: typenavne stod på engelsk i AI-indbakken ("item", "
 
 **Et nyt arkiv kunne ikke oprettes i den rigtige app.** Fejlen var "VACUUM/ATTACH er ikke tilladt i scripts". Rust-kommandoen `db_execute_script` afviste ethvert script, hvis tekst indeholdt "ATTACH", og skemaet indeholder værdien `'attach_document'` i en CHECK-regel. Fejlen har været der siden fase 1. Ingen test opdagede den, fordi E2E altid åbnede et seed-arkiv (oprettet i Node), og den manuelle test på Windows ikke var gennemført. Nu tjekkes kun hele nøgleord uden for strenge, citerede navne og kommentarer. Rust-tests kører begge migrationer gennem `execute_script` (regressionstest) og afviser stadig `ATTACH` og `VACUUM` som nøgleord.
 
+**Installerens danske tekster manglede.** Siden "allerede installeret" viste radioknapper uden tekst, valget om skrivebordsgenvej var tomt, og boksen "PPM kører" havde ingen tekst. Tauri leverer NSIS-tekster til 23 sprog, men ikke dansk. Nu ligger `windows/Danish.nsh` med alle 28 nøgler fra Tauris engelske fil og er sat som `customLanguageFiles`. Filen er kompileret med `makensis -WX`.
+
 CI laver nu også artefaktet `ppm-demo-backup` med syntetiske demodata, som kan gendannes i appen (Indstillinger → Backup).
 
 ## Tests

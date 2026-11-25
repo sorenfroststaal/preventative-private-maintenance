@@ -49,7 +49,10 @@
           "English"
         ],
         "installMode": "currentUser",
-        "installerHooks": "windows/installer-hooks.nsh"
+        "installerHooks": "windows/installer-hooks.nsh",
+        "customLanguageFiles": {
+          "Danish": "windows/Danish.nsh"
+        }
       }
     },
     "resources": [
