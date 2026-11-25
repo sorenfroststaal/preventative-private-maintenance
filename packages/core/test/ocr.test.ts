@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { createWorker, OEM, type Worker } from "tesseract.js";
-import { importDocument, ocrPendingDocuments, pendingOcrCount, search } from "../src";
+import { importDocument, ocrPendingDocuments, parseReceipt, pendingOcrCount, search } from "../src";
 import { ctxFor, newArchive } from "./helpers";
 
 const require = createRequire(import.meta.url);
@@ -33,6 +33,8 @@ describe("phase 4.3 – local OCR", () => {
     expect(doc!.extracted_text).toMatch(/5\.298,00/);
     expect(doc!.extracted_text).toMatch(/14\.03\.2026/);
     expect(await pendingOcrCount(archive.db)).toBe(0);
+    // Phase 4.4 on real OCR output: the receipt parser finds total, date and vendor.
+    expect(parseReceipt(doc!.extracted_text)).toEqual({ total_minor: 529800, date: "2026-03-14", vendor: "ELEKTROLAGERET" });
     expect((await search(archive.db, "elektrolageret")).map((h) => h.type)).toContain("document");
     expect(await ocrPendingDocuments(env, archive, ctx)).toBe(0);
   }, 60_000);

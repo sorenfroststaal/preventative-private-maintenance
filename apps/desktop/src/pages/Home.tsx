@@ -12,6 +12,7 @@ import { useToast } from "../layout/Shell";
 import { ArchiveButton } from "../components/ArchiveButton";
 import { EmptyState, PageHeader } from "../components/visual";
 import { attachPending, PendingAttachments, PhotoStrip, type PendingFile } from "../components/Attachments";
+import { ReceiptSuggestionBanner } from "../components/ReceiptSuggest";
 
 export function Home() {
   const [params, setParams] = useSearchParams();
@@ -183,9 +184,10 @@ function ItemDetail({ item, onArchived }: { item: Row; onArchived(): void }) {
         </button>
       </div>
       <PhotoStrip targetType="item" targetId={id} />
+      <ReceiptSuggestionBanner itemId={id} />
       <Tabs
         tabs={[
-          { id: "info", label: "Oplysninger", content: () => <EntityForm type="item" row={item} renderAfter={complaintSuggestion} /> },
+          { id: "info", label: "Oplysninger", content: () => <EntityForm key={String(item.updated_at ?? "")} type="item" row={item} renderAfter={complaintSuggestion} /> },
           { id: "docs", label: "Bilag", content: () => <DocumentsTab targetType="item" targetId={id} /> },
           { id: "parts", label: "Reservedele", content: () => <Parts itemId={id} /> },
           { id: "ins", label: "Forsikring", content: () => <ItemPolicies itemId={id} /> },

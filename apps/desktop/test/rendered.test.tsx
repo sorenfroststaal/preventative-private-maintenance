@@ -17,6 +17,9 @@ import {
   createEntity,
   createRecipe,
   createUser,
+  importDocument,
+  linkDocument,
+  updateEntity,
   generateShoppingList,
   makeCtx,
   planMeal,
@@ -43,6 +46,7 @@ let user: PublicUser;
 let itemId = "";
 let photoPath = "";
 const TODAY = "2026-11-24";
+const photoPngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
 beforeAll(async () => {
   const now = new Date(`${TODAY}T10:00:00.000Z`);
@@ -61,7 +65,7 @@ beforeAll(async () => {
   const dishwasher = await createEntity(ctx, "item", { name: "Opvaskemaskine", purchase_price_minor: 499900 });
   itemId = String(dishwasher.id);
   photoPath = join(mkdtempSync(join(tmpdir(), "ppm-ui-photo-")), "opvasker.png");
-  writeFileSync(photoPath, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"));
+  writeFileSync(photoPath, Buffer.from(photoPngBase64, "base64"));
   // A draft group from the MCP side (only ai_draft is written).
   await runTool({ env, archive, clientName: "test" }, "propose", {
     rationale: "Ny støvsuger fra kvittering",
@@ -382,6 +386,32 @@ describe("phase 2b.9 – rendered components", () => {
     expect(screen.getByRole("combobox", { name: "Beløb står i" })).toHaveValue("split");
     expect(screen.getByRole("combobox", { name: "Ud (udbetaling)" })).toHaveValue("2");
     checkButtons(container, "Import");
+  });
+
+  it("phase 4.4: an item with a receipt that has text shows a banner; confirming fills price, date and vendor", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const item = await createEntity(ctx, "item", { name: "Kaffemaskine" });
+    const png = join(mkdtempSync(join(tmpdir(), "ppm-ui-rc-")), "bon.png");
+    writeFileSync(png, Buffer.concat([Buffer.from(photoPngBase64, "base64"), Buffer.from("rc")]));
+    const { document } = await importDocument(env, archive, ctx, png, { source: "drop" });
+    await updateEntity(ctx, "document", String(document.id), { extracted_text: "Kaffehuset\n01.09.2026\nKaffemaskine 1.899,00\nI alt 1.899,00\nMoms 379,80" });
+    await linkDocument(ctx, { document_id: String(document.id), target_type: "item", target_id: String(item.id), role: "receipt" });
+    const { container } = renderAt(`/bolig?id=${String(item.id)}`);
+    await settle("Bolig og inventar");
+    const banner = await screen.findByRole("region", { name: "Forslag fra kvittering" });
+    expect(banner.textContent).toMatch(/købspris 1\.899,00 kr\., købsdato 01\.09\.2026, forhandler Kaffehuset/);
+    checkButtons(container, "Kvitteringsforslag");
+    fireEvent.click(within(banner).getByRole("button", { name: "Gennemse og udfyld…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Udfyld fra kvittering" });
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Udfyld forhandler" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Udfyld valgte" }));
+    await waitFor(async () =>
+      expect((await archive.db.select("SELECT purchase_price_minor, purchase_date, vendor_name FROM item WHERE id = ?", [String(item.id)]))[0]).toEqual({
+        purchase_price_minor: 189900,
+        purchase_date: "2026-09-01",
+        vendor_name: null,
+      }),
+    );
   });
 });
 
