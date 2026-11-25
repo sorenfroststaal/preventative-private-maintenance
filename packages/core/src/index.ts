@@ -21,6 +21,7 @@ export * from "./repo/eml";
 export * from "./repo/inbox";
 export * from "./repo/dashboard";
 export * from "./repo/export";
+export * from "./repo/lists";
 export * from "./report/insurance";
 export * from "./food";
 export * from "./ai";

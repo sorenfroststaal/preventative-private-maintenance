@@ -71,6 +71,7 @@ describe("phase 2b.9 – contrast of at least 4.5:1 in light and dark theme", ()
       "Helbred",
       "Dokumenter",
       "AI-indbakke",
+      "Lister",
       "Indstillinger",
     ]);
     for (const m of MODULES) {

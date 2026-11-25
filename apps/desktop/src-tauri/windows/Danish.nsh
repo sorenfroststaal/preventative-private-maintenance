@@ -1,4 +1,4 @@
-﻿; Danish strings for Tauri's NSIS template (Tauri ships no Danish file; without it the
+; Danish strings for Tauri's NSIS template (Tauri ships no Danish file; without it the
 ; reinstall page, the desktop shortcut option and the 'app is running' box are blank).
 LangString addOrReinstall ${LANG_DANISH} "Tilføj/geninstallér komponenter"
 LangString alreadyInstalled ${LANG_DANISH} "Allerede installeret"

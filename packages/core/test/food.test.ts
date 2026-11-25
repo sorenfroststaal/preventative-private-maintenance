@@ -77,7 +77,8 @@ describe("phase 2b.1 – migration 0002", () => {
       JSON.stringify({ home: true, health: false, documents: true }),
     ]);
     const r = await migrate(db, () => env.clock.nowIso());
-    expect(r).toMatchObject({ from: 1, to: 2, applied: [2] });
+    expect(r.from).toBe(1);
+    expect(r.applied).toContain(2);
     expect(await getSetting<Record<string, boolean>>(db, "ai.modules")).toEqual({ home: true, health: false, documents: true, food: true });
     const tables = (await db.select<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table'")).map((t) => t.name);
     expect(tables).toEqual(expect.arrayContaining(["recipe", "recipe_ingredient", "meal_plan_entry", "shopping_list", "shopping_item"]));

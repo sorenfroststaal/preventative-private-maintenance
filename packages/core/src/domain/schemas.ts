@@ -399,6 +399,7 @@ export const fields = {
       "property",
       "location",
       "item",
+      "item_part",
       "building_part",
       "vehicle",
       "work_order",

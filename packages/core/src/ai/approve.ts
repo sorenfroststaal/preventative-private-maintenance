@@ -133,7 +133,7 @@ async function execute(env: Env, archive: Archive, ctx: Ctx, d: DraftRow, result
 }
 
 async function findType(db: DbAdapter, id: string): Promise<string> {
-  const types = ["property", "location", "item", "building_part", "vehicle", "work_order", "claim", "policy", "person", "health_visit", "health_screening", "health_vaccination", "health_medication", "bank_transaction", "task_occurrence", "recurring_expense"];
+  const types = ["property", "location", "item", "item_part", "building_part", "vehicle", "work_order", "claim", "policy", "person", "health_visit", "health_screening", "health_vaccination", "health_medication", "bank_transaction", "task_occurrence", "recurring_expense"];
   for (const t of types) if ((await db.select(`SELECT 1 FROM ${t} WHERE id = ?`, [id])).length) return t;
   throw new Error("Målet kan ikke få bilag koblet på.");
 }

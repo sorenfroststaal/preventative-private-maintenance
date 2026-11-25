@@ -3,6 +3,7 @@ import { promises as fsp, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import {
+  APP_SCHEMA_VERSION,
   createEntity,
   createTask,
   createUser,
@@ -199,7 +200,7 @@ describe("phase 2.11 – export", () => {
     await expect(exportTableCsv(archive.db, "sqlite_master")).rejects.toThrow();
 
     const json = JSON.parse(await exportAllJson(archive.db, "2026-11-24T10:00:00Z"));
-    expect(json).toMatchObject({ format: "ppm-export", schemaVersion: 2 });
+    expect(json).toMatchObject({ format: "ppm-export", schemaVersion: APP_SCHEMA_VERSION });
     expect(json.tables.item).toHaveLength(1);
     expect(json.tables.search_index).toBeUndefined();
 

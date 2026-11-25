@@ -1,8 +1,10 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  addTextListValue,
   createEntity,
   listEntities,
+  textListValues,
   parseDanishAmount,
   updateEntity,
   ValidationError,
@@ -11,6 +13,7 @@ import {
 } from "@ppm/core";
 import { errorText, useSession } from "../app/session";
 import { fieldsFor, type FieldDef } from "../lib/entityFields";
+import { Modal } from "./ui";
 
 type Values = Record<string, string>;
 
@@ -67,6 +70,29 @@ export function fromFormValues(fields: FieldDef[], values: Values): { data: Reco
   return { data, errors };
 }
 
+/** Danish singular names used in "+ Ny …" options. */
+export const TYPE_SINGULAR: Partial<Record<EntityType, string>> = {
+  location: "rum",
+  property: "bolig",
+  contact: "kontakt",
+  person: "person",
+  account: "konto",
+  category: "kategori",
+  vehicle: "bil",
+  policy: "police",
+  item: "genstand",
+  building_part: "bygningsdel",
+  budget: "budget",
+  claim: "skadesag",
+  work_order: "arbejdsordre",
+};
+
+const NEW = "__new__";
+
+/**
+ * Dropdown of records of a type, with "+ Ny …" that creates a record in a small dialog
+ * and selects it (the shared EntityForm and Zod schema validate it).
+ */
 export function RefSelect(props: {
   id?: string;
   type: EntityType;
@@ -76,20 +102,104 @@ export function RefSelect(props: {
   where?: Record<string, string>;
   required?: boolean;
   emptyLabel?: string;
+  /** Default true; set false where creating here makes no sense. */
+  allowCreate?: boolean;
 }) {
   const { archive } = useSession();
+  const qc = useQueryClient();
+  const [creating, setCreating] = useState(false);
   const q = useQuery({
     queryKey: [props.type, "options", props.where ?? null],
     queryFn: () => listEntities(archive.db, props.type, { where: props.where, orderBy: props.labelCol }),
   });
+  const canCreate = (props.allowCreate ?? true) && !archive.readOnly && fieldsFor(props.type).length > 0;
+  const singular = TYPE_SINGULAR[props.type] ?? props.type;
   return (
-    <select id={props.id} value={props.value} required={props.required} onChange={(e) => props.onChange(e.target.value)}>
-      <option value="">{props.emptyLabel ?? "– vælg –"}</option>
-      {(q.data ?? []).map((r) => (
-        <option key={String(r.id)} value={String(r.id)}>
-          {String(r[props.labelCol] ?? r.id)}
+    <>
+      <select
+        id={props.id}
+        value={props.value}
+        required={props.required}
+        onChange={(e) => (e.target.value === NEW ? setCreating(true) : props.onChange(e.target.value))}
+      >
+        <option value="">{props.emptyLabel ?? "– vælg –"}</option>
+        {(q.data ?? []).map((r) => (
+          <option key={String(r.id)} value={String(r.id)}>
+            {String(r[props.labelCol] ?? r.id)}
+          </option>
+        ))}
+        {canCreate && <option value={NEW}>+ Ny {singular}…</option>}
+      </select>
+      {creating && (
+        <Modal title={`Ny ${singular}`} onClose={() => setCreating(false)}>
+          <EntityForm
+            type={props.type}
+            fixed={props.where}
+            onSaved={async (r) => {
+              await qc.invalidateQueries({ queryKey: [props.type] });
+              props.onChange(String(r.id));
+              setCreating(false);
+            }}
+            onCancel={() => setCreating(false)}
+          />
+        </Modal>
+      )}
+    </>
+  );
+}
+
+/** Dropdown for a free-text column backed by an editable value list, with "+ Tilføj ny…". */
+export function ListSelect({ id, list, value, onChange, required }: { id?: string; list: string; value: string; onChange(v: string): void; required?: boolean }) {
+  const session = useSession();
+  const qc = useQueryClient();
+  const [adding, setAdding] = useState(false);
+  const [text, setText] = useState("");
+  const q = useQuery({ queryKey: ["lists", list], queryFn: () => textListValues(session.archive.db, list) });
+  const values = q.data ?? [];
+  const has = values.some((v) => v.value === value);
+  async function add() {
+    const v = await addTextListValue(session.ctx(), list, text);
+    await qc.invalidateQueries({ queryKey: ["lists", list] });
+    onChange(v);
+    setAdding(false);
+    setText("");
+  }
+  if (adding) {
+    return (
+      <span className="row tight">
+        <input
+          id={id}
+          autoFocus
+          value={text}
+          placeholder="Ny værdi"
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (text.trim()) void add();
+            }
+            if (e.key === "Escape") setAdding(false);
+          }}
+        />
+        <button type="button" onClick={() => void add()} disabled={!text.trim()}>
+          Tilføj
+        </button>
+        <button type="button" onClick={() => setAdding(false)}>
+          Annullér
+        </button>
+      </span>
+    );
+  }
+  return (
+    <select id={id} value={value} required={required} onChange={(e) => (e.target.value === NEW ? setAdding(true) : onChange(e.target.value))}>
+      <option value="">– vælg –</option>
+      {!has && value && <option value={value}>{value}</option>}
+      {values.map((v) => (
+        <option key={v.value} value={v.value}>
+          {v.value}
         </option>
       ))}
+      {!session.archive.readOnly && <option value={NEW}>+ Tilføj ny…</option>}
     </select>
   );
 }
@@ -118,6 +228,8 @@ function Input({ f, value, onChange }: { f: FieldDef; value: string; onChange(v:
           ))}
         </select>
       );
+    case "list":
+      return <ListSelect id={id} list={f.list!} value={value} required={f.required} onChange={onChange} />;
     case "ref":
       return <RefSelect id={id} type={f.ref!.type} labelCol={f.ref!.label} where={f.ref!.where} value={value} required={f.required} onChange={onChange} />;
     default:

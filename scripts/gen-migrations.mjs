@@ -33,8 +33,11 @@ if (process.argv.includes("--check")) {
   const normative = [
     ["0001_init.sql", "docs/spec/schema.sql"],
     ["0002_meal_plan.sql", "docs/spec/schema-0002.sql"],
+    ["0003_item_part_documents.sql", "docs/spec/schema-0003.sql"],
   ];
   for (const [name, specPath] of normative) {
+    // 0003 is proposed on a spec branch; compare once it exists in docs/spec on this branch.
+    if (!existsSync(join(root, specPath))) continue;
     const spec = readFileSync(join(root, specPath), "utf8");
     if (entries.find((e) => e.name === name)?.sql !== spec) {
       console.error(`${name} must be identical to ${specPath}`);

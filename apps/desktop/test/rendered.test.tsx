@@ -223,6 +223,38 @@ describe("phase 2b.9 – rendered components", () => {
     expect(within(dialog).getByRole("group", { name: "Fotos og kvittering" }).closest("form")).not.toBeNull();
   });
 
+  it("dropdowns: category from an editable list with '+ Tilføj ny…', and '+ Ny rum…' creates a location and selects it", async () => {
+    renderAt("/bolig");
+    await settle("Bolig og inventar");
+    fireEvent.click(screen.getAllByRole("button", { name: "Ny genstand" })[0]!);
+    const dialog = await screen.findByRole("dialog", { name: "Ny genstand" });
+    const category = within(dialog).getByLabelText("Kategori") as HTMLSelectElement;
+    await waitFor(() => expect([...category.options].map((o) => o.textContent)).toContain("Hvidevarer"));
+    expect([...category.options].at(-1)?.textContent).toBe("+ Tilføj ny…");
+    fireEvent.change(category, { target: { value: "__new__" } });
+    fireEvent.change(within(dialog).getByPlaceholderText("Ny værdi"), { target: { value: "Smarthome" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Tilføj" }));
+    await waitFor(() => expect((within(dialog).getByLabelText("Kategori") as HTMLSelectElement).value).toBe("Smarthome"));
+
+    const placement = within(dialog).getByLabelText("Placering") as HTMLSelectElement;
+    expect([...placement.options].at(-1)?.textContent).toBe("+ Ny rum…");
+    fireEvent.change(placement, { target: { value: "__new__" } });
+    const newRoom = await screen.findByRole("dialog", { name: "Ny rum" });
+    expect(within(newRoom).getByLabelText(/Bolig/)).toBeInTheDocument();
+  });
+
+  it("Lister: tabs for the records and value lists behind the dropdowns", async () => {
+    const { container } = renderAt("/lister?liste=item_category");
+    await settle("Lister");
+    for (const t of ["Rum og placeringer", "Boliger", "Kontakter", "Personer", "Konti", "Økonomikategorier", "Genstandskategorier", "Bygningsdelstyper"]) {
+      expect(screen.getByRole("tab", { name: t })).toBeInTheDocument();
+    }
+    expect(await screen.findByRole("button", { name: "Omdøb Hvidevarer" })).toHaveAttribute("title", "Omdøb Hvidevarer");
+    checkButtons(container, "Lister");
+    fireEvent.click(screen.getByRole("tab", { name: "Økonomikategorier" }));
+    expect(await screen.findByText("Mad og dagligvarer")).toBeInTheDocument();
+  });
+
   it("empty states show the module icon, a sentence and the primary action", async () => {
     renderAt("/bil");
     await settle("Bil");

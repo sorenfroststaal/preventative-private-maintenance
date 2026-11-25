@@ -82,6 +82,6 @@ describe("phase 3.1 / 3.8 – MCP protocol and few tokens", () => {
     await archive.db.execute("INSERT INTO schema_migrations (version, applied_at) VALUES (99, 'x')");
     const r = await client.callTool({ name: "overview", arguments: {} });
     expect(r.isError).toBe(true);
-    expect((r.content as { text: string }[])[0]!.text).toMatch(/Arkivets version \(99\) passer ikke til MCP-serveren \(2\)/);
+    expect((r.content as { text: string }[])[0]!.text).toMatch(/Arkivets version \(99\) passer ikke til MCP-serveren \(\d+\)/);
   });
 });

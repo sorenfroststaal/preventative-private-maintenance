@@ -17,6 +17,7 @@ import { Insurance } from "../pages/Insurance";
 import { Health } from "../pages/Health";
 import { SearchDialog } from "../components/SearchDialog";
 import { Food } from "../pages/Food";
+import { Lists } from "../pages/Lists";
 import { MODULES } from "../lib/modules";
 import { ModuleIcon } from "../components/visual";
 import { Search } from "lucide-react";
@@ -177,6 +178,7 @@ export function Shell() {
               <Route path="/forsikring" element={<Insurance />} />
               <Route path="/helbred" element={<Health />} />
               <Route path="/dokumenter" element={<Documents onImport={importFiles} />} />
+              <Route path="/lister" element={<Lists />} />
               <Route path="/indstillinger" element={<Settings />} />
               <Route path="/ai" element={<AiInbox />} />
             </Routes>

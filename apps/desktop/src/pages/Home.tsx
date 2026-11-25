@@ -193,22 +193,52 @@ function ItemDetail({ item, onArchived }: { item: Row; onArchived(): void }) {
 }
 
 function Parts({ itemId }: { itemId: string }) {
-  const { archive } = useSession();
-  const parts = useQuery({ queryKey: ["item_part", itemId], queryFn: () => listEntities(archive.db, "item_part", { where: { item_id: itemId }, orderBy: "name" }) });
+  const session = useSession();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const parts = useQuery({ queryKey: ["item_part", itemId], queryFn: () => listEntities(session.archive.db, "item_part", { where: { item_id: itemId }, orderBy: "name" }) });
   const [key, setKey] = useState(0);
+  const [open, setOpen] = useState<string | null>(null);
+  const [pending, setPending] = useState<PendingFile[]>([]);
   return (
     <div>
       {parts.data?.length === 0 && <Empty>Ingen reservedele registreret.</Empty>}
       <ul className="plain">
-        {(parts.data ?? []).map((p) => (
-          <li key={String(p.id)} className="line">
-            <span>{String(p.name)}</span>
-            <span className="muted">{String(p.part_number ?? "")}</span>
-            <span className="muted">{String(p.vendor ?? "")}</span>
-          </li>
-        ))}
+        {(parts.data ?? []).map((p) => {
+          const id = String(p.id);
+          const isOpen = open === id;
+          return (
+            <li key={id} className="part-row">
+              <button className="part-head" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : id)}>
+                <span>{String(p.name)}</span>
+                <span className="muted">{String(p.part_number ?? "")}</span>
+                <span className="muted">{String(p.vendor ?? "")}</span>
+              </button>
+              {isOpen && (
+                <div className="part-body">
+                  <PhotoStrip targetType="item_part" targetId={id} />
+                  <EntityForm type="item_part" row={p} fixed={{ item_id: itemId }} invalidate={[["item_part", itemId]]} />
+                </div>
+              )}
+            </li>
+          );
+        })}
       </ul>
-      <EntityForm key={key} type="item_part" fixed={{ item_id: itemId }} title="Tilføj reservedel" submitLabel="Tilføj" onSaved={() => setKey((k) => k + 1)} />
+      <EntityForm
+        key={key}
+        type="item_part"
+        fixed={{ item_id: itemId }}
+        title="Tilføj reservedel"
+        submitLabel="Tilføj"
+        renderAfter={(k) => (k === "notes" ? <PendingAttachments value={pending} onChange={setPending} receipt={false} /> : null)}
+        onSaved={async (r) => {
+          const res = await attachPending(session, "item_part", String(r.id), pending);
+          for (const e of res.errors) toast(e, "error");
+          await qc.invalidateQueries({ queryKey: ["documents"] });
+          setPending([]);
+          setKey((k) => k + 1);
+        }}
+      />
     </div>
   );
 }

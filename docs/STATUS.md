@@ -89,6 +89,14 @@ Fundet og rettet under E2E: typenavne stod på engelsk i AI-indbakken ("item", "
 
 **Installerens danske tekster manglede.** Siden "allerede installeret" viste radioknapper uden tekst, valget om skrivebordsgenvej var tomt, og boksen "PPM kører" havde ingen tekst. Tauri leverer NSIS-tekster til 23 sprog, men ikke dansk. Nu ligger `windows/Danish.nsh` med alle 28 nøgler fra Tauris engelske fil og er sat som `customLanguageFiles`. Filen er kompileret med `makensis -WX`.
 
+**Ønsker fra brugerens test (bygget):**
+
+- Fotos og kvittering kan vælges allerede i *Ny genstand*. Fotos kan vælges i *Ny bygningsdel*, *Ny bil* og *Tilføj reservedel*. Detaljevisningen viser fotos som miniaturer med *Flere fotos…*.
+- **Fotos på reservedele** kræver migration 0003 (`document_link` genopbygget med `item_part`). Den er foreslået i specifikationen (`schema-0003.sql` på spec-branchen) og kopieret uændret hertil. Reservedele kan nu foldes ud med fotos og redigering.
+- Genstandens **kategori** og bygningsdelens **type** vælges fra en redigerbar værdiliste med *+ Tilføj ny…*.
+- Nyt menupunkt **Lister**: rum og placeringer, boliger, kontakter, personer, konti, økonomikategorier, genstandskategorier og bygningsdelstyper. Alle rullelister, der henviser til poster, har *+ Ny …*.
+- Tests: migration 0003 (opgradering fra version 2 bevarer koblinger) og værdilister (`lists.test.ts`). Rullelister, *+ Ny rum…* og Lister i `rendered.test.tsx`.
+
 CI laver nu også artefaktet `ppm-demo-backup` med syntetiske demodata, som kan gendannes i appen (Indstillinger → Backup).
 
 ## Tests

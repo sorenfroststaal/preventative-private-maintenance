@@ -24,6 +24,7 @@
   --c-documents: #545b66;
   --c-ai: #7a3f9a;
   --c-settings: #4d5754;
+  --c-lists: #4f5a1f;
   --c-on: #ffffff;
   color-scheme: light dark;
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -56,6 +57,7 @@
     --c-documents: #c1c7d0;
     --c-ai: #d6a8ee;
     --c-settings: #b8c2be;
+    --c-lists: #cdd68f;
     --c-on: #111816;
   }
 }
@@ -970,4 +972,25 @@ button.photo-thumb img {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+.part-row {
+  border-bottom: 1px solid var(--border);
+}
+button.part-head {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 1rem;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0.45rem 0.2rem;
+  border-radius: 0;
+}
+button.part-head:hover,
+button.part-head[aria-expanded="true"] {
+  background: var(--selected);
+}
+.part-body {
+  padding: 0.6rem 0.2rem 0.8rem;
 }

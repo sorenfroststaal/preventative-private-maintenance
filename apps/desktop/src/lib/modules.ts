@@ -5,6 +5,7 @@ import {
   House,
   LayoutDashboard,
   ListChecks,
+  ListTree,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -36,6 +37,7 @@ export type ModuleId =
   | "health"
   | "documents"
   | "ai"
+  | "lists"
   | "settings";
 
 export const MODULES: ModuleDef[] = [
@@ -50,6 +52,7 @@ export const MODULES: ModuleDef[] = [
   { id: "health", to: "/helbred", label: "Helbred", Icon: HeartPulse, token: "--c-health" },
   { id: "documents", to: "/dokumenter", label: "Dokumenter", Icon: FileText, token: "--c-documents" },
   { id: "ai", to: "/ai", label: "AI-indbakke", Icon: Sparkles, token: "--c-ai" },
+  { id: "lists", to: "/lister", label: "Lister", Icon: ListTree, token: "--c-lists" },
   { id: "settings", to: "/indstillinger", label: "Indstillinger", Icon: Settings, token: "--c-settings" },
 ];
 

@@ -1,6 +1,6 @@
 import type { EntityType } from "@ppm/core";
 
-export type FieldType = "text" | "textarea" | "date" | "money" | "number" | "select" | "ref" | "datetime";
+export type FieldType = "text" | "textarea" | "date" | "money" | "number" | "select" | "ref" | "datetime" | "list";
 
 export interface FieldDef {
   key: string;
@@ -11,6 +11,8 @@ export interface FieldDef {
   /** For type "ref": which entity and which column is shown. */
   ref?: { type: EntityType; label: string; where?: Record<string, string> };
   help?: string;
+  /** For type "list": key of the editable value list (core TEXT_LISTS). */
+  list?: string;
   /** Hidden in forms (set by context, e.g. person_id). */
   hidden?: boolean;
 }
@@ -112,7 +114,7 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
   location: [r("property_id", "Bolig", "property", "name", { required: true }), r("parent_id", "Ligger i", "location"), t("name", "Navn", { required: true })],
   item: [
     t("name", "Navn", { required: true }),
-    t("category", "Kategori", { help: "Fx Hvidevarer, Elektronik, Møbler" }),
+    { key: "category", label: "Kategori", type: "list", list: "item_category" },
     r("location_id", "Placering", "location"),
     t("brand", "Mærke"),
     t("model", "Model"),
@@ -129,7 +131,7 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
   building_part: [
     r("property_id", "Bolig", "property", "name", { required: true }),
     t("name", "Navn", { required: true, help: "Fx Regnvandsbrønd, Tag, Varmepumpe" }),
-    t("kind", "Type"),
+    { key: "kind", label: "Type", type: "list", list: "building_part_kind" },
     d("installed_date", "Installeret"),
     ta("notes", "Noter"),
   ],

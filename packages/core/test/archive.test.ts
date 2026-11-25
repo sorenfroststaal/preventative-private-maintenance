@@ -25,8 +25,8 @@ describe("phase 1.2 – create and open archive", () => {
       expect((await env.fs.stat(join(root, d)))?.isDir).toBe(true);
     }
     const m = await readManifest(env, root);
-    expect(m).toMatchObject({ format: "ppm-archive", formatVersion: 1, schemaVersion: 2, appVersion: "0.1.0-test" });
-    expect(await getSchemaVersion(archive.db)).toBe(2);
+    expect(m).toMatchObject({ format: "ppm-archive", formatVersion: 1, schemaVersion: APP_SCHEMA_VERSION, appVersion: "0.1.0-test" });
+    expect(await getSchemaVersion(archive.db)).toBe(APP_SCHEMA_VERSION);
     const tables = await archive.db.select<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table'");
     expect(tables.map((t) => t.name)).toEqual(expect.arrayContaining(["item", "task", "search_index", "ai_draft"]));
     const pragmas = await archive.db.select<{ journal_mode: string }>("PRAGMA journal_mode");
@@ -70,12 +70,12 @@ describe("phase 1.3 – migrations", () => {
     const env = testEnv();
     const db = await env.openDb(join(tempDir(), "x.sqlite"));
     const first = await migrate(db, () => env.clock.nowIso());
-    expect(first).toMatchObject({ from: 0, to: APP_SCHEMA_VERSION, applied: [1, 2] });
+    expect(first).toMatchObject({ from: 0, to: APP_SCHEMA_VERSION, applied: migrations.map((m) => m.version) });
     const schemaBefore = await db.select("SELECT type, name, sql FROM sqlite_master ORDER BY name");
     const second = await migrate(db, () => env.clock.nowIso());
     expect(second.applied).toEqual([]);
     expect(await db.select("SELECT type, name, sql FROM sqlite_master ORDER BY name")).toEqual(schemaBefore);
-    expect(await db.select("SELECT * FROM schema_migrations")).toHaveLength(2);
+    expect(await db.select("SELECT * FROM schema_migrations")).toHaveLength(migrations.length);
     await db.close();
   });
 
@@ -83,16 +83,16 @@ describe("phase 1.3 – migrations", () => {
     const env = testEnv();
     const db = await env.openDb(join(tempDir(), "x.sqlite"));
     await migrate(db, () => env.clock.nowIso());
-    const bad = [...migrations, { version: 3, name: "0003_bad.sql", sql: "CREATE TABLE t2 (a); SELECT nope FROM missing;" }];
+    const bad = [...migrations, { version: 99, name: "0099_bad.sql", sql: "CREATE TABLE t2 (a); SELECT nope FROM missing;" }];
     await expect(migrate(db, () => env.clock.nowIso(), bad)).rejects.toThrow();
-    expect(await getSchemaVersion(db)).toBe(2);
+    expect(await getSchemaVersion(db)).toBe(APP_SCHEMA_VERSION);
     expect(await db.select("SELECT name FROM sqlite_master WHERE name='t2'")).toHaveLength(0);
     await db.close();
   });
 
   it("opens a newer database read-only", async () => {
     const { env, archive, root } = await newArchive();
-    await archive.db.execute("INSERT INTO schema_migrations (version, applied_at) VALUES (99, 'x')");
+    await archive.db.execute("INSERT INTO schema_migrations (version, applied_at) VALUES (999, 'x')");
     await archive.close();
     const again = track(await openArchive(env, root, { appVersion: "t" }));
     expect(again.readOnly).toBe(true);
