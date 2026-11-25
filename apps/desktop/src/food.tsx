@@ -1,3 +1,4 @@
+import { ModuleTitle } from './module-icon';
 import { useEffect, useState } from 'react';
 
 type Dish = { id: string; name: string };
@@ -15,7 +16,7 @@ export function Food({ local, run }: {
     return () => { active = false; };
   }, [local]);
 
-  return <><h1>Madplan</h1><h2>Opskrifter</h2>
+  return <><ModuleTitle name="Madplan" /><h2>Opskrifter</h2>
     {dishes.length === 0 && <p>Saml de retter, du vil bruge i din madplan.</p>}
     <button onClick={() => void run(async () => {
       const count = await local<number>('addStarterCatalog');

@@ -1,3 +1,4 @@
+import { ModuleTitle } from './module-icon';
 import { useEffect, useState, type FormEvent } from 'react';
 
 export type Local = <T>(action: string, data?: unknown) => Promise<T>;
@@ -65,7 +66,7 @@ export function BankImport({ account, local, run }: { account: string; local: Lo
 }
 
 type Task = { id: string; title: string; due_date: string | null };
-type Summary = { overdue: Task[]; upcoming: Task[]; expires: Task[]; horizon: number; missing: string[]; drafts: number; uncategorized: number;
+type Summary = { spending: { month: string; amount: number }[]; current: string; meals: { day: string; name: string }[]; overdue: Task[]; upcoming: Task[]; expires: Task[]; horizon: number; missing: string[]; drafts: number; uncategorized: number;
   finances: { category: string; actual: number; budget: number }[] };
 
 export function Overview({ local, run, backup, openTasks }: { local: Local; run: Run; backup: boolean; openTasks: (id: string) => void }) {
@@ -73,9 +74,18 @@ export function Overview({ local, run, backup, openTasks }: { local: Local; run:
   const [postpone, setPostpone] = useState('');
   async function load() { setSummary(await local('dashboard')); }
   useEffect(() => { void run(load); }, []);
-  if (!summary) return <h1>Overblik</h1>;
+  if (!summary) return <ModuleTitle name="Overblik" />;
   const lists = [['Forfaldne', summary.overdue], [`Næste ${summary.horizon} dage`, summary.upcoming], ['Udløber snart', summary.expires]] as const;
-  return <><h1>Overblik</h1>{lists.map(([title, entries]) => <section key={title}><h2>{title}</h2>
+  const cards = [...lists.map(([title, entries]) => [title, entries.length] as const), ['Mangler oplysninger', summary.missing.length] as const];
+  const amounts = summary.spending.map(row => row.amount);
+  const low = Math.min(0, ...amounts);
+  const high = Math.max(1, ...amounts);
+  const points = amounts.map((amount, i) => [4 + i * 40, 74 - 68 * (amount - low) / (high - low)].join(',')).join(' ');
+  return <><ModuleTitle name="Overblik" />
+    <div className="metrics">{cards.map(([title, count], i) => <a href={'#overview-' + i} key={title}><strong>{count}</strong>{title}</a>)}</div>
+    {summary.meals.length > 0 && <section><h2>Madplan</h2><ul>{summary.meals.map((meal, i) =>
+      <li key={i}>{meal.day === summary.current ? 'I dag' : 'I morgen'} · {meal.name}</li>)}</ul></section>}
+    {lists.map(([title, entries], i) => <section id={'overview-' + i} key={title}><h2>{title}</h2>
     {entries.length === 0 && <p>Ingen opgaver.</p>}
     <ul className="records">{entries.map(task => <li key={task.id}><span><strong>{task.title}</strong> · {task.due_date?.split('-').reverse().join('.')}</span>
       <div className="actions">
@@ -90,12 +100,16 @@ export function Overview({ local, run, backup, openTasks }: { local: Local; run:
       }}><label>Ny dato<input type="date" name="date" required /></label><button>Gem dato</button></form>}
     </li>)}</ul>
   </section>)}
-  <h2>Mangler oplysninger</h2><ul>{summary.missing.map((item, i) => <li key={i}>{item}</li>)}</ul>
+  <h2 id="overview-3">Mangler oplysninger</h2><ul>{summary.missing.map((item, i) => <li key={i}>{item}</li>)}</ul>
   <h2>AI-indbakke</h2><p>{summary.drafts} kladder venter</p>
   <h2>Økonomi denne måned</h2><p>{summary.uncategorized} transaktioner uden kategori</p>
   <table><thead><tr><th>Kategori</th><th>Budget</th><th>Faktisk</th></tr></thead><tbody>
     {summary.finances.map(row => <tr key={row.category}><td>{row.category}</td><td>{money(row.budget)}</td><td>{money(row.actual)}</td></tr>)}
   </tbody></table>
+  <h3>Forbrug de seneste seks måneder</h3>
+  <svg className="spending" viewBox="0 0 208 80" role="img" aria-label={summary.spending.map(row => row.month + ' ' + money(row.amount)).join(', ')}>
+    <polyline points={points} stroke="currentColor" strokeWidth="3" fill="none" />
+  </svg>
   <h2>Backup</h2><p>{backup ? 'Der er gået over 30 dage uden backup.' : 'Ingen backupadvarsel.'}</p>
   </>;
 }

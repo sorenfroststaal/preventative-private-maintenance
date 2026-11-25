@@ -57,6 +57,19 @@ export async function dashboard(db: DbAdapter, userId: string, current: string) 
         WHERE l.category_id IN (SELECT id FROM members WHERE root = c.id) AND b.year = ? AND (l.month IS NULL OR l.month = ?)), 0) AS budget
     FROM category c WHERE c.parent_id IS NULL AND c.archived_at IS NULL AND c.kind = 'expense' ORDER BY c.name`,
     [month, Number(current.slice(0, 4)), Number(current.slice(5, 7))]);
+  const spending = await db.select<{ month: string; amount: number }>(`
+    WITH RECURSIVE months(start) AS (
+      SELECT date(?, 'start of month', '-5 months') UNION ALL
+      SELECT date(start, '+1 month') FROM months WHERE start < date(?, 'start of month')
+    ) SELECT substr(start, 1, 7) AS month, COALESCE((
+      SELECT -SUM(t.amount_minor) FROM bank_transaction t JOIN category c ON c.id = t.category_id
+      WHERE c.kind = 'expense' AND t.currency = 'DKK' AND t.booking_date >= start
+        AND t.booking_date < date(start, '+1 month')
+    ), 0) AS amount FROM months ORDER BY start`, [current, current]);
+  const meals = await db.select<{ day: string; name: string }>(`
+    SELECT e.plan_date AS day, COALESCE(r.name, e.title) AS name FROM meal_plan_entry e
+    LEFT JOIN recipe r ON r.id = e.recipe_id WHERE e.plan_date BETWEEN ? AND ?
+    ORDER BY e.plan_date, e.meal, e.id`, [current, plus(1)]);
   const [uncategorized] = await db.select<{ count: number }>('SELECT COUNT(*) AS count FROM bank_transaction WHERE category_id IS NULL AND substr(booking_date, 1, 7) = ?', [month]);
   return {
     horizon: limit, overdue: tasks.filter(t => t.due_date && t.due_date < current),
@@ -64,7 +77,7 @@ export async function dashboard(db: DbAdapter, userId: string, current: string) 
     expires: tasks.filter(t => t.due_date && t.due_date >= current && t.due_date <= expiresEnd &&
       /^(item\.|policy\.|recurring_expense\.|health_medication\.)/.test(t.system_ref ?? '')),
     missing: [...missing.map(r => r.title), ...tasks.filter(t => !t.due_date).map(t => 'Mangler dato: ' + t.title)],
-    drafts: drafts.count, finances, uncategorized: uncategorized.count,
+    current, meals, spending, drafts: drafts.count, finances, uncategorized: uncategorized.count,
   };
 }
 

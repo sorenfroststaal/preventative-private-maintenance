@@ -37,3 +37,35 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .item-photo { display: inline-block; width: 3rem; height: 3rem; }
 .item-photo img { width: 100%; height: 100%; object-fit: contain; }
+:root {
+  --c-overview: #ece4d1; --c-tasks: #cee5da; --c-home: #f4d7bf; --c-maintenance: #e5dbf4;
+  --c-vehicle: #d2e1f2; --c-finance: #c9e7d6; --c-food: #f7d3b4; --c-insurance: #ccdfed;
+  --c-health: #f5d4dc; --c-documents: #e0dce9; --c-ai: #dfd6fa; --c-settings: #dee3e2;
+  --icon-ink: #192e31; --danger: #8a281b;
+}
+.module-icon { display: inline-flex; border-radius: .45rem; padding: .35em; color: var(--icon-ink); vertical-align: middle; margin-inline-end: .55rem; }
+h1 .module-icon { font-size: 1.25rem; }
+nav button { display: flex; align-items: center; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem; }
+.metrics a { color: inherit; padding: .85rem; border: 1px solid currentColor; border-top: .4rem solid var(--c-tasks); border-radius: .4rem; }
+.metrics strong { display: block; font-size: 1.7rem; }
+.spending { width: min(100%, 26rem); height: 5rem; color: inherit; }
+@media (prefers-color-scheme: dark) {
+  :root { color-scheme: dark; background: #202626; color: #f2f1e9; --icon-ink: #fff;
+    --c-overview: #4a4936; --c-tasks: #295348; --c-home: #64422c; --c-maintenance: #4b3d60;
+    --c-vehicle: #34475e; --c-finance: #28513e; --c-food: #634329; --c-insurance: #324c62;
+    --c-health: #623b48; --c-documents: #484353; --c-ai: #50406b; --c-settings: #404b49; --danger: #ffb3a9; }
+  button { background: #344542; } aside { background: #172120; } [role="alert"] { color: var(--danger); }
+}
+.icon-overview { background: var(--c-overview); }
+.icon-tasks { background: var(--c-tasks); }
+.icon-home { background: var(--c-home); }
+.icon-maintenance { background: var(--c-maintenance); }
+.icon-vehicle { background: var(--c-vehicle); }
+.icon-finance { background: var(--c-finance); }
+.icon-food { background: var(--c-food); }
+.icon-insurance { background: var(--c-insurance); }
+.icon-health { background: var(--c-health); }
+.icon-documents { background: var(--c-documents); }
+.icon-ai { background: var(--c-ai); }
+.icon-settings { background: var(--c-settings); }

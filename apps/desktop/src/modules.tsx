@@ -1,3 +1,4 @@
+import { ModuleTitle, ModuleIcon } from './module-icon';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { z } from 'zod';
 import { fields, archivedTables, type RecordType } from '../../../packages/core/src/domain/records';
@@ -221,7 +222,7 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
     ? nextDate({ kind: 'interval', unit: 'year', every: 2 }, purchase, purchase) : null;
 
   return <>
-    <h1>{name}</h1>
+    <ModuleTitle name={name} />
     <div className="actions">{tabs.map(([key, label]) =>
       <button key={key} aria-pressed={key === type} onClick={() => { edit(); setRows([]); setOptions({}); setType(key); }}>{label}</button>)}</div>
     {type === 'property' && housing && <HousingTree data={housing} open={(table, row) => {
@@ -238,7 +239,7 @@ export function ModuleView({ name, local, run }: { name: string; local: Local; r
     </div>
     <ul className="records">{rows.filter(r => (showArchived || !r.archived_at) && (!personFilter || name !== 'Helbred' || r.person_id === personFilter) &&
       display(r).toLocaleLowerCase('da').includes(filter.toLocaleLowerCase('da'))).map(row =>
-      <li key={row.id}>{type === 'item' && typeof row.photo_id === 'string' && <InventoryPhoto key={row.photo_id} id={row.photo_id} local={local} />}<button onClick={() => edit(row)}>{display(row)}</button>
+      <li key={row.id}>{type === 'item' && typeof row.photo_id === 'string' && <InventoryPhoto key={row.photo_id} id={row.photo_id} local={local} />}<button onClick={() => edit(row)}><ModuleIcon name={name} />{display(row)}</button>
         {archivedTables.has(type) && <button onClick={() => void run(async () => {
           await local('archiveRecord', { type, id: row.id, archive: !row.archived_at });
           edit();

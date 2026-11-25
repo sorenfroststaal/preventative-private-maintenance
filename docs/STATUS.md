@@ -47,7 +47,10 @@ Branchen indeholder merge af `main` efter PR #3. Migration 0001 er byteidentisk 
 
 8. Startkataloget kan tilføjes fra Madplan. Testen opretter 40 opskrifter, gentager handlingen med 0 nye og kontrollerer audit og søgning. Seed opretter to syntetiske opskrifter, dagens ret med fløde, en mælkeallergi og `ai.as_user_id`. Lokal lint, 55 tests og seed bestod.
 
-Kriterium 2, 4–7 og 9 udestår. For kriterium 10 finder søgningen katalogets opskrifter. Kortet på overblikket udestår.
+9. Delvist. Modulmenu, sidehoveder og søgeresultater har Lucide-ikoner. Der er lyse og mørke modultokens, nøgletalskort og en graf over seks måneders forbrug. Status-badges, tomme tilstande og visuel kontrol udestår.
+10. Overblikket viser dagens og morgendagens ret. Datoafgrænsningen og de seks måneders datagrundlag er testet. Søgningen finder opskrifter fra startkataloget.
+
+Kriterium 2 og 4–7 udestår.
 
 ## Byg og manuel afprøvning
 

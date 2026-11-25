@@ -1,3 +1,4 @@
+import { ModuleTitle, ModuleIcon } from './module-icon';
 import { StrictMode, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { invoke } from '@tauri-apps/api/core';
@@ -224,7 +225,7 @@ function App() {
       return groups;
     }, {})).map(([group, hits]) =>
         <section key={group}><h2>{group}</h2><ul className="records">{hits?.map(hit =>
-          <li key={hit.entity_type + hit.entity_id}><strong>{hit.title}</strong></li>)}</ul>
+          <li key={hit.entity_type + hit.entity_id}><strong><ModuleIcon name={group} />{hit.title}</strong></li>)}</ul>
           <button onClick={() => { setSection(group); setSearchOpen(false); }}>Åbn {group.toLocaleLowerCase('da')}</button>
         </section>)}</>;
   } else if (section === 'Madplan') {
@@ -236,7 +237,7 @@ function App() {
   } else if (sections[section]) {
     content = <ModuleView key={section} name={section} local={local} run={run} />;
   } else if (section === 'Dokumenter') {
-    content = <><h1>Dokumenter</h1><p>Træk bilag ind i vinduet, eller vælg filer.</p>
+    content = <><ModuleTitle name="Dokumenter" /><p>Træk bilag ind i vinduet, eller vælg filer.</p>
       <button onClick={() => void run(async () => {
         const paths = await chooseFiles('import');
         if (Array.isArray(paths)) await importPaths(paths);
@@ -269,7 +270,7 @@ function App() {
       </section>}
     </>;
   } else if (section === 'Indstillinger') {
-    content = <><h1>Indstillinger</h1><p className="path">{savedPath}</p><div className="actions">
+    content = <><ModuleTitle name="Indstillinger" /><p className="path">{savedPath}</p><div className="actions">
       <button onClick={() => void run(async () => {
         const [path] = await chooseFiles('backup');
         if (typeof path === 'string') {
@@ -315,7 +316,7 @@ function App() {
         <button>Opret person</button>
       </form></>}</>;
   } else {
-    content = <><h1>Opgaver</h1>
+    content = <><ModuleTitle name="Opgaver" />
       <label><input type="checkbox" checked={fullHealthTitle} onChange={e => setFullHealthTitle(e.target.checked)} />Medtag fulde helbredstitler</label>
       <SaveOutput action="export" payload={{ format: 'ics', ids: calendarIds.length ? calendarIds : undefined, fullHealthTitle }}
         label={calendarIds.length ? 'Gem markerede opgaver som kalenderfil' : 'Gem åbne opgaver som kalenderfil'} local={local} run={run} />
@@ -349,7 +350,7 @@ function App() {
   return <div className="layout">
     <aside><div className="brand">PPM</div><p>Privat vedligeholdelse</p>{current && <nav>
       {['Overblik', 'Opgaver', ...Object.keys(sections), 'Madplan', 'Dokumenter', 'Indstillinger'].map((name) =>
-        <button key={name} aria-current={section === name ? 'page' : undefined} onClick={() => { setSearchOpen(false); setSection(name); }}>{name}</button>)}
+        <button key={name} aria-current={section === name ? 'page' : undefined} onClick={() => { setSearchOpen(false); setSection(name); }}><ModuleIcon name={name} />{name}</button>)}
       <button onClick={() => setSearchOpen(true)}>Søg (Ctrl+K)</button>
       <button onClick={() => void run(async () => {
         await local('logout');

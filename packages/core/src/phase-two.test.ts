@@ -145,7 +145,12 @@ it('queries dashboard buckets, finance, missing data, and the draft count', asyn
   await saveRecord(db, 'vehicle', { name: 'Demo' }, ctx);
   await saveRecord(db, 'policy', { title: 'Demopolice', kind: 'home_contents' }, ctx);
   await saveRecord(db, 'category', { name: 'Syntetisk udgift', kind: 'expense' }, ctx);
+  for (const day of ['2026-11-23', '2026-11-24', '2026-11-25', '2026-11-26']) {
+    await db.execute("INSERT INTO meal_plan_entry (id, plan_date, title, created_at) VALUES (?, ?, 'Rester', ?)", [crypto.randomUUID(), day, day]);
+  }
   const view = await dashboard(db, userId, '2026-11-24');
+  expect(view.meals.map(meal => meal.day)).toEqual(['2026-11-24', '2026-11-25']);
+  expect(view.spending.map(row => row.month)).toEqual(['2026-06', '2026-07', '2026-08', '2026-09', '2026-10', '2026-11']);
   expect(view.overdue).toHaveLength(1);
   expect(view.upcoming).toEqual([]);
   expect(view.expires).toHaveLength(1);
