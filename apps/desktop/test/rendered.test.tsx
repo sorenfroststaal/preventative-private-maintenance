@@ -338,5 +338,28 @@ describe("phase 2b.9 – rendered components", () => {
     fireEvent.click(await screen.findByText("Testkontakt", { selector: "td" }));
     expect(await screen.findByRole("tab", { name: "Bilag" })).toBeInTheDocument();
   });
+
+  it("phase 4.2: category suggestions are shown on Posteringer and accepted all at once", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const acc = await createEntity(ctx, "account", { name: "Forslagskonto" });
+    const [fun] = await archive.db.select<{ id: string }>("SELECT id FROM category WHERE name = 'Fritid'");
+    let n = 0;
+    const tx = (text: string, cat: string | null) =>
+      createEntity(ctx, "bank_transaction", { account_id: String(acc.id), booking_date: TODAY, text, amount_minor: -9900, category_id: cat, dedupe_hash: `sg${n++}` });
+    await tx("Biografen Nord 111", fun!.id);
+    await tx("Biografen Nord 222", fun!.id);
+    await tx("Biografen Nord 333", null);
+    const { container } = renderAt("/okonomi?tab=tx");
+    await settle("Økonomi");
+    const region = await screen.findByRole("region", { name: "Forslag til kategorier" });
+    fireEvent.click(within(region).getByRole("button", { name: "Vis forslag" }));
+    expect(within(region).getByText("Biografen Nord 333")).toBeInTheDocument();
+    expect(within(region).getByText("som 2 tidligere posteringer")).toBeInTheDocument();
+    checkButtons(container, "Forslag");
+    fireEvent.click(within(region).getByRole("button", { name: "Godkend alle" }));
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Forslag til kategorier" })).toBeNull());
+    const [row] = await archive.db.select<{ category_id: string; category_source: string }>("SELECT category_id, category_source FROM bank_transaction WHERE text = 'Biografen Nord 333'");
+    expect(row).toEqual({ category_id: fun!.id, category_source: "user" });
+  });
 });
 

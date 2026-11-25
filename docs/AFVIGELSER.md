@@ -60,6 +60,7 @@ Listen dækker de steder, hvor implementeringen afviger fra specifikationen elle
 | F37 | 04 Økonomi, 02 Datamodel | Faste udgifter har `priority` 1–5 (migration 0005): 5 = obligatorisk, 4 = vigtig, 3 = nyttig, 2 = rart at have, 1 = kan undværes. Tom = ikke vurderet. *Hent beløb fra faste udgifter* tilføjer kun linjer for kategorier, der ikke har en linje i budgettet. |
 | F38 | 04 Forsikring | Policelisten har kolonnen *Dækker* med initialer for personer og ikoner for andre dækninger (højst tre, derefter "+n"). |
 | F39 | 04 Økonomi, 02 Datamodel | Lån (migration 0006): ydelsen omregnes til et månedligt gennemsnit som faste udgifter. Restgælden er den, brugeren har indtastet pr. `balance_date`; appen beregner ikke afdrag. En fast udgift med `end_date` før i dag vises som "Ophørt" og tælles ikke med i summerne. `amount_variable = 1` betyder, at beløbet er et skøn. |
+| F40 | 07 Fase 4.2 | Lige mange forekomster for to kategorier giver intet forslag. Reglen, der laves fra et forslag, er en `contains`-regel med den længste del af posteringsteksten uden tal (små bogstaver), fordi modtagernøglen selv ikke altid er en delstreng af teksten (bindestreger og skråstreger fjernes). Forslag er ikke en `category_source`; de vises kun, indtil de godkendes. |
 
 ## Fjernet efter PR #2 (nu en del af specifikationen)
 

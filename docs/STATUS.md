@@ -83,6 +83,16 @@ Fundet og rettet under E2E:
 
 Fundet og rettet under E2E: typenavne stod på engelsk i AI-indbakken ("item", "recipe"). Nu på dansk, og ingredienser vises som korte linjer.
 
+## Fase 4: kriterier
+
+Kriterierne er udkastet på spec-branchen `claude/spec-fase-2b-praeciseringer` (07 "Fase 4: Uddybning"). Brugeren bad om at starte 25.11.2026 i rækkefølgen 2, 1, 3, 4, 6, 5, 7.
+
+| Nr. | Kriterium | Status | Test |
+| --- | --- | --- | --- |
+| 4.2 | Kategoriforslag ud fra modtagernøgle, 2-eller-1-reglen, regler først, godkend enkeltvis eller alle, gør til regel | Opfyldt | `categorySuggest.test.ts` (4), `rendered.test.tsx` |
+
+**4.2 Kategoriforslag:** Modtagernøglen er teksten med små bogstaver uden datoer, maskerede kortnumre og andre tal (`payeeKey`). Forslaget er den hyppigste kategori blandt kategoriserede posteringer med samme nøgle og fortegn. Det kræver mindst 2 forekomster, eller 1, hvis nøglen ikke har andre kategorier. Står to kategorier lige, gives intet forslag. Passer en regel, foreslås reglens kategori. *Posteringer* viser panelet "Forslag til kategorier" med *Godkend alle* og *Godkend* pr. postering (`category_source = 'user'`). Valget "Lav også en regel" opretter en lært `contains`-regel med den længste del af teksten uden tal (fx "dankort-nota netto").
+
 ## Fejl fundet ved brugerens test på Windows (25.11.2026)
 
 **Et nyt arkiv kunne ikke oprettes i den rigtige app.** Fejlen var "VACUUM/ATTACH er ikke tilladt i scripts". Rust-kommandoen `db_execute_script` afviste ethvert script, hvis tekst indeholdt "ATTACH", og skemaet indeholder værdien `'attach_document'` i en CHECK-regel. Fejlen har været der siden fase 1. Ingen test opdagede den, fordi E2E altid åbnede et seed-arkiv (oprettet i Node), og den manuelle test på Windows ikke var gennemført. Nu tjekkes kun hele nøgleord uden for strenge, citerede navne og kommentarer. Rust-tests kører begge migrationer gennem `execute_script` (regressionstest) og afviser stadig `ATTACH` og `VACUUM` som nøgleord.

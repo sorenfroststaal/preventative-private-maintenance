@@ -3,7 +3,10 @@ import { useSearchParams } from "react-router-dom";
 import { DocumentsTab } from "../components/DetailTabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  acceptCategorySuggestions,
   archiveEntity,
+  suggestCategories,
+  type CategorySuggestion,
   LOAN_KINDS,
   loanSummary,
   budgetFromRecurring,
@@ -106,6 +109,7 @@ function Transactions() {
 
   return (
     <div>
+      <CategorySuggestions />
       <div className="row filters">
         <SearchBox value={text} onChange={setText} placeholder="Søg i posteringstekst" />
         <label className="inline-label">
@@ -974,6 +978,83 @@ function Loans() {
             onCancel={() => setCreating(false)}
           />
         </Modal>
+      )}
+    </div>
+  );
+}
+
+/** Phase 4.2: suggestions for transactions without category, accepted one by one or all at once. */
+function CategorySuggestions() {
+  const session = useSession();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [makeRule, setMakeRule] = useState(true);
+  const q = useQuery({ queryKey: ["bank_transaction", "suggestions"], queryFn: () => suggestCategories(session.archive.db) });
+  const accept = useMutation({
+    mutationFn: (items: CategorySuggestion[]) => acceptCategorySuggestions(session.ctx(), items, { makeRule }),
+    onSuccess: async (n) => {
+      toast(`${n} ${n === 1 ? "postering" : "posteringer"} har fået kategori${makeRule ? ", og fremtidige posteringer kategoriseres automatisk" : ""}`);
+      await qc.invalidateQueries({ queryKey: ["bank_transaction"] });
+      await qc.invalidateQueries({ queryKey: ["dashboard"] });
+      await qc.invalidateQueries({ queryKey: ["budget"] });
+    },
+    onError: (e) => toast(errorText(e), "error"),
+  });
+  const items = q.data ?? [];
+  if (items.length === 0) return null;
+  const ro = session.archive.readOnly;
+  return (
+    <div className="panel module" style={{ ["--mc" as string]: "var(--c-finance)" }} role="region" aria-label="Forslag til kategorier">
+      <div className="header-row">
+        <h2 style={{ margin: 0 }}>Forslag til kategorier ({items.length})</h2>
+        <div className="row">
+          <button className="primary" disabled={ro || accept.isPending} onClick={() => accept.mutate(items)}>
+            Godkend alle
+          </button>
+          <button onClick={() => setOpen(!open)} aria-expanded={open}>
+            {open ? "Skjul" : "Vis"} forslag
+          </button>
+        </div>
+      </div>
+      <p className="small muted">
+        Posteringer uden kategori, som ligner nogle, du har kategoriseret før (samme modtager, tal og datoer fjernet), eller som en regel passer på.
+      </p>
+      <label className="inline small">
+        <input type="checkbox" checked={makeRule} onChange={(e) => setMakeRule(e.target.checked)} /> Lav også en regel, så fremtidige posteringer fra samme modtager får kategorien automatisk
+      </label>
+      {open && (
+        <table className="list">
+          <thead>
+            <tr>
+              <th>Dato</th>
+              <th>Tekst</th>
+              <th className="num">Beløb</th>
+              <th>Forslag</th>
+              <th>
+                <span className="sr-only">Handlinger</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((x) => (
+              <tr key={x.transaction_id}>
+                <td>{formatDate(x.booking_date)}</td>
+                <td>{x.text}</td>
+                <td className="num">{formatMoney(x.amount_minor)}</td>
+                <td>
+                  {x.category_name}
+                  <div className="small muted">{x.source === "rule" ? "fra en regel" : `som ${x.count} tidligere ${x.count === 1 ? "postering" : "posteringer"}`}</div>
+                </td>
+                <td>
+                  <button className="link" disabled={ro || accept.isPending} onClick={() => accept.mutate([x])} aria-label={`Godkend ${x.category_name} for ${x.text}`} title="Godkend forslaget">
+                    Godkend
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
