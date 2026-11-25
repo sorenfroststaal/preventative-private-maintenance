@@ -39,7 +39,17 @@ Branchen indeholder merge af `main` efter PR #3. Migration 0001 er byteidentisk 
 
 **Udestår til Søren:** Det manuelle Windows 10/11-forløb (07, trin 1–7) og det samlede tastaturforløb (kriterium 12).
 
+## Fase 2b · Madplan
+
+1. Migration 0002 er med i arkivprocessen. Testen kontrollerer skemafilerne, opgradering fra version 1, bevarelse af modulvalg og gentagen åbning.
+
+3. Ingrediens-parseren dækker alle syv eksempler i spec 05 samt brøk, store bogstaver og bevarelse af den oprindelige tekst. Lokal lint og 54 Vitest-tests bestod. Vite-buildet bestod. Lokal pakning stoppede ved Tauri, fordi Cargo manglede.
+
+Kriterium 2 og 4–10 udestår.
+
 ## Byg og manuel afprøvning
+
+- CI for `eb99496` bestod på Linux og Windows. Selve `PPM_0.1.0_x64-setup.exe` var **27.416.764 byte**. [CI-kørsel](https://github.com/sorenfroststaal/preventative-private-maintenance/actions/runs/45509965668)
 
 - **CI for `9e4d923`**. Linux og Windows bestod. 45 Vitest-tests og én Rust-test på Windows. Selve `PPM_0.1.0_x64-setup.exe` var **27.410.343 byte**. På Windows x64 tog de tre starter af release-appen **6.518, 993 og 1.002 ms** fra processtart til den aktive knap på velkomstskærmen. Median **1.002 ms**. [CI-kørsel](https://github.com/sorenfroststaal/preventative-private-maintenance/actions/runs/45501675854)
 

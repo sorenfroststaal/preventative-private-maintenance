@@ -174,7 +174,7 @@ it('exports the public schema metadata with private PIN hashes omitted and check
   await expect(exportFile(archive, { format: 'csv', table: 'audit_log' }, household)).rejects.toThrow('administratoren');
   const output = await exportFile(archive, { format: 'json', table: 'all' }, admin);
   const data = JSON.parse(await readFile(output, 'utf8'));
-  expect(data.schemaVersion).toBe(1);
+  expect(data.schemaVersion).toBe(2);
   expect(data.tables.app_user).toMatchObject([{ pin_hash: null }, { pin_hash: null }]);
   expect(data.tables.search_index).toEqual([]);
   expect(data.tables.search_index_data).toBeUndefined();

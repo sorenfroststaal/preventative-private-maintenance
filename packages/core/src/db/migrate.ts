@@ -1,6 +1,6 @@
 import type { DbAdapter } from './adapter';
 
-export const schemaVersion = 1;
+export const schemaVersion = 2;
 export const now = () => new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
 
 export async function databaseVersion(db: DbAdapter) {
@@ -12,13 +12,19 @@ export async function databaseVersion(db: DbAdapter) {
   return row.version ?? 0;
 }
 
-export async function migrate(db: DbAdapter, initialSql: string) {
-  const version = await databaseVersion(db);
-  if (version >= schemaVersion) return version;
-  await db.transaction(async (tx) => {
-    if (await databaseVersion(tx) === schemaVersion) return;
-    await tx.executeScript(initialSql);
-    await tx.execute('INSERT INTO schema_migrations VALUES (?, ?)', [schemaVersion, now()]);
+export async function migrate(db: DbAdapter, scripts: string[]) {
+  return db.transaction(async tx => {
+    let version = await databaseVersion(tx);
+    for (const script of scripts.slice(version)) {
+      if (version === 1) {
+        const modules = { home: true, maintenance: true, vehicle: true, finance: true,
+          insurance: true, health: false, documents: true };
+        await tx.execute('INSERT OR IGNORE INTO setting (key, value_json) VALUES (?, ?)', ['ai.modules', JSON.stringify(modules)]);
+      }
+      await tx.executeScript(script);
+      version += 1;
+      await tx.execute('INSERT INTO schema_migrations VALUES (?, ?)', [version, now()]);
+    }
+    return version;
   });
-  return schemaVersion;
 }

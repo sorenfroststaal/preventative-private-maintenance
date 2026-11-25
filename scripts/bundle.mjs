@@ -13,7 +13,9 @@ await build({
   target: 'node24',
   banner: { js: 'import { createRequire as runtimeRequire } from "node:module"; const require = runtimeRequire(import.meta.url);' },
 });
-copyFileSync('packages/core/migrations/0001_init.sql', destination + '/0001_init.sql');
+for (const file of ['0001_init.sql', '0002_meal_plan.sql']) {
+  copyFileSync('packages/core/migrations/' + file, destination + '/' + file);
+}
 copyFileSync('node_modules/better-sqlite3/prebuilds/' + process.platform + '-' + process.arch + '.node', destination + '/better_sqlite3.node');
 if (process.platform === 'win32') {
   copyFileSync(process.execPath, destination + '/node.exe');

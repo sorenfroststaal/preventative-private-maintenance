@@ -7,7 +7,10 @@ import { insideArchive } from './scoped-path';
 import { BetterSqliteAdapter } from './db/better-sqlite';
 import { databaseVersion, migrate, now, schemaVersion } from './db/migrate';
 
-export const migration = () => readFile(process.env.PPM_RUNTIME_DIR ? join(process.env.PPM_RUNTIME_DIR, '0001_init.sql') : new URL('../migrations/0001_init.sql', import.meta.url), 'utf8');
+export const migrationFiles = ['0001_init.sql', '0002_meal_plan.sql'] as const;
+export const migration = (name: typeof migrationFiles[number]) => readFile(process.env.PPM_RUNTIME_DIR
+  ? join(process.env.PPM_RUNTIME_DIR, name)
+  : new URL('../migrations/' + name, import.meta.url), 'utf8');
 export const archiveDirectories = ['bilag', 'indbakke/importeret', 'indbakke/ai', 'eksport'];
 export const manifestSchema = z.object({
   format: z.literal('ppm-archive'),
@@ -115,7 +118,7 @@ export async function openArchive(path: string, options: { create?: boolean; con
       release = await acquireLock(root, options.confirmStale);
     }
     db = new BetterSqliteAdapter(databasePath);
-    const version = await migrate(db, await migration());
+    const version = await migrate(db, await Promise.all(migrationFiles.map(migration)));
     if (version > schemaVersion) throw new Error('Arkivet blev opdateret, mens det blev åbnet.');
     if (options.create) {
       for (const name of archiveDirectories) await mkdir(join(root, name), { recursive: true });

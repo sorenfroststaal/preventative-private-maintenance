@@ -37,7 +37,7 @@ async function createArchive() {
 it('creates the archive layout and opens it again', async () => {
   const archive = await createArchive();
   expect(JSON.parse(await readFile(join(archive.root, 'manifest.json'), 'utf8'))).toMatchObject({
-    format: 'ppm-archive', formatVersion: 1, schemaVersion: 1,
+    format: 'ppm-archive', formatVersion: 1, schemaVersion: 2,
   });
   for (const dir of archiveDirectories) expect(await readdir(join(archive.root, dir))).toBeDefined();
   await archive.close();
@@ -50,14 +50,20 @@ it('creates the archive layout and opens it again', async () => {
 });
 
 it('applies the exact first migration once', async () => {
-  const sql = await migration();
+  const sql = await migration('0001_init.sql');
+  const second = await migration('0002_meal_plan.sql');
+  expect(second).toBe(await readFile(new URL('../../../docs/spec/schema-0002.sql', import.meta.url), 'utf8'));
   expect(sql).toBe(await readFile(new URL('../../../docs/spec/schema.sql', import.meta.url), 'utf8'));
   const db = new BetterSqliteAdapter(':memory:');
   try {
-    await expect(migrate(db, sql)).resolves.toBe(1);
+    await expect(migrate(db, [sql])).resolves.toBe(1);
+    await db.execute('INSERT INTO setting VALUES (?, ?)', ['ai.modules', '{"home":false}']);
+    await expect(migrate(db, [sql, second])).resolves.toBe(2);
+    const [modules] = await db.select<{ value_json: string }>("SELECT value_json FROM setting WHERE key = 'ai.modules'");
+    expect(JSON.parse(modules.value_json)).toEqual({ home: false, food: true });
     const initial = await db.select('SELECT * FROM schema_migrations');
     const changes = await db.select('SELECT total_changes() AS count');
-    await expect(migrate(db, sql)).resolves.toBe(1);
+    await expect(migrate(db, [sql, second])).resolves.toBe(2);
     expect(await db.select('SELECT * FROM schema_migrations')).toEqual(initial);
     expect(await db.select('SELECT total_changes() AS count')).toEqual(changes);
   } finally {
@@ -68,7 +74,7 @@ it('applies the exact first migration once', async () => {
 it('rolls back a partially applied migration', async () => {
   const db = new BetterSqliteAdapter(':memory:');
   try {
-    await expect(migrate(db, 'CREATE TABLE example (id INTEGER); INVALID SQL;')).rejects.toThrow();
+    await expect(migrate(db, ['CREATE TABLE example (id INTEGER); INVALID SQL;'])).rejects.toThrow();
     expect(await db.select("SELECT name FROM sqlite_master WHERE name = 'example'")).toEqual([]);
   } finally {
     db.close();
@@ -77,14 +83,14 @@ it('rolls back a partially applied migration', async () => {
 
 it('opens a newer database read-only without changing its manifest', async () => {
   const archive = await createArchive();
-  await archive.db.execute("INSERT INTO schema_migrations VALUES (2, '2026-11-24T18:10:00Z')");
+  await archive.db.execute("INSERT INTO schema_migrations VALUES (3, '2026-11-24T18:10:00Z')");
   await archive.close();
   archives.pop();
   const reopen = await openArchive(archive.root);
   archives.push(reopen);
   expect(reopen.readonly).toBe(true);
   await expect(reopen.db.execute('DELETE FROM schema_migrations')).rejects.toThrow();
-  expect(JSON.parse(await readFile(join(archive.root, 'manifest.json'), 'utf8')).schemaVersion).toBe(1);
+  expect(JSON.parse(await readFile(join(archive.root, 'manifest.json'), 'utf8')).schemaVersion).toBe(2);
 });
 
 it('refuses a second writer while a live process holds the lock', async () => {
