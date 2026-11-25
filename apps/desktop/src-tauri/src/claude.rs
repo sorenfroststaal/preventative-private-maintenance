@@ -294,7 +294,11 @@ mod tests {
         // With an archive in config.json (set PPM_TEST_ARCHIVE to a seed archive): full handshake.
         if let Ok(archive) = std::env::var("PPM_TEST_ARCHIVE") {
             std::fs::create_dir_all(dir.path().join("ppm")).unwrap();
-            std::fs::write(dir.path().join("ppm/config.json"), json!({ "archivePath": archive }).to_string()).unwrap();
+            std::fs::write(
+                dir.path().join("ppm/config.json"),
+                json!({ "archivePath": archive }).to_string(),
+            )
+            .unwrap();
             let ok = mcp_selftest(&bin, Duration::from_secs(20)).unwrap();
             assert_eq!(ok.server, "ppm");
             assert_eq!(ok.tools, 14);
