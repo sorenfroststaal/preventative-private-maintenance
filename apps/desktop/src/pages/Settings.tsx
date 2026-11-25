@@ -25,7 +25,7 @@ import {
   readAiAccess,
   type AiModule,
 } from "@ppm/core";
-import { mcpInfo, openMcpBundle } from "../platform/tauri";
+import { claudeDesktopAdd, mcpInfo, mcpSelftest, openMcpBundle } from "../platform/tauri";
 import { errorText, useSession } from "../app/session";
 import { pickDirectory, pickFiles } from "../platform/tauri";
 import { formatDateTime } from "../lib/format";
@@ -512,6 +512,9 @@ function AiAccessPanel() {
   const ro = session.archive.readOnly;
   const a = access.data;
   const [mcpbPath, setMcpbPath] = useState<string | null>(null);
+  const [claudeResult, setClaudeResult] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
   const desktopConfig = JSON.stringify({ mcpServers: { ppm: { command: info.data?.binaryPath ?? "ppm-mcp" } } }, null, 2);
   return (
     <div className="panel">
@@ -550,36 +553,81 @@ function AiAccessPanel() {
         Formaterne er senest kontrolleret mod udbydernes dokumentation {CHANNELS_VERIFIED}. {info.data?.binaryPath ? <>Binæren ligger i <code>{info.data.binaryPath}</code> og er lagt i din PATH ved installationen.</> : "Binæren følger med installationen af appen."}
       </p>
       <h4>Claude Desktop</h4>
-      <ol className="small">
-        <li>
-          Enten: klik på knappen. Filen <code>ppm.mcpb</code> laves og vises i Stifinder. Træk den ind i Claude Desktop under indstillingerne for udvidelser.
-        </li>
-        <li>
-          Eller: åbn Claude Desktop → Indstillinger → Developer → <em>Edit Config</em>, indsæt konfigurationen nedenfor, gem, og genstart Claude Desktop helt.
-        </li>
-      </ol>
       <div className="row">
         <button
           className="primary"
-          disabled={!info.data?.bundlePath}
+          disabled={!info.data?.binaryPath || busy}
           onClick={async () => {
+            setBusy(true);
             try {
-              setMcpbPath(await openMcpBundle());
+              const r = await claudeDesktopAdd();
+              setClaudeResult(
+                `PPM er tilføjet i ${r.written.join(" og ")}.${r.backups.length ? " Den tidligere fil er gemt som claude_desktop_config.json.ppm-backup." : ""}${r.claudeNotFound ? " Claude Desktop ser ikke ud til at være installeret endnu – filen er lavet, så PPM er klar, når det bliver det." : ""} Luk Claude Desktop helt (også ikonet ved uret), og start det igen.`,
+              );
             } catch (e) {
+              setClaudeResult(null);
               toast(errorText(e), "error");
+            } finally {
+              setBusy(false);
             }
           }}
         >
-          Lav ppm.mcpb til Claude Desktop
+          Tilføj PPM til Claude Desktop
         </button>
-        {!info.data?.bundlePath && <span className="small muted">Kun i den installerede app.</span>}
+        <button
+          disabled={!info.data?.binaryPath || busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              const r = await mcpSelftest();
+              setTestResult({ ok: true, text: `Forbindelsen virker: serveren "${r.server}" svarer med ${r.tools} værktøjer.` });
+            } catch (e) {
+              setTestResult({ ok: false, text: `Forbindelsen virker ikke: ${errorText(e)}` });
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Test forbindelsen
+        </button>
+        {!info.data?.binaryPath && <span className="small muted">Kun i den installerede app.</span>}
       </div>
-      {mcpbPath && (
+      {claudeResult && (
         <p className="small" role="status">
-          Filen ligger i <code>{mcpbPath}</code> og er vist i Stifinder. Træk den ind i Claude Desktop.
+          {claudeResult}
         </p>
       )}
-      <CopyBlock label="Konfiguration til claude_desktop_config.json:" text={desktopConfig} />
+      {testResult && (
+        <p className={`small ${testResult.ok ? "" : "error"}`} role="status">
+          {testResult.text}
+        </p>
+      )}
+      <p className="small muted">
+        Spørg derefter Claude fx: "Hvad står der på mit overblik i PPM?" Claude beder om lov første gang, et værktøj bruges.
+      </p>
+      <details className="small">
+        <summary>Andre måder: udvidelse (.mcpb) eller manuel konfiguration</summary>
+        <div className="row" style={{ margin: "0.5rem 0" }}>
+          <button
+            disabled={!info.data?.bundlePath}
+            onClick={async () => {
+              try {
+                setMcpbPath(await openMcpBundle());
+              } catch (e) {
+                toast(errorText(e), "error");
+              }
+            }}
+          >
+            Lav ppm.mcpb til Claude Desktop
+          </button>
+        </div>
+        {mcpbPath && (
+          <p role="status">
+            Filen ligger i <code>{mcpbPath}</code> og er vist i Stifinder. Træk den ind i Claude Desktop under indstillingerne for udvidelser.
+          </p>
+        )}
+        <CopyBlock label="Konfiguration til claude_desktop_config.json (Claude Desktop → Indstillinger → Developer → Edit Config):" text={desktopConfig} />
+      </details>
       <h4>Claude Code</h4>
       <CopyBlock label="Kør i Claude Code:" text={`/plugin marketplace add ${MARKETPLACE_REPO}\n/plugin install ppm@ppm`} />
       <h4>Codex og ChatGPT desktop</h4>

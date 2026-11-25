@@ -1,3 +1,4 @@
+mod claude;
 mod db;
 mod files;
 mod scope;
@@ -148,6 +149,34 @@ fn open_mcp_bundle(app: AppHandle) -> R<String> {
             .map_err(|e| e.to_string())?;
     }
     Ok(path.to_string_lossy().into_owned())
+}
+
+fn mcp_binary(app: &AppHandle) -> R<PathBuf> {
+    let exe = if cfg!(windows) {
+        "ppm-mcp.exe"
+    } else {
+        "ppm-mcp"
+    };
+    mcp_resource(app, exe).ok_or_else(|| {
+        "ppm-mcp følger ikke med denne installation (kun i den installerede app).".to_string()
+    })
+}
+
+/// "Tilføj PPM til Claude Desktop": writes mcpServers.ppm into claude_desktop_config.json.
+#[tauri::command]
+fn claude_desktop_add(app: AppHandle) -> R<claude::ClaudeConfigResult> {
+    claude::add_to_claude_desktop(&mcp_binary(&app)?)
+}
+
+/// "Test forbindelsen": starts ppm-mcp like an MCP client and does the handshake.
+#[tauri::command]
+async fn mcp_selftest(app: AppHandle) -> R<claude::SelfTest> {
+    let bin = mcp_binary(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        claude::mcp_selftest(&bin, std::time::Duration::from_secs(20))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -404,6 +433,8 @@ pub fn run() {
             app_info,
             mcp_info,
             open_mcp_bundle,
+            claude_desktop_add,
+            mcp_selftest,
             config_read,
             config_write,
             process_alive,

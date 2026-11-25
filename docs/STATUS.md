@@ -91,6 +91,8 @@ Fundet og rettet under E2E: typenavne stod på engelsk i AI-indbakken ("item", "
 
 **Claude Desktop-knappen (fundet ved brugerens test):** Windows viste "Vælg en app for at åbne denne .mcpb fil", fordi filtypen ikke var knyttet til Claude Desktop. Stierne havde desuden Windows' præfiks `\\?\` (fra Tauris ressourcemappe), også i den kopierbare konfiguration. Nu fjernes præfikset (Rust-test). Knappen hedder *Lav ppm.mcpb til Claude Desktop* og viser filen markeret i Stifinder, så den kan trækkes ind i Claude Desktop. Siden forklarer begge veje (udvidelse eller `claude_desktop_config.json`). Claude Desktop er stadig ikke afprøvet med en rigtig klient.
 
+**Claude Desktop gjort let (brugerens ønske):** Indstillinger → AI-adgang har nu *Tilføj PPM til Claude Desktop*. Knappen skriver `mcpServers.ppm` ind i `claude_desktop_config.json` (`%APPDATA%\Claude`, og på Windows også Microsoft Store-versionens pakkemappe, hvis den findes). Andre indstillinger og servere bevares, og den tidligere fil gemmes som `.ppm-backup`. *Test forbindelsen* starter `ppm-mcp` som en MCP-klient og gennemfører `initialize` og `tools/list`. Rust-tests: sammenfletning af konfigurationen, afvisning af ødelagt JSON og selvtest mod den byggede binær (fejl uden arkiv, håndtryk med 14 værktøjer med arkiv). E2E i den rigtige app (`phase3.mjs`, 14/14): selvtesten svarer med 14 værktøjer, og konfigurationsfilen er skrevet med de eksisterende poster bevaret. Om Claude Desktop selv indlæser serveren, er ikke afprøvet herfra.
+
 **Ønsker fra brugerens test (bygget):**
 
 - Fotos og kvittering kan vælges allerede i *Ny genstand*. Fotos kan vælges i *Ny bygningsdel*, *Ny bil* og *Tilføj reservedel*. Detaljevisningen viser fotos som miniaturer med *Flere fotos…*.
@@ -108,8 +110,8 @@ CI laver nu også artefaktet `ppm-demo-backup` med syntetiske demodata, som kan 
 | core (Vitest) | 136 (heraf 29 for madplan og 14 for AI/MCP i `ai.test.ts`) | Grøn |
 | mcp-server (Vitest) | 4 (protokol, `tools/list`, log og versionsfejl) | Grøn |
 | desktop (Vitest) | 29 (kontrast, renderede sider, AI-indbakke og AI-adgang) | Grøn |
-| Rust (`cargo test`) | 12 (+1 ignoreret måletest) | Grøn |
-| **I alt** | **181** | **Grøn** |
+| Rust (`cargo test`) | 17 (+1 ignoreret måletest) | Grøn |
+| **I alt** | **193** | **Grøn** |
 
 ESLint, `tsc -b`, `cargo fmt --check` og `cargo clippy -D warnings` er rene.
 

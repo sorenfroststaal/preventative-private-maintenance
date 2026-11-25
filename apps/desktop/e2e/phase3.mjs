@@ -125,7 +125,22 @@ try {
   await js("document.querySelector('h2') && [...document.querySelectorAll('h2')].find(h => h.textContent === 'AI-adgang')?.scrollIntoView()");
   await sleep(300);
   await shot("indstillinger-ai");
-  await click("//button[normalize-space()='Lav ppm.mcpb til Claude Desktop']");
+  // Claude Desktop: self-test and writing claude_desktop_config.json (existing entries kept).
+  const claudeDir = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "Claude");
+  mkdirSync(claudeDir, { recursive: true });
+  writeFileSync(join(claudeDir, "claude_desktop_config.json"), JSON.stringify({ globalShortcut: "Ctrl+Space", mcpServers: { andet: { command: "x" } } }));
+  await click("//button[normalize-space()='Test forbindelsen']");
+  step("Test forbindelsen", await waitText("Forbindelsen virker: serveren \"ppm\" svarer med 14 værktøjer", 25000));
+  await click("//button[normalize-space()='Tilføj PPM til Claude Desktop']");
+  await waitText("PPM er tilføjet");
+  const cfg = JSON.parse(readFileSync(join(claudeDir, "claude_desktop_config.json"), "utf8"));
+  step(
+    "Tilføj PPM til Claude Desktop",
+    cfg.globalShortcut === "Ctrl+Space" && cfg.mcpServers.andet.command === "x" && cfg.mcpServers.ppm.command.endsWith("ppm-mcp") && existsSync(join(claudeDir, "claude_desktop_config.json.ppm-backup")),
+    cfg.mcpServers.ppm.command,
+  );
+  await shot("indstillinger-claude");
+  await click("//summary[contains(., 'Andre måder')]"); await click("//button[normalize-space()='Lav ppm.mcpb til Claude Desktop']");
   await sleep(1500);
   const cache = join(process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"), "dk.ppm.desktop", "ppm.mcpb");
   const ok = existsSync(cache) && readFileSync(cache).subarray(0, 2).toString() === "PK";

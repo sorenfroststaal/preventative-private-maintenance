@@ -161,3 +161,13 @@ export interface McpInfo {
 export const mcpInfo = () => invoke<McpInfo>("mcp_info");
 /** Builds ppm.mcpb from the installed binary and opens it (Claude Desktop installs it). Returns its path. */
 export const openMcpBundle = () => invoke<string>("open_mcp_bundle");
+
+export interface ClaudeConfigResult {
+  written: string[];
+  backups: string[];
+  claudeNotFound: boolean;
+}
+/** Writes PPM into Claude Desktop's claude_desktop_config.json (other entries are kept, a backup is made). */
+export const claudeDesktopAdd = () => invoke<ClaudeConfigResult>("claude_desktop_add");
+/** Starts ppm-mcp like an MCP client and does initialize + tools/list. */
+export const mcpSelftest = () => invoke<{ server: string; tools: number; instructionsChars: number }>("mcp_selftest");
