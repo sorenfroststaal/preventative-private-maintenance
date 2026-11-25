@@ -4,7 +4,6 @@ import { createReadStream, createWriteStream, mkdirSync, promises as fsp, consta
 import { hostname } from "node:os";
 import { basename, dirname, join, resolve, sep, isAbsolute } from "node:path";
 import { Unzip, UnzipInflate, Zip, ZipDeflate, ZipPassThrough } from "fflate";
-import { nodePdfText } from "./pdftext";
 import { SerializedDb, type ClosableDb, type RawExecutor, type SqlValue } from "../db/adapter";
 import { randomId, systemClock, type Clock, type Env, type FileSystem, type Platform, type Zipper } from "../env";
 
@@ -34,8 +33,22 @@ class BetterSqliteExecutor implements RawExecutor {
   }
 }
 
+/**
+ * The loaded better-sqlite3 native addon to use instead of the default lookup. The
+ * self-contained ppm-mcp binary (Node SEA) cannot `require` files, so it loads the addon
+ * shipped next to the executable with process.dlopen and sets it here.
+ */
+let nativeBinding: object | undefined;
+export function setSqliteNativeBinding(addon: object | undefined): void {
+  nativeBinding = addon;
+}
+
 export async function openBetterSqlite(path: string, opts: { readonly?: boolean } = {}): Promise<ClosableDb> {
-  const db = new Database(path, { readonly: opts.readonly ?? false, fileMustExist: opts.readonly ?? false });
+  const db = new Database(path, {
+    readonly: opts.readonly ?? false,
+    fileMustExist: opts.readonly ?? false,
+    ...(nativeBinding ? { nativeBinding: nativeBinding as never } : {}),
+  });
   return new SerializedDb(new BetterSqliteExecutor(db));
 }
 
@@ -206,7 +219,8 @@ export function nodeEnv(overrides: Partial<Env> & { clock?: Clock } = {}): Env {
     openDb: openBetterSqlite,
     clock: systemClock,
     newId: randomId,
-    pdfText: nodePdfText,
+    // Loaded lazily so that consumers without PDF needs (the MCP binary) do not load pdf.js.
+    pdfText: async (bytes) => (await import("./pdftext")).nodePdfText(bytes),
     ...overrides,
   };
 }

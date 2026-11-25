@@ -5,6 +5,7 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   changeWorkOrderStatus,
   createArchive,
@@ -14,6 +15,7 @@ import {
   importDocument,
   linkDocument,
   makeCtx,
+  setSetting,
   addDays,
   addMonths,
   createRecipe,
@@ -22,6 +24,7 @@ import {
   updateRecipe,
   weekStart,
   type Ctx,
+  type Env,
   type Row,
 } from "../src";
 import { nodeEnv } from "../src/node";
@@ -66,21 +69,23 @@ function syntheticPng(seed: number): Uint8Array {
 
 const kr = (n: number) => Math.round(n * 100);
 
-async function main() {
-  const target = arg("archive");
-  if (!target) {
-    console.error("Brug: pnpm seed -- --archive <sti>");
-    process.exit(1);
-  }
-  const root = resolve(target);
-  const env = nodeEnv();
+export interface DemoInfo {
+  root: string;
+  annaUserId: string;
+  boUserId: string;
+}
+
+/** Creates the synthetic demo archive (also used by tests, e.g. the MCP tools). */
+export async function createDemoArchive(env: Env, root: string): Promise<DemoInfo> {
   const archive = await createArchive(env, root, { appVersion: "0.1.0-seed" });
   const sys = makeCtx(env, archive.db, null, "system");
   const tmp = mkdtempSync(join(tmpdir(), "ppm-seed-"));
 
   const { user: anna, person: annaP } = await createUser(sys, { name: "Anna Eksempel", isAdmin: true });
-  const { person: boP } = await createUser(sys, { name: "Bo Eksempel", pin: "1234", relation: "partner" });
+  const { user: bo, person: boP } = await createUser(sys, { name: "Bo Eksempel", pin: "1234", relation: "partner" });
   const ctx: Ctx = makeCtx(env, archive.db, String(anna.id), "ui");
+  // AI (MCP) acts as Anna (spec 03 `ai.as_user_id`).
+  await setSetting(sys, "ai.as_user_id", String(anna.id));
   const ida = await createEntity(ctx, "person", { name: "Ida Eksempel", relation: "barn", birth_year: 2018 });
 
   const doc = async (name: string, data: Uint8Array, target: { type: string; id: unknown; role: string }) => {
@@ -311,6 +316,17 @@ async function main() {
   await generateShoppingList(ctx, monday);
 
   await archive.close();
+  return { root, annaUserId: String(anna.id), boUserId: String(bo.id) };
+}
+
+async function main() {
+  const target = arg("archive");
+  if (!target) {
+    console.error("Brug: pnpm seed -- --archive <sti>");
+    process.exit(1);
+  }
+  const root = resolve(target);
+  await createDemoArchive(nodeEnv(), root);
   console.log(`Demoarkiv oprettet i ${root}`);
   console.log("Brugere: 'Anna Eksempel' (admin, ingen PIN) og 'Bo Eksempel' (PIN 1234). Alle data er syntetiske.");
 }
@@ -326,7 +342,9 @@ function addYears(date: string, n: number): string {
   return `${Number(y) + n}-${m}-${d}`;
 }
 
-main().catch((e) => {
-  console.error(e instanceof Error ? e.message : e);
-  process.exit(1);
-});
+if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+  main().catch((e) => {
+    console.error(e instanceof Error ? e.message : e);
+    process.exit(1);
+  });
+}

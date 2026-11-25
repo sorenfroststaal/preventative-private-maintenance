@@ -136,6 +136,19 @@ export async function openArchive(env: Env, root: string, opts: OpenOptions): Pr
   }
 }
 
+/**
+ * Opens an archive for the MCP server (spec 06): no lock, no migrations, no folders
+ * created. The version check happens per tool call.
+ */
+export async function openArchiveForAi(env: Env, root: string): Promise<Archive> {
+  const manifest = await readManifest(env, root);
+  const file = archivePath(env, root, "arkiv.sqlite");
+  if (!(await env.fs.exists(file))) throw new ArchiveError("arkiv.sqlite mangler i arkivmappen.", "not_an_archive");
+  const db = await env.openDb(file);
+  await applyPragmas(db);
+  return { root, db, manifest, readOnly: false, path: (...parts) => archivePath(env, root, ...parts), close: () => db.close() };
+}
+
 export { APP_SCHEMA_VERSION };
 
 const CLOUD_MARKERS = ["onedrive", "dropbox", "google drive", "googledrive", "icloud drive", "iclouddrive", "icloud"];
