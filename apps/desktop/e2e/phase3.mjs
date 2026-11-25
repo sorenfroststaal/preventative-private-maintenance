@@ -125,11 +125,11 @@ try {
   await js("document.querySelector('h2') && [...document.querySelectorAll('h2')].find(h => h.textContent === 'AI-adgang')?.scrollIntoView()");
   await sleep(300);
   await shot("indstillinger-ai");
-  await click("//button[normalize-space()='Installér i Claude Desktop']");
+  await click("//button[normalize-space()='Lav ppm.mcpb til Claude Desktop']");
   await sleep(1500);
   const cache = join(process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"), "dk.ppm.desktop", "ppm.mcpb");
   const ok = existsSync(cache) && readFileSync(cache).subarray(0, 2).toString() === "PK";
-  step("Installér i Claude Desktop bygger ppm.mcpb", ok, cache);
+  step("Lav ppm.mcpb til Claude Desktop bygger filen", ok, cache);
 } catch (e) {
   step("Uventet fejl", false, e.message);
   await shot("fejl3").catch(() => undefined);

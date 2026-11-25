@@ -89,6 +89,8 @@ Fundet og rettet under E2E: typenavne stod på engelsk i AI-indbakken ("item", "
 
 **Installerens danske tekster manglede.** Siden "allerede installeret" viste radioknapper uden tekst, valget om skrivebordsgenvej var tomt, og boksen "PPM kører" havde ingen tekst. Tauri leverer NSIS-tekster til 23 sprog, men ikke dansk. Nu ligger `windows/Danish.nsh` med alle 28 nøgler fra Tauris engelske fil og er sat som `customLanguageFiles`. Filen er kompileret med `makensis -WX`.
 
+**Claude Desktop-knappen (fundet ved brugerens test):** Windows viste "Vælg en app for at åbne denne .mcpb fil", fordi filtypen ikke var knyttet til Claude Desktop. Stierne havde desuden Windows' præfiks `\\?\` (fra Tauris ressourcemappe), også i den kopierbare konfiguration. Nu fjernes præfikset (Rust-test). Knappen hedder *Lav ppm.mcpb til Claude Desktop* og viser filen markeret i Stifinder, så den kan trækkes ind i Claude Desktop. Siden forklarer begge veje (udvidelse eller `claude_desktop_config.json`). Claude Desktop er stadig ikke afprøvet med en rigtig klient.
+
 **Ønsker fra brugerens test (bygget):**
 
 - Fotos og kvittering kan vælges allerede i *Ny genstand*. Fotos kan vælges i *Ny bygningsdel*, *Ny bil* og *Tilføj reservedel*. Detaljevisningen viser fotos som miniaturer med *Flere fotos…*.

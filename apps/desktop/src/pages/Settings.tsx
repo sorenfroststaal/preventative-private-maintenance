@@ -511,6 +511,7 @@ function AiAccessPanel() {
   };
   const ro = session.archive.readOnly;
   const a = access.data;
+  const [mcpbPath, setMcpbPath] = useState<string | null>(null);
   const desktopConfig = JSON.stringify({ mcpServers: { ppm: { command: info.data?.binaryPath ?? "ppm-mcp" } } }, null, 2);
   return (
     <div className="panel">
@@ -549,24 +550,36 @@ function AiAccessPanel() {
         Formaterne er senest kontrolleret mod udbydernes dokumentation {CHANNELS_VERIFIED}. {info.data?.binaryPath ? <>Binæren ligger i <code>{info.data.binaryPath}</code> og er lagt i din PATH ved installationen.</> : "Binæren følger med installationen af appen."}
       </p>
       <h4>Claude Desktop</h4>
+      <ol className="small">
+        <li>
+          Enten: klik på knappen. Filen <code>ppm.mcpb</code> laves og vises i Stifinder. Træk den ind i Claude Desktop under indstillingerne for udvidelser.
+        </li>
+        <li>
+          Eller: åbn Claude Desktop → Indstillinger → Developer → <em>Edit Config</em>, indsæt konfigurationen nedenfor, gem, og genstart Claude Desktop helt.
+        </li>
+      </ol>
       <div className="row">
         <button
           className="primary"
           disabled={!info.data?.bundlePath}
           onClick={async () => {
             try {
-              await openMcpBundle();
-              toast("ppm.mcpb er åbnet. Bekræft installationen i Claude Desktop.");
+              setMcpbPath(await openMcpBundle());
             } catch (e) {
               toast(errorText(e), "error");
             }
           }}
         >
-          Installér i Claude Desktop
+          Lav ppm.mcpb til Claude Desktop
         </button>
         {!info.data?.bundlePath && <span className="small muted">Kun i den installerede app.</span>}
       </div>
-      <CopyBlock label="Eller indsæt i claude_desktop_config.json:" text={desktopConfig} />
+      {mcpbPath && (
+        <p className="small" role="status">
+          Filen ligger i <code>{mcpbPath}</code> og er vist i Stifinder. Træk den ind i Claude Desktop.
+        </p>
+      )}
+      <CopyBlock label="Konfiguration til claude_desktop_config.json:" text={desktopConfig} />
       <h4>Claude Code</h4>
       <CopyBlock label="Kør i Claude Code:" text={`/plugin marketplace add ${MARKETPLACE_REPO}\n/plugin install ppm@ppm`} />
       <h4>Codex og ChatGPT desktop</h4>

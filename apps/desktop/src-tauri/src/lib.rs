@@ -48,6 +48,19 @@ struct McpInfo {
     bundle_path: Option<String>,
 }
 
+/// Removes Windows' verbatim prefix (`\\?\C:\…`, `\\?\UNC\server\…`), which the resource
+/// and cache dirs can carry. Such paths are shown to the user and pasted into AI client configs.
+fn plain_path(p: PathBuf) -> PathBuf {
+    let s = p.to_string_lossy();
+    if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{rest}"));
+    }
+    if let Some(rest) = s.strip_prefix(r"\\?\") {
+        return PathBuf::from(rest);
+    }
+    p
+}
+
 fn mcp_resource(app: &AppHandle, name: &str) -> Option<PathBuf> {
     let p = app
         .path()
@@ -56,7 +69,7 @@ fn mcp_resource(app: &AppHandle, name: &str) -> Option<PathBuf> {
         .join("resources")
         .join("mcp")
         .join(name);
-    p.is_file().then_some(p)
+    p.is_file().then(|| plain_path(p))
 }
 
 #[tauri::command]
@@ -85,7 +98,7 @@ fn build_mcpb(app: &AppHandle) -> R<PathBuf> {
     let binary = mcp_resource(app, exe).ok_or("ppm-mcp følger ikke med denne installation.")?;
     let addon = mcp_resource(app, "better_sqlite3.node")
         .ok_or("better_sqlite3.node følger ikke med denne installation.")?;
-    let dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
+    let dir = plain_path(app.path().app_cache_dir().map_err(|e| e.to_string())?);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let dest = dir.join("ppm.mcpb");
     let file = std::fs::File::create(&dest).map_err(|e| e.to_string())?;
@@ -106,17 +119,34 @@ fn build_mcpb(app: &AppHandle) -> R<PathBuf> {
     Ok(dest)
 }
 
-/// "Installér i Claude Desktop": builds ppm.mcpb and opens it with its registered program.
+/// "Lav ppm.mcpb til Claude Desktop": builds ppm.mcpb and shows it selected in the file
+/// manager, so it can be dragged into Claude Desktop. Windows has no file association for
+/// .mcpb unless Claude Desktop registers one, so the file is not opened directly.
 #[tauri::command]
 fn open_mcp_bundle(app: AppHandle) -> R<String> {
     let path = build_mcpb(&app)?;
     #[cfg(windows)]
-    let mut cmd = std::process::Command::new("explorer.exe");
+    {
+        let mut arg = std::ffi::OsString::from("/select,");
+        arg.push(&path);
+        std::process::Command::new("explorer.exe")
+            .arg(arg)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
     #[cfg(target_os = "macos")]
-    let mut cmd = std::process::Command::new("open");
+    std::process::Command::new("open")
+        .arg("-R")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| e.to_string())?;
     #[cfg(all(unix, not(target_os = "macos")))]
-    let mut cmd = std::process::Command::new("xdg-open");
-    cmd.arg(&path).spawn().map_err(|e| e.to_string())?;
+    if let Some(dir) = path.parent() {
+        std::process::Command::new("xdg-open")
+            .arg(dir)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
     Ok(path.to_string_lossy().into_owned())
 }
 
@@ -441,6 +471,24 @@ fn release_own_lock(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn plain_path_strips_the_verbatim_prefix() {
+        assert_eq!(
+            plain_path(PathBuf::from(
+                r"\\?\C:\Users\a\AppData\Local\PPM\resources\mcp\ppm-mcp.exe"
+            )),
+            PathBuf::from(r"C:\Users\a\AppData\Local\PPM\resources\mcp\ppm-mcp.exe")
+        );
+        assert_eq!(
+            plain_path(PathBuf::from(r"\\?\UNC\server\share\x")),
+            PathBuf::from(r"\\server\share\x")
+        );
+        assert_eq!(
+            plain_path(PathBuf::from("/usr/lib/PPM/resources/mcp/ppm-mcp")),
+            PathBuf::from("/usr/lib/PPM/resources/mcp/ppm-mcp")
+        );
+    }
 
     #[cfg(unix)]
     #[test]
