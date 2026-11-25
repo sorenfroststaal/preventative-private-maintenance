@@ -8,7 +8,7 @@
 
 ## Navigation
 
-En venstremenu med disse punkter i denne rækkefølge, hvert med sit ikon (se "Visuel stil"): **Overblik, Opgaver, Bolig og inventar, Arbejdsordrer, Bil, Økonomi, Madplan, Forsikring, Helbred, Dokumenter, AI-indbakke (med antal), Lister, Indstillinger.**
+En venstremenu med disse punkter i denne rækkefølge, hvert med sit ikon (se "Visuel stil"): **Overblik, Opgaver, Kalender, Bolig og inventar, Arbejdsordrer, Bil, Økonomi, Madplan, Forsikring, Helbred, Dokumenter, AI-indbakke (med antal), Lister, Indstillinger.**
 
 Global søgning åbnes med `Ctrl+K`. Den søger i `search_index` og viser resultater grupperet pr. modul. Hele appen SKAL kunne betjenes med tastatur og have synlig fokus.
 
@@ -188,6 +188,16 @@ En allergi-registrering matcher en nøgle, hvis `substance` indeholder visningsn
 ## Husdyr
 
 Under **Bolig og inventar** har fanen **Husdyr** en liste (navn, art og race, chipnummer, dyrlæge) og en detaljevisning med fotos, oplysninger, bilag og de policer, der dækker dyret. Felterne er navn, art (hund, kat, hest, kanin, fugl, andet), race, køn, fødselsdato, chipnummer, ejer (person), dyrlæge (kontakt) og noter. Under Forsikring kan dækning tilføjes for et husdyr.
+
+## Kalender og tidslinje
+
+- Menupunktet **Kalender** (ikon `calendar-days`, farvetoken `--c-calendar`) har fanerne *Månedsvisning* og *Tidslinje*. Begge viser de samme begivenheder, og brugeren vælger, hvilke typer der vises: opgaver, arbejdsordrer, køb, garanti og reklamationsret, udlån, forsikringer, faste udgifter og bindinger, lån, madplan, helbred og dokumenter. Valget huskes pr. bruger. Helbredsbegivenheder for personer med private helbredsdata vises kun for den valgte bruger.
+- **Månedsvisning:** mandag først, ugenumre, i dag fremhævet, op til tre begivenheder pr. dag og et dagspanel med alle dagens begivenheder, der hver fører til posten. Perioder vises på første og sidste dag; igangværende perioder kun på første. Piletasterne flytter mellem dagene.
+- **Tidslinje:** en bane pr. type, perioder som bjælker og datoer som punkter, "I dag"-linje, zoom med rullehjul, +/− og forvalg (uge, måned, kvartal, år, 5 år), flyt ved at trække eller med piletasterne. Aksen skifter mellem dage, uger, måneder, kvartaler og år efter zoom. Forfaldne begivenheder har rød kant, udførte er nedtonede. Hver begivenhed kan nås med tastaturet og har en tekst til skærmlæsere, og *Vis som liste* viser de samme begivenheder som tekst.
+
+## Udlån
+
+- Bolig og inventar har fanen **Udlån**. En ting (genstand eller fri tekst) lånes ud til en person, en kontakt eller et frit navn med udlånsdato og eventuel afleveringsdato. En genstand kan kun være udlånt én gang ad gangen. Overskredne udlån markeres. *Markér afleveret* sætter `returned_date`; afleverede udlån kan vises som historik. Genstandens detalje viser "Udlånt til …" eller *Lån ud…*.
 
 ## Lister og rullelister
 
