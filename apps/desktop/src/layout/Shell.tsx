@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { NavLink, Route, Routes } from "react-router-dom";
 import { listen } from "@tauri-apps/api/event";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getSetting, importDocument, pendingDraftGroupCount, scanInbox, type InboxState } from "@ppm/core";
+import { getSetting, importDocument, ocrPendingDocuments, pendingDraftGroupCount, scanInbox, type InboxState } from "@ppm/core";
 import { errorText, useSession } from "../app/session";
 import { Overview } from "../pages/Overview";
 import { Tasks } from "../pages/Tasks";
@@ -37,6 +37,7 @@ const InboxContext = createContext<{ unsupported: string[] }>({ unsupported: [] 
 export const useInbox = () => useContext(InboxContext);
 
 export const INBOX_POLL_MS = 2000;
+const OCR_POLL_MS = 4000;
 
 export function Shell() {
   const session = useSession();
@@ -108,6 +109,31 @@ export function Shell() {
       clearInterval(id);
     };
   }, [inboxEnabled.data, qc, session, toast]);
+
+  // Local OCR (phase 4.3): images without text are read in the background, one at a time, so
+  // import never waits for it.
+  useEffect(() => {
+    if (!session.env.ocr || session.archive.readOnly) return;
+    let running = false;
+    let stopped = false;
+    const tick = async () => {
+      if (running || stopped) return;
+      running = true;
+      try {
+        const n = await ocrPendingDocuments(session.env, session.archive, session.ctx(), { limit: 1 });
+        if (n > 0) await qc.invalidateQueries({ queryKey: ["documents"] });
+      } catch {
+        // Try again on the next tick.
+      } finally {
+        running = false;
+      }
+    };
+    const id = setInterval(tick, OCR_POLL_MS);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+    };
+  }, [qc, session]);
 
   // Ctrl+K / Cmd+K opens global search.
   useEffect(() => {

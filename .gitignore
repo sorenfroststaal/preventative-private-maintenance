@@ -32,3 +32,6 @@ apps/desktop/src-tauri/resources/mcp/*.node
 apps/desktop/src-tauri/resources/mcp/ppm.mcpb
 apps/desktop/src-tauri/resources/mcp/mcpb-manifest.json
 packages/mcp-server/dist/
+
+# Local OCR assets copied from node_modules by vite.config.ts
+apps/desktop/public/ocr/

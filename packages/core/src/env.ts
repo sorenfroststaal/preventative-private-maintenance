@@ -72,6 +72,11 @@ export interface Env {
   newId(): string;
   /** Extracts the text layer of a PDF (pdf.js). Optional: without it, no text is extracted. */
   pdfText?: (bytes: Uint8Array) => Promise<string>;
+  /**
+   * Local OCR of an image (phase 4.3, Tesseract with Danish language data, no network).
+   * Optional: without it, images get no text. Run in the background by `ocrPendingDocuments`.
+   */
+  ocr?: (bytes: Uint8Array, mime: string) => Promise<string>;
 }
 
 export const systemClock: Clock = {

@@ -123,6 +123,8 @@ export function createTauriEnv(info: AppInfo): Env {
     newId: randomId,
     // Loaded lazily so pdf.js is only fetched when a PDF is imported.
     pdfText: async (bytes) => (await import("../lib/pdf")).pdfText(bytes),
+    // Local OCR with bundled Tesseract and Danish data (phase 4.3); loaded on first use.
+    ocr: async (bytes, mime) => (await import("../lib/ocr")).ocrText(bytes, mime),
   };
 }
 

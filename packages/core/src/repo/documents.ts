@@ -3,7 +3,7 @@ import type { DbAdapter } from "../db/adapter";
 import type { Row } from "../domain/registry";
 import type { EntityInput, EntityType } from "../domain/schemas";
 import type { Env } from "../env";
-import { createEntity, getEntity, ValidationError, type Ctx } from "./entities";
+import { createEntity, getEntity, updateEntity, ValidationError, type Ctx } from "./entities";
 import { parseEml } from "./eml";
 
 const MAX_TEXT_CHARS = 200_000;
@@ -170,4 +170,37 @@ export async function documentsFor(db: DbAdapter, targetType: string, targetId: 
       WHERE l.target_type = ? AND l.target_id = ? ORDER BY d.created_at`,
     [targetType, targetId],
   );
+}
+
+/** Image types that get OCR (phase 4.3). HEIC cannot be decoded by Tesseract and is left out. */
+export const OCR_EXTS = ["jpg", "jpeg", "png"];
+
+/** Number of images still waiting for OCR (`extracted_text IS NULL`). */
+export async function pendingOcrCount(db: DbAdapter): Promise<number> {
+  const r = await db.select<{ n: number }>(`SELECT count(*) AS n FROM document WHERE extracted_text IS NULL AND ext IN (${OCR_EXTS.map(() => "?").join(",")})`, OCR_EXTS);
+  return r[0]?.n ?? 0;
+}
+
+/**
+ * Background OCR (phase 4.3): images without text get text from `env.ocr`, saved in
+ * `extracted_text` and the search index. An image where OCR finds nothing, or fails, gets an empty
+ * text so it is not tried again. Runs after import and never blocks it. Returns the number processed.
+ */
+export async function ocrPendingDocuments(env: Env, archive: Archive, ctx: Ctx, opts: { limit?: number } = {}): Promise<number> {
+  if (!env.ocr || archive.readOnly) return 0;
+  const docs = await ctx.db.select<{ id: string; sha256: string; ext: string; mime: string }>(
+    `SELECT id, sha256, ext, mime FROM document WHERE extracted_text IS NULL AND ext IN (${OCR_EXTS.map(() => "?").join(",")}) ORDER BY created_at LIMIT ?`,
+    [...OCR_EXTS, opts.limit ?? 5],
+  );
+  for (const d of docs) {
+    let text = "";
+    try {
+      const bytes = await env.fs.readFile(archive.path(documentRelPath(d.sha256, d.ext)));
+      text = (await env.ocr(bytes, d.mime)).replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "\n").trim().slice(0, MAX_TEXT_CHARS);
+    } catch {
+      text = "";
+    }
+    await updateEntity(ctx, "document", d.id, { extracted_text: text });
+  }
+  return docs.length;
 }
