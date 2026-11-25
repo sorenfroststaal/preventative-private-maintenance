@@ -20,5 +20,5 @@ Nøgleordene **SKAL**, **BØR** og **KAN** bruges som i RFC 2119.
 - **Datoer:** heldagsdatoer gemmes som `YYYY-MM-DD`. Tidspunkter gemmes som ISO 8601 i UTC (`2026-11-24T18:10:00Z`). I brugerfladen vises datoer som `24.11.2026`, og tidspunkter vises i lokal tid (Europe/Copenhagen).
 - **Beløb:** gemmes som heltal i mindste enhed (`*_minor`, øre) med en valutakode (`DKK` som standard). Brug aldrig kommatal til penge. Beløb vises som `1.234,50 kr.`
 - **Id'er:** UUID v4 som tekst (`crypto.randomUUID()`).
-- **Sletning:** primære poster arkiveres (`archived_at`) i stedet for at blive slettet. Det er kun koblinger og kladder, der slettes fysisk.
+- **Sletning:** primære poster arkiveres (`archived_at`) i stedet for at blive slettet. Det er kun koblinger, kladder og madplanens underrækker (`recipe_ingredient`, `meal_plan_entry` og `shopping_item`, som ikke har `archived_at`), der slettes fysisk. Sletningen auditeres som for koblinger.
 - **Testdata:** kun syntetiske data i `fixtures/`. Brug aldrig rigtige personer, CPR-numre eller kontonumre.

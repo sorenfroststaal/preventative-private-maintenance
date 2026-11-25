@@ -112,7 +112,7 @@ Ingredienser på tekstform (indsat eller importeret) fortolkes linje for linje. 
 PPM SKAL kunne importere en Open Planner-database (JSON, version 1 eller 2) fra projektet `open-planner`:
 
 - Formatet er `{ "version": 1|2, "format"?: "...", "sprog": "da", "retter": [{ "id", "navn", "billede"?, "ingredienser": [tekst] | tekst, "fremgangsmaade"?, "opskrift"? }] }`. Højst 200 retter og højst 50 MB.
-- Hver ret bliver til en `recipe` med `source = 'import'` og `source_ref = 'open-planner:<id>'`. Findes `source_ref` allerede, opdateres opskriften. Brugerens egne ændringer af en importeret opskrift overskrives dog ikke uden bekræftelse: importdialogen viser "N nye, M ændrede, K uændrede", og ændrede kan vælges fra.
+- Hver ret bliver til en `recipe` med `source = 'import'` og `source_ref = 'open-planner:<id>'`. Findes `source_ref` allerede, opdateres opskriften. Brugerens egne ændringer af en importeret opskrift overskrives dog ikke uden bekræftelse: importdialogen viser "N nye, M ændrede, K uændrede", og ændrede kan vælges fra. Tomme felter i filen tæller ikke som en ændring og overskriver ikke det, brugeren har udfyldt.
 - `ingredienser` fortolkes med ingrediens-parseren. `fremgangsmaade` (eller `opskrift`) bliver til `instructions`.
 - `billede` som indlejret `data:image/png|jpeg;base64,...` (version 2) importeres som et `document` (kilde `drop`) og kobles via `photo_document_id`. Relative stier (version 1) ignoreres med en besked, fordi filen ikke findes i JSON-filen.
 

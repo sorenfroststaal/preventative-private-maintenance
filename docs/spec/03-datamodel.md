@@ -99,5 +99,5 @@ Moduler bruges i `search_index.module`, til AI-adgang (06) og til filtrering. Ma
 
 - En opskrifts ingredienser gemmes som rækker i `recipe_ingredient`, ordnet efter `position`. Ved hver gemning erstattes hele listen i samme transaktion (sletning og indsættelse af koblingsrækker auditeres som for andre koblinger).
 - `meal_plan_entry` har enten en opskrift eller en fri titel. `servings` overstyrer opskriftens antal portioner for den dag.
-- Foto af en opskrift er et `document`, som `recipe.photo_document_id` peger på.
+- Foto af en opskrift er et `document`, som `recipe.photo_document_id` peger på. `document_link` kan ikke pege på `recipe`, så et dokument, som en opskrift bruger som foto, tæller som koblet (fx i importkøen under Dokumenter).
 - `shopping_item.source = 'plan'` betyder, at varen er genereret fra madplanen. Den genereres igen, når madplanen ændres (se 04).

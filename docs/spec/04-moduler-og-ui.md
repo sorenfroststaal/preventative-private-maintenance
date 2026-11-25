@@ -138,8 +138,8 @@ Modulet har fanerne **Uge, Opskrifter og Indkøbsliste**.
 - En plads udfyldes med en opskrift (søgbar vælger) eller en fri tekst, fx "Rester". Antal portioner er som standard husstandens størrelse (`food.default_servings`, standard 4).
 - En ret kan flyttes til en anden dag. Knappen *Kopiér sidste uge* kopierer alle pladser 7 dage frem.
 - Ugekortet viser:
-  - **Anslået pris** for ugen: summen af `estimated_cost_minor × portioner / servings` for de retter, der har en pris. Antal retter uden pris vises separat.
-  - **Budget:** månedens budget for kategorien "Mad og dagligvarer" (og underkategorier) delt med antal dage i måneden og ganget med 7. Desuden det faktiske forbrug i ugen fra posteringer i samme kategorier.
+  - **Anslået pris** for ugen: summen af `estimated_cost_minor × portioner / servings` for de retter, der har en pris. Antal retter uden pris vises separat. Det er planlagte opskrifter uden pris. Frie titler som "Rester" tælles ikke. Portioner er pladsens `servings` og ellers opskriftens.
+  - **Budget:** månedens budget for kategorien "Mad og dagligvarer" (og underkategorier) delt med antal dage i måneden og ganget med 7. Beregningen sker pr. dag, så en uge over et månedsskifte bruger begge måneders budget. Desuden det faktiske forbrug i ugen fra posteringer i samme kategorier.
   - **Allergi-advarsler** (se nedenfor) ved hver ret.
 
 ### Opskrifter
@@ -153,6 +153,7 @@ Modulet har fanerne **Uge, Opskrifter og Indkøbsliste**.
 
 - En ret får en advarsel, hvis et af dens allergener (markeret eller udledt) matcher en registrering i `health_allergy` for en person i husstanden. Advarslen viser stoffet og personen.
 - Er personens helbredsdata private for en anden bruger (`health_private_user_id`), vises kun "Allergi hos et husstandsmedlem (privat)" uden navn og stof.
+- Allergener udledes kun af ingrediensnavnene, ikke af rettens navn. Nøgleord matches som delstreng (fx giver "kokosmælk" Mælk). Det giver hellere en advarsel for meget end en for lidt.
 - Matching sker uden forskel på store og små bogstaver og med denne nøgleordsliste (core SKAL indeholde den, og den KAN udvides):
 
 | Nøgle | Visningsnavn | Nøgleord i ingrediens eller allergi |
@@ -175,10 +176,10 @@ En allergi-registrering matcher en nøgle, hvis `substance` indeholder visningsn
 
 - *Lav indkøbsliste for ugen* opretter eller opdaterer listen for ugen (`week_start` = mandag):
   - Ingredienser fra ugens retter skaleres med `portioner / servings` og lægges sammen efter normaliseret varenavn og enhed. g og kg lægges sammen i g (vises som kg fra 1000 g). ml, dl og l lægges sammen i ml (vises som l fra 1000 ml). Andre enheder lægges kun sammen med samme enhed.
-  - Varer uden mængde vises én gang med antallet af retter, de indgår i, fx "salt (3 retter)".
+  - Varer uden mængde vises én gang med antallet af retter, de indgår i, fx "salt (3 retter)". De gemmes med `amount` = antal retter og `unit = 'retter'`, så navn og enhed er stabile, når listen genereres igen.
   - Når listen genereres igen, erstattes de genererede varer (`source = 'plan'`). Manuelle varer bevares. Afkrydsning bevares for varer med samme navn og enhed.
 - Varer grupperes efter butiksafdeling (`category`), og afdelingen gættes ud fra varenavnet med en simpel liste: Frugt og grønt, Kød og fisk, Mejeri, Brød, Kolonial, Frost, Andet. Brugeren kan ændre den.
-- Varer kan afkrydses, tilføjes manuelt, slettes og kopieres som tekst (én vare pr. linje), fx til en besked.
+- Varer kan afkrydses, tilføjes manuelt, slettes og kopieres som tekst (én vare pr. linje, grupperet efter afdeling), fx til en besked. Afkrydsede varer kommer kun med, hvis brugeren vælger det.
 
 ## Visuel stil
 
