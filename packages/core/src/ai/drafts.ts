@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { Archive } from "../archive/archive";
 import type { DbAdapter } from "../db/adapter";
 import type { Row } from "../domain/registry";
-import { createSchema, updateSchema, type EntityType } from "../domain/schemas";
+import { createSchema, fields, updateSchema, type EntityType } from "../domain/schemas";
 import type { Env } from "../env";
 import { toIngredientRows } from "../food/recipes";
 import { extOf, MIME_BY_EXT } from "../repo/documents";
@@ -17,6 +17,8 @@ import { expandRefs, isRef, isUuid, resolveRef } from "./compact";
 
 /** Types that may be created/updated via propose (spec 06). */
 export const PROPOSE_TYPES = [
+  "person",
+  "property",
   "item",
   "item_part",
   "building_part",
@@ -110,9 +112,55 @@ function placeholders(data: Record<string, unknown>, index: number, creates: Set
 
 const issues = (e: unknown) => (e instanceof ValidationError ? e.message : e instanceof Error ? e.message : String(e));
 
-function validate(schema: z.ZodTypeAny, data: unknown, index: number) {
+/**
+ * Compact description of the fields of a type for error messages, so an AI client can
+ * correct a proposal without guessing: `name*` (required), `kind=house|apartment`,
+ * `purchase_date:date`, `price_minor:øre`, `location_id:ref`.
+ */
+export function describeFields(type: string): string {
+  const shape = (fields as Record<string, z.ZodRawShape>)[type];
+  if (!shape) return "";
+  const parts: string[] = [];
+  for (const [key, schema] of Object.entries(shape)) {
+    if (AI_FORBIDDEN_FIELDS[type]?.includes(key)) continue;
+    let t: z.ZodTypeAny = schema as z.ZodTypeAny;
+    let required = true;
+    for (;;) {
+      if (t instanceof z.ZodOptional || t instanceof z.ZodNullable) {
+        required = false;
+        t = t.unwrap();
+      } else if (t instanceof z.ZodDefault) {
+        required = false;
+        t = t.removeDefault();
+      } else if (t instanceof z.ZodEffects) {
+        t = t.innerType();
+      } else break;
+    }
+    let hint = "";
+    if (t instanceof z.ZodEnum) hint = `=${(t.options as string[]).join("|")}`;
+    else if (t instanceof z.ZodUnion) hint = "=0|1";
+    else if (key.endsWith("_minor")) hint = ":øre";
+    else if (key.endsWith("_date") || key.endsWith("_until") || key === "plan_date") hint = ":ÅÅÅÅ-MM-DD";
+    else if (key.endsWith("_id")) hint = ":ref";
+    else if (key.endsWith("_json")) hint = ":JSON-tekst";
+    else if (t instanceof z.ZodNumber) hint = ":tal";
+    parts.push(`${key}${required ? "*" : ""}${hint}`);
+  }
+  if (type === "recipe") parts.push("ingredients:[tekstlinjer]");
+  return `Gyldige felter for ${type} (* = påkrævet): ${parts.join(", ")}`;
+}
+
+/** Fields AI may not set (access control and privacy stay with the user). */
+const AI_FORBIDDEN_FIELDS: Record<string, string[]> = {
+  person: ["app_user_id", "health_private_user_id"],
+};
+
+function validate(schema: z.ZodTypeAny, data: unknown, index: number, type?: string) {
   const r = schema.safeParse(data);
-  if (!r.success) throw new ProposeError(index, r.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "));
+  if (!r.success) {
+    const msg = r.error.issues.map((i) => (i.code === "unrecognized_keys" ? `ukendte felter: ${i.keys.join(", ")}` : `${i.path.join(".")}: ${i.message}`)).join("; ");
+    throw new ProposeError(index, type ? `${msg}. ${describeFields(type)}` : msg);
+  }
 }
 
 async function allowedDirs(ctx: ProposeContext): Promise<string[]> {
@@ -163,7 +211,7 @@ async function prepareOp(ctx: ProposeContext, op: ProposeOp, index: number, grou
     if (op.op === "create" || op.op === "update") {
       const type = op.type;
       if (!type || !(PROPOSE_TYPES as readonly string[]).includes(type)) {
-        throw new ProposeError(index, `type skal være en af: ${PROPOSE_TYPES.join(", ")}.`);
+        throw new ProposeError(index, `type skal være en af: ${PROPOSE_TYPES.join(", ")}. Husdyr har ingen type endnu; skriv dem i noter.`);
       }
       assertModule(access, aiModuleOf(type));
       const { ingredients, ...rest } = (op.data ?? {}) as Record<string, unknown> & { ingredients?: unknown };
@@ -182,8 +230,10 @@ async function prepareOp(ctx: ProposeContext, op: ProposeOp, index: number, grou
           throw new ProposeError(index, `ingredients: ${issues(e)}`);
         }
       }
+      const forbidden = Object.keys(expanded).filter((k) => AI_FORBIDDEN_FIELDS[type]?.includes(k));
+      if (forbidden.length) throw new ProposeError(index, `${forbidden.join(", ")} kan kun ændres af brugeren i appen.`);
       if (op.op === "create") {
-        validate(createSchema(type as EntityType), withPh, index);
+        validate(createSchema(type as EntityType), withPh, index, type);
         if (type === "meal_plan_entry" && !expanded.recipe_id && !String(expanded.title ?? "").trim()) {
           throw new ProposeError(index, "meal_plan_entry kræver recipe_id eller title.");
         }
@@ -204,7 +254,7 @@ async function prepareOp(ctx: ProposeContext, op: ProposeOp, index: number, grou
         const extra = Object.keys(expanded).filter((k) => k !== "category_id" && k !== "note");
         if (extra.length) throw new ProposeError(index, `bank_transaction: kun category_id og note kan ændres (ikke ${extra.join(", ")}).`);
       }
-      validate(updateSchema(type as EntityType), withPh, index);
+      validate(updateSchema(type as EntityType), withPh, index, type);
       return {
         payload: { group, index, op: op.op, type, target_id: target.id, data: expanded, ...(rows ? { ingredients: rows } : {}) },
         action: "update",

@@ -239,6 +239,8 @@ export async function editDraft(ctx: Ctx, draftId: string, data: Record<string, 
 
 /** Danish names of the types AI can propose (the UI is in Danish). */
 export const DRAFT_TYPE_LABELS: Record<string, string> = {
+  person: "person",
+  property: "bolig",
   item: "genstand",
   item_part: "reservedel",
   building_part: "bygningsdel",

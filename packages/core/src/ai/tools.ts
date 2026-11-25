@@ -128,12 +128,12 @@ export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   recipes: "Recipes with ingredients in short form, filtered by text or tag.",
   document: "Document metadata and extracted text; content=file also returns the image or PDF itself (max 10 MB).",
   inbox: "Documents without links and files waiting in the archive's inbox folder.",
-  propose: "Propose changes as one draft group (create, update, complete_task, attach_document). The user approves in the app. Use $1, $2 for earlier creates.",
+  propose: "Propose changes as one draft group (create/update/complete_task/attach_document); user approves in app. $1,$2 = earlier creates. Errors list valid fields.",
   draft_status: "Status of a draft group created by propose.",
 };
 
 export const SERVER_INSTRUCTIONS =
-  "Du har adgang til brugerens lokale husstandsarkiv. Start med `overview` eller `search`. Hent kun de felter, du har brug for. Du kan ikke ændre data direkte: saml ændringer i ét `propose`-kald, og fortæl brugeren, at forslaget skal godkendes i appen under AI-indbakke. Gæt ikke datoer eller beløb. Spørg hellere. Helbredsoplysninger er følsomme. Gentag kun det, der er nødvendigt.";
+  "Du har adgang til brugerens lokale husstandsarkiv. Start med `overview` eller `search`. Hent kun de felter, du har brug for. Du kan ikke ændre data direkte: saml ændringer i ét `propose`-kald, og fortæl brugeren, at forslaget skal godkendes i appen under AI-indbakke. Fejler propose, viser fejlen de gyldige felter. Beløb er i øre. Gæt ikke datoer eller beløb. Spørg hellere. Helbredsoplysninger er følsomme. Gentag kun det, der er nødvendigt.";
 
 const text = (v: unknown): ToolResult => ({ content: [{ type: "text", text: toJson(v) }] });
 

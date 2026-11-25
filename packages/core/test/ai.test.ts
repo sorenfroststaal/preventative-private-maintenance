@@ -280,6 +280,39 @@ describe("phase 3.5 / 3.6 – propose creates only one draft group and writes no
   });
 });
 
+describe("propose errors teach the AI client the valid fields; persons and properties", () => {
+  it("lists valid fields with required markers, enums and units on unknown or invalid fields", async () => {
+    const { deps } = await demo();
+    const r = errText(await runTool(deps, "propose", { rationale: "x", ops: [{ op: "create", type: "vehicle", data: { name: "Ford S-Max", plate: "XX 12 345", year: 2018 } }] }));
+    expect(r).toMatch(/^Operation 1: ukendte felter: plate, year\./);
+    expect(r).toMatch(/Gyldige felter for vehicle \(\* = påkrævet\): name\*, registration, vin, make, model, model_year:tal/);
+    expect(r).toMatch(/fuel=petrol\|diesel\|electric\|hybrid\|plugin_hybrid\|other/);
+    const item = errText(await runTool(deps, "propose", { rationale: "x", ops: [{ op: "create", type: "item", data: { title: "TV" } }] }));
+    expect(item).toMatch(/purchase_price_minor:øre/);
+    expect(item).toMatch(/purchase_date:ÅÅÅÅ-MM-DD/);
+    expect(item).toMatch(/location_id:ref/);
+    expect(item).toMatch(/name: Required|name: /);
+  });
+
+  it("household members and homes can be proposed; access fields cannot", async () => {
+    const { deps, ai } = await demo();
+    const ok = json(
+      await runTool(deps, "propose", {
+        rationale: "Husstand",
+        ops: [
+          { op: "create", type: "person", data: { name: "Testperson", relation: "barn", birth_year: 2015 } },
+          { op: "create", type: "property", data: { name: "Sommerhus", kind: "summerhouse", address: "Eksempelvej 1" } },
+        ],
+      }),
+    );
+    expect(ok).toMatchObject({ n: 2, status: "pending" });
+    const [anna] = await ai.db.select<{ id: string }>("SELECT id FROM app_user LIMIT 1");
+    const bad = errText(await runTool(deps, "propose", { rationale: "x", ops: [{ op: "create", type: "person", data: { name: "X", health_private_user_id: anna!.id } }] }));
+    expect(bad).toMatch(/health_private_user_id kan kun ændres af brugeren/);
+    expect(errText(await runTool(deps, "propose", { rationale: "x", ops: [{ op: "create", type: "pet", data: {} }] }))).toMatch(/Husdyr/);
+  });
+});
+
 describe("phase 3.7 – AI inbox: approve all, approve selected, edit, reject, conflicts and rollback", () => {
   async function setup() {
     const d = await demo();
