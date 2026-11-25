@@ -950,3 +950,24 @@ h4 {
   margin: 1rem 0 0.3rem;
   font-size: 0.95rem;
 }
+.photo-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.8rem;
+}
+button.photo-thumb {
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--selected);
+}
+button.photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}

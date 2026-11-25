@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { latestOdometer, listEntities, vehicleCostsByYear, type Row } from "@ppm/core";
 import { useSession } from "../app/session";
@@ -9,10 +9,16 @@ import { Empty, Modal, rowProps, Tabs } from "../components/ui";
 import { formatDate, formatMoney } from "../lib/format";
 import { NewWorkOrder } from "./WorkOrders";
 import { ArchiveButton } from "../components/ArchiveButton";
+import { attachPending, PendingAttachments, PhotoStrip, type PendingFile } from "../components/Attachments";
+import { useToast } from "../layout/Shell";
 import { EmptyState, PageTitle } from "../components/visual";
 
 export function Vehicles() {
-  const { archive } = useSession();
+  const session = useSession();
+  const { archive } = session;
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [pending, setPending] = useState<PendingFile[]>([]);
   const [params, setParams] = useSearchParams();
   const [creating, setCreating] = useState(false);
   const list = useQuery({
@@ -65,7 +71,12 @@ export function Vehicles() {
         <Modal title="Ny bil" onClose={() => setCreating(false)} wide>
           <EntityForm
             type="vehicle"
-            onSaved={(r) => {
+            renderAfter={(key) => (key === "notes" ? <PendingAttachments value={pending} onChange={setPending} receipt={false} /> : null)}
+            onSaved={async (r) => {
+              const res = await attachPending(session, "vehicle", String(r.id), pending);
+              for (const e of res.errors) toast(e, "error");
+              await qc.invalidateQueries({ queryKey: ["documents"] });
+              setPending([]);
               setCreating(false);
               setParams({ id: String(r.id), tab: "tasks" });
             }}
@@ -87,6 +98,7 @@ function VehicleDetail({ vehicle }: { vehicle: Row }) {
         <h2>{String(vehicle.name)}</h2>
         <ArchiveButton type="vehicle" id={id} label="Bilen" />
       </div>
+      <PhotoStrip targetType="vehicle" targetId={id} />
       <Tabs
         initial={params.get("tab") ?? undefined}
         tabs={[

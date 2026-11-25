@@ -11,6 +11,7 @@ import { annualAmount } from "@ppm/core";
 import { useToast } from "../layout/Shell";
 import { ArchiveButton } from "../components/ArchiveButton";
 import { EmptyState, PageHeader } from "../components/visual";
+import { attachPending, PendingAttachments, PhotoStrip, type PendingFile } from "../components/Attachments";
 
 export function Home() {
   return (
@@ -108,20 +109,35 @@ function Items() {
         </table>
         {selected && <ItemDetail key={String(selected.id)} item={selected} onArchived={() => setParams({})} />}
       </div>
-      {creating && (
-        <Modal title="Ny genstand" onClose={() => setCreating(false)} wide>
-          <EntityForm
-            type="item"
-            renderAfter={complaintSuggestion}
-            onSaved={(r) => {
-              setCreating(false);
-              setParams({ id: String(r.id) });
-            }}
-            onCancel={() => setCreating(false)}
-          />
-        </Modal>
-      )}
+      {creating && <NewItem onClose={() => setCreating(false)} onCreated={(id) => setParams({ id })} />}
     </>
+  );
+}
+
+/** "Ny genstand" with photos and receipt chosen before saving (imported after the item exists). */
+function NewItem({ onClose, onCreated }: { onClose(): void; onCreated(id: string): void }) {
+  const session = useSession();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [pending, setPending] = useState<PendingFile[]>([]);
+  return (
+    <Modal title="Ny genstand" onClose={onClose} wide>
+      <EntityForm
+        type="item"
+        renderAfter={(key, values, set) =>
+          key === "notes" ? <PendingAttachments value={pending} onChange={setPending} /> : complaintSuggestion(key, values, set)
+        }
+        onSaved={async (r) => {
+          const res = await attachPending(session, "item", String(r.id), pending);
+          for (const e of res.errors) toast(e, "error");
+          await qc.invalidateQueries({ queryKey: ["documents"] });
+          await qc.invalidateQueries({ queryKey: ["dashboard"] });
+          onClose();
+          onCreated(String(r.id));
+        }}
+        onCancel={onClose}
+      />
+    </Modal>
   );
 }
 
@@ -161,6 +177,7 @@ function ItemDetail({ item, onArchived }: { item: Row; onArchived(): void }) {
           Arkivér
         </button>
       </div>
+      <PhotoStrip targetType="item" targetId={id} />
       <Tabs
         tabs={[
           { id: "info", label: "Oplysninger", content: () => <EntityForm type="item" row={item} renderAfter={complaintSuggestion} /> },
@@ -272,7 +289,11 @@ function Properties() {
 }
 
 function BuildingParts() {
-  const { archive } = useSession();
+  const session = useSession();
+  const { archive } = session;
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [pending, setPending] = useState<PendingFile[]>([]);
   const [params, setParams] = useSearchParams();
   const [creating, setCreating] = useState(false);
   const parts = useQuery({ queryKey: ["building_part", "list"], queryFn: () => listEntities(archive.db, "building_part", { orderBy: "name" }) });
@@ -308,6 +329,7 @@ function BuildingParts() {
               <h2>{String(selected.name)}</h2>
               <ArchiveButton type="building_part" id={String(selected.id)} label="Bygningsdelen" onDone={() => setParams({})} />
             </div>
+            <PhotoStrip targetType="building_part" targetId={String(selected.id)} />
             <Tabs
               tabs={[
                 { id: "tasks", label: "Opgaver", content: () => <TasksTab targetType="building_part" targetId={String(selected.id)} module="Vedligehold" /> },
@@ -323,7 +345,12 @@ function BuildingParts() {
         <Modal title="Ny bygningsdel" onClose={() => setCreating(false)}>
           <EntityForm
             type="building_part"
-            onSaved={(r) => {
+            renderAfter={(key) => (key === "notes" ? <PendingAttachments value={pending} onChange={setPending} receipt={false} /> : null)}
+            onSaved={async (r) => {
+              const res = await attachPending(session, "building_part", String(r.id), pending);
+              for (const e of res.errors) toast(e, "error");
+              await qc.invalidateQueries({ queryKey: ["documents"] });
+              setPending([]);
               setCreating(false);
               setParams({ part: String(r.id) });
             }}

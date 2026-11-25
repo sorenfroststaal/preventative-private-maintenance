@@ -8,7 +8,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -34,10 +34,13 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: async () => [] }));
 import { SessionContext, type Session } from "../src/app/session";
 import { Shell } from "../src/layout/Shell";
 import { MODULES } from "../src/lib/modules";
+import { attachPending } from "../src/components/Attachments";
 
 let env: Env;
 let archive: Archive;
 let user: PublicUser;
+let itemId = "";
+let photoPath = "";
 const TODAY = "2026-11-24";
 
 beforeAll(async () => {
@@ -54,7 +57,10 @@ beforeAll(async () => {
   await planMeal(ctx, { plan_date: TODAY, recipe_id: String(soup.id) });
   await planMeal(ctx, { plan_date: addDays(TODAY, 1), recipe_id: String(shrimp.id) });
   await generateShoppingList(ctx, TODAY);
-  await createEntity(ctx, "item", { name: "Opvaskemaskine", purchase_price_minor: 499900 });
+  const dishwasher = await createEntity(ctx, "item", { name: "Opvaskemaskine", purchase_price_minor: 499900 });
+  itemId = String(dishwasher.id);
+  photoPath = join(mkdtempSync(join(tmpdir(), "ppm-ui-photo-")), "opvasker.png");
+  writeFileSync(photoPath, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"));
   // A draft group from the MCP side (only ai_draft is written).
   await runTool({ env, archive, clientName: "test" }, "propose", {
     rationale: "Ny støvsuger fra kvittering",
@@ -66,6 +72,19 @@ beforeAll(async () => {
 });
 
 afterEach(cleanup);
+
+function sessionFor(): Session {
+  return {
+    env,
+    info: { pid: 1, hostname: "test", appVersion: "test", configPath: "/tmp/x", oneDriveEnv: [] },
+    archive,
+    user,
+    ctx: () => makeCtx(env, archive.db, user.id, "ui"),
+    logout: () => undefined,
+    closeArchive: async () => undefined,
+    restoreFrom: async () => undefined,
+  };
+}
 
 function renderAt(path: string) {
   const session: Session = {
@@ -185,6 +204,23 @@ describe("phase 2b.9 – rendered components", () => {
     expect(screen.getByText(/plugin install ppm@ppm/)).toBeInTheDocument();
     expect(screen.getByText("codex mcp add ppm -- ppm-mcp")).toBeInTheDocument();
     expect(await screen.findByText("propose")).toBeInTheDocument();
+  });
+
+  it("photos: new item offers photos and receipt; chosen files are linked after saving and shown as thumbnails", async () => {
+    const session = sessionFor();
+    const r = await attachPending(session, "item", itemId, [{ path: photoPath, role: "photo" }]);
+    expect(r).toEqual({ linked: 1, errors: [] });
+    const { container } = renderAt(`/bolig?id=${itemId}`);
+    await settle("Bolig og inventar");
+    expect(await screen.findByRole("button", { name: /^Vis foto: opvasker/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Flere fotos…" })).toBeInTheDocument();
+    checkButtons(container, "Genstand med foto");
+    fireEvent.click(screen.getAllByRole("button", { name: "Ny genstand" })[0]!);
+    const dialog = await screen.findByRole("dialog", { name: "Ny genstand" });
+    expect(within(dialog).getByRole("button", { name: "Tilføj fotos…" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Tilføj kvittering…" })).toBeInTheDocument();
+    // The fieldset sits inside the form, above the Opret button.
+    expect(within(dialog).getByRole("group", { name: "Fotos og kvittering" }).closest("form")).not.toBeNull();
   });
 
   it("empty states show the module icon, a sentence and the primary action", async () => {
