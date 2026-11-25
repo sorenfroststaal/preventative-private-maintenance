@@ -20,7 +20,7 @@ Rækkefølgen er fast:
 
 1. **Forfaldne:** åbne forekomster med `due_date < i dag`.
 2. **Næste 30 dage:** åbne forekomster inden for `dashboard.horizon_days`.
-3. **Udløber snart:** de automatiske opgaver (garanti, reklamationsret, police, binding og recept) inden for 60 dage, uanset `reminder_days`.
+3. **Udløber snart:** de automatiske opgaver (garanti, reklamationsret, police, binding og recept) fra 30 dage tilbage til 60 dage frem, uanset `reminder_days`. Automatiske opgaver vises kun her og ikke også i sektion 1–2. Ældre udløbne frister skjules.
 4. **Mangler oplysninger:**
    - genstande med pris, men uden kvittering
    - aktive opgaver, hvor den åbne forekomst mangler `due_date`
@@ -99,7 +99,8 @@ Opgavelisten kan filtreres på modul, ansvarlig, status og periode. Den kan ogs�
 - **Budget:** et årsbudget med linjer pr. kategori. Visningen sammenligner budget og faktisk forbrug pr. måned og hele året.
 - **Overblik:** indtægter og udgifter pr. måned (6, 12 eller 24 måneder) som kurve med gennemsnit. Overførsler tælles ikke med; posteringer uden kategori tælles efter fortegn. **Madbudget:** forbruget i "Mad og dagligvarer" med underkategorier pr. måned mod budgettet; madbudgettet sættes i ét trin og gemmes som en budgetlinje uden måned i årets budget. **Historik pr. kategori:** alle kategorier med posteringer i perioden med minikurve og gennemsnit; valgt kategori vises som kurve.
 - **Budget** forklarer, at "faktisk" kommer fra kategoriserede posteringer, viser antal posteringer i året og hvor mange der mangler kategori, og kan hente månedlige linjer fra de faste udgifter (kun kategorier uden linje).
-- **Faste udgifter:** liste med den beregnede månedlige gennemsnitsudgift og summen pr. måned. Hver udgift har en valgfri prioritet 1–5 (5 obligatorisk, 4 vigtig, 3 nyttig, 2 rart at have, 1 kan undværes), listen kan sorteres efter den, og summen af prioritet 1–2 vises pr. måned og år. En udgift arkiveres fra listen (opsagt).
+- **Faste udgifter:** liste med den beregnede månedlige gennemsnitsudgift og summen pr. måned. Hver udgift har en valgfri prioritet 1–5 (5 obligatorisk, 4 vigtig, 3 nyttig, 2 rart at have, 1 kan undværes), listen kan sorteres efter den, og summen af prioritet 1–2 vises pr. måned og år. En udgift arkiveres fra listen (opsagt). En udgift kan kobles til en bolig eller en bil, have en slutdato (derefter vises den som ophørt og tælles ikke med) og markeres som variabel, så beløbet vises som et skøn ("ca.").
+- **Lån:** liste med type, långiver, restgæld pr. dato, rente, ydelse omregnet til pr. måned og sidste ydelse, med summer for restgæld og ydelse. Detaljen har bilag. Appen beregner ikke afdrag; brugeren retter restgælden ud fra årsopgørelsen. Bilens driftsomkostninger viser bilens faste udgifter og lån.
 - Standardkategorier (seed): Bolig, Forsyning, Mad og dagligvarer, Transport, Forsikring, Børn, Sundhed, Fritid, Abonnementer, Opsparing, Indtægt, Overførsel, Andet.
 
 ## Forsikring
@@ -190,7 +191,7 @@ Under **Bolig og inventar** har fanen **Husdyr** en liste (navn, art og race, ch
 
 ## Lister og rullelister
 
-- Menupunktet **Lister** (ikon `list-tree`, farvetoken `--c-lists`) viser de poster og værdier, som rullelisterne i formularerne henter fra, med en fane for hver: rum og placeringer, boliger, kontakter, personer, konti, økonomikategorier, genstandskategorier og bygningsdelstyper. Poster rettes med samme formular som andre steder og arkiveres i stedet for at blive slettet. Værdilister (03) kan få nye værdier, omdøbes og få ubrugte værdier slettet.
+- Menupunktet **Lister** (ikon `list-tree`, farvetoken `--c-lists`) viser de poster og værdier, som rullelisterne i formularerne henter fra, med en fane for hver: rum og placeringer, boliger, kontakter, personer, konti, økonomikategorier, genstandskategorier og bygningsdelstyper. Poster rettes med samme formular som andre steder og arkiveres i stedet for at blive slettet. Poster, der kan have bilag (boliger, rum, kontakter, personer og konti), har også fanen *Bilag*. Værdilister (03) kan få nye værdier, omdøbes og få ubrugte værdier slettet.
 - Genstandens kategori og bygningsdelens type vælges fra en rulleliste med værdilisten og muligheden **+ Tilføj ny…**.
 - Rullelister, der henviser til poster (fx placering, forhandler, bolig og kategori), har muligheden **+ Ny …**. Den åbner en lille formular for posttypen og vælger den nye post bagefter.
 - Fotos og kvittering kan vælges, når en genstand oprettes, og fotos, når en bygningsdel, bil eller reservedel oprettes. Filerne importeres og kobles, når posten er gemt. Detaljevisningen viser fotos som miniaturer øverst.

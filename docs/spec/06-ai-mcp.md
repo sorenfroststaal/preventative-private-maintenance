@@ -102,7 +102,7 @@ Alle operationer i `propose` valideres, før noget gemmes. Fejler én, oprettes 
 
 - `ai_draft` får gruppen gemt i `payload_json.group` (uuid). Det kræver ingen ny kolonne.
 - AI-indbakken viser grupper med begrundelse og antal operationer. Hver operation kan foldes ud. Knapperne er *Godkend alle*, *Godkend valgte*, *Redigér* og *Afvis alle*.
-- *Godkend alle* udfører gruppens operationer i én transaktion. Fejler én, rulles alle tilbage, og gruppen markeres `failed` med en fejltekst. *Godkend valgte* virker på samme måde for de valgte operationer: fejler én, markeres de valgte `failed`, mens de ikke-valgte forbliver `pending`.
+- *Godkend alle* udfører gruppens operationer i én transaktion. Fejler én, rulles alle tilbage, og kun den fejlende operation markeres `failed` med en fejltekst. De øvrige forbliver `pending` og kan godkendes uden den. *Godkend valgte* virker på samme måde for de valgte operationer; ikke-valgte forbliver `pending`.
 
 ## Vejledning til AI-klienten
 

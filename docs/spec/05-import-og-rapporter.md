@@ -16,7 +16,7 @@ Mail-HTML vises aldrig som HTML. Kun tekstdelen vises.
 
 ## Overvåget indbakke
 
-- Appen overvåger `<arkiv>/indbakke/` (ikke undermapper), så længe den kører, og scanner mappen, når den starter.
+- Appen overvåger `<arkiv>/indbakke/` (ikke undermapper), så længe den kører, og scanner mappen, når den starter. Overvågningen kan ske med filsystem-events eller ved at scanne mappen med højst 2 sekunders mellemrum (polling), som også virker på netværksdrev.
 - En fil importeres, når dens størrelse har været uændret i 2 sekunder. Derefter flyttes den til `indbakke/importeret/YYYY-MM/`.
 - Filer, der ikke er understøttet, bliver liggende og vises med en advarsel i importkøen.
 
@@ -66,7 +66,7 @@ Filen gemmes i `eksport/forsikringsrapport-YYYYMMDD.pdf` eller et sted, brugeren
 
 ## Eksport
 
-- **CSV eller JSON pr. tabel** samt en samlet JSON med alle tabeller (`ppm-export.json` med `schemaVersion`).
+- **CSV eller JSON pr. tabel** samt en samlet JSON med alle tabeller (`ppm-export.json` med `schemaVersion`). CSV bruger semikolon som skilletegn og gemmes i UTF-8 med BOM, så filen åbner korrekt i dansk Excel. Søgeindekset (FTS) eksporteres ikke.
 - **ICS:** valgte opgaver og deres åbne forekomster som heldags-`VEVENT`. Som standard bruges en neutral titel (opgavens titel) uden noter, bilag og helbredsdetaljer. Helbredsopgaver får titlen "Helbred: påmindelse", medmindre brugeren aktivt vælger at bruge den fulde titel.
 
 ## Madplan: ingredienser og Open Planner
