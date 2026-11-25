@@ -20,7 +20,12 @@ import {
   MEAL_LABELS,
   MEALS,
   type Meal,
+  AI_MODULES,
+  AI_MODULE_LABELS,
+  readAiAccess,
+  type AiModule,
 } from "@ppm/core";
+import { mcpInfo, openMcpBundle } from "../platform/tauri";
 import { errorText, useSession } from "../app/session";
 import { pickDirectory, pickFiles } from "../platform/tauri";
 import { formatDateTime } from "../lib/format";
@@ -40,7 +45,7 @@ export function Settings() {
       <ExportPanel />
       <CategoriesPanel />
       <FoodPanel />
-      <p className="small muted">AI-adgang og opsætning af AI-klienter kommer i fase 3.</p>
+      <AiAccessPanel />
     </section>
   );
 }
@@ -449,6 +454,158 @@ function FoodPanel() {
           Gem
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Date the packaged channels were last checked against the providers' documentation (spec 06). */
+const CHANNELS_VERIFIED = "25.11.2026";
+const MARKETPLACE_REPO = "sorenfroststaal/preventative-private-maintenance";
+
+function CopyBlock({ label, text }: { label: string; text: string }) {
+  const toast = useToast();
+  return (
+    <div className="copy-block">
+      <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
+        <span className="small">{label}</span>
+        <button
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(text);
+              toast("Kopieret");
+            } catch {
+              window.prompt("Kopiér teksten:", text);
+            }
+          }}
+        >
+          Kopiér
+        </button>
+      </div>
+      <pre className="mailtext">{text}</pre>
+    </div>
+  );
+}
+
+/** AI-adgang (spec 04 Indstillinger, 06): modules shared with AI, the user AI acts as, channels and the access log. */
+function AiAccessPanel() {
+  const session = useSession();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const access = useQuery({ queryKey: ["setting", "ai"], queryFn: () => readAiAccess(session.archive.db) });
+  const users = useQuery({ queryKey: ["app_user", "public"], queryFn: () => listUsers(session.archive.db) });
+  const info = useQuery({ queryKey: ["mcp-info"], queryFn: () => mcpInfo().catch(() => ({ binaryPath: null, bundlePath: null })) });
+  const log = useQuery({
+    queryKey: ["ai_access_log"],
+    queryFn: () =>
+      session.archive.db.select<{ id: string; at: string; client_name: string | null; tool: string; denied_reason: string | null; returned_refs: string }>(
+        "SELECT id, at, client_name, tool, denied_reason, returned_refs FROM ai_access_log ORDER BY at DESC LIMIT 30",
+      ),
+  });
+  const save = async (key: string, value: unknown) => {
+    try {
+      await setSetting(session.ctx(), key, value);
+      await qc.invalidateQueries({ queryKey: ["setting"] });
+    } catch (e) {
+      toast(errorText(e), "error");
+    }
+  };
+  const ro = session.archive.readOnly;
+  const a = access.data;
+  const desktopConfig = JSON.stringify({ mcpServers: { ppm: { command: info.data?.binaryPath ?? "ppm-mcp" } } }, null, 2);
+  return (
+    <div className="panel">
+      <h2>AI-adgang</h2>
+      <p className="small muted">
+        AI-klienter forbinder sig til arkivet lokalt med <code>ppm-mcp</code>. Der sendes intet over nettet af programmet selv. AI kan kun læse de moduler, du deler, og kan kun foreslå ændringer, som du godkender i AI-indbakken. Alle kald logges.
+      </p>
+      {a && (
+        <>
+          <fieldset>
+            <legend>Moduler, AI må læse</legend>
+            {AI_MODULES.map((m) => (
+              <label key={m} className="inline">
+                <input type="checkbox" checked={a.modules[m]} disabled={ro} onChange={(e) => void save("ai.modules", { ...a.modules, [m]: e.target.checked } as Record<AiModule, boolean>)} />{" "}
+                {AI_MODULE_LABELS[m]}
+                {m === "health" && <span className="small muted"> – følsomme oplysninger, slået fra som standard</span>}
+              </label>
+            ))}
+          </fieldset>
+          <label>
+            AI agerer som
+            <select value={a.asUserId ?? ""} disabled={ro} onChange={(e) => void save("ai.as_user_id", e.target.value || null)}>
+              <option value="">Ingen bestemt bruger (private helbredsdata skjules)</option>
+              {(users.data ?? []).map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
+      )}
+
+      <h3>Forbind en AI-klient</h3>
+      <p className="small muted">
+        Formaterne er senest kontrolleret mod udbydernes dokumentation {CHANNELS_VERIFIED}. {info.data?.binaryPath ? <>Binæren ligger i <code>{info.data.binaryPath}</code> og er lagt i din PATH ved installationen.</> : "Binæren følger med installationen af appen."}
+      </p>
+      <h4>Claude Desktop</h4>
+      <div className="row">
+        <button
+          className="primary"
+          disabled={!info.data?.bundlePath}
+          onClick={async () => {
+            try {
+              await openMcpBundle();
+              toast("ppm.mcpb er åbnet. Bekræft installationen i Claude Desktop.");
+            } catch (e) {
+              toast(errorText(e), "error");
+            }
+          }}
+        >
+          Installér i Claude Desktop
+        </button>
+        {!info.data?.bundlePath && <span className="small muted">Kun i den installerede app.</span>}
+      </div>
+      <CopyBlock label="Eller indsæt i claude_desktop_config.json:" text={desktopConfig} />
+      <h4>Claude Code</h4>
+      <CopyBlock label="Kør i Claude Code:" text={`/plugin marketplace add ${MARKETPLACE_REPO}\n/plugin install ppm@ppm`} />
+      <h4>Codex og ChatGPT desktop</h4>
+      <CopyBlock label="Kør i en terminal:" text="codex mcp add ppm -- ppm-mcp" />
+      <p className="small muted">Kommandoen kunne ikke kontrolleres mod OpenAIs dokumentation {CHANNELS_VERIFIED} og er ikke afprøvet.</p>
+      <h4>Lokal AI</h4>
+      <p className="small muted">
+        En MCP-kompatibel klient med en lokal model (fx via Ollama) kan starte <code>ppm-mcp</code> over stdio. Projektet garanterer ikke en bestemt klient.
+      </p>
+
+      <h3>Log over AI-adgang</h3>
+      {log.data?.length === 0 ? (
+        <p className="muted small">Ingen kald endnu.</p>
+      ) : (
+        <table className="list compact">
+          <thead>
+            <tr>
+              <th>Tidspunkt</th>
+              <th>Klient</th>
+              <th>Værktøj</th>
+              <th className="num">Poster</th>
+              <th>Afvist</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(log.data ?? []).map((l) => (
+              <tr key={l.id}>
+                <td>{formatDateTime(l.at)}</td>
+                <td>{l.client_name ?? "–"}</td>
+                <td>
+                  <code>{l.tool}</code>
+                </td>
+                <td className="num">{(JSON.parse(l.returned_refs) as unknown[]).length}</td>
+                <td className="small">{l.denied_reason ?? ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

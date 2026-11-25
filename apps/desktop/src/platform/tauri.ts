@@ -152,3 +152,12 @@ export const pickFiles = (
     extensions: opts.extensions ?? null,
     multiple: opts.multiple ?? false,
   });
+
+/** The packaged AI connection (spec 06): installed ppm-mcp binary and whether ppm.mcpb can be built. */
+export interface McpInfo {
+  binaryPath: string | null;
+  bundlePath: string | null;
+}
+export const mcpInfo = () => invoke<McpInfo>("mcp_info");
+/** Builds ppm.mcpb from the installed binary and opens it (Claude Desktop installs it). Returns its path. */
+export const openMcpBundle = () => invoke<string>("open_mcp_bundle");

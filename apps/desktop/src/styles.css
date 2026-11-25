@@ -928,3 +928,25 @@ a.with-icon {
   width: auto;
   max-width: 100%;
 }
+/* Phase 3: AI inbox and AI access */
+.draft-op {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.draft-op:last-child {
+  border-bottom: none;
+}
+.draft-op .row {
+  gap: 0.4rem;
+}
+.copy-block {
+  margin: 0.4rem 0 0.8rem;
+}
+.copy-block pre {
+  margin: 0.3rem 0 0;
+  white-space: pre-wrap;
+}
+h4 {
+  margin: 1rem 0 0.3rem;
+  font-size: 0.95rem;
+}

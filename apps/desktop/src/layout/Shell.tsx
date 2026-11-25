@@ -2,13 +2,13 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { NavLink, Route, Routes } from "react-router-dom";
 import { listen } from "@tauri-apps/api/event";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getSetting, importDocument, scanInbox, type InboxState } from "@ppm/core";
+import { getSetting, importDocument, pendingDraftGroupCount, scanInbox, type InboxState } from "@ppm/core";
 import { errorText, useSession } from "../app/session";
 import { Overview } from "../pages/Overview";
 import { Tasks } from "../pages/Tasks";
 import { Documents } from "../pages/Documents";
 import { Settings } from "../pages/Settings";
-import { Placeholder } from "../pages/Placeholder";
+import { AiInbox } from "../pages/AiInbox";
 import { Home } from "../pages/Home";
 import { WorkOrders } from "../pages/WorkOrders";
 import { Vehicles } from "../pages/Vehicles";
@@ -121,8 +121,9 @@ export function Shell() {
   }, []);
 
   const aiPending = useQuery({
-    queryKey: ["dashboard", "ai"],
-    queryFn: async () => (await session.archive.db.select<{ n: number }>("SELECT count(*) AS n FROM ai_draft WHERE status = 'pending'"))[0]?.n ?? 0,
+    queryKey: ["ai_draft", "pending-count"],
+    queryFn: () => pendingDraftGroupCount(session.archive.db),
+    refetchInterval: 5000,
   });
 
   return (
@@ -177,7 +178,7 @@ export function Shell() {
               <Route path="/helbred" element={<Health />} />
               <Route path="/dokumenter" element={<Documents onImport={importFiles} />} />
               <Route path="/indstillinger" element={<Settings />} />
-              <Route path="/ai" element={<Placeholder title="AI-indbakke" module="ai" phase={3} />} />
+              <Route path="/ai" element={<AiInbox />} />
             </Routes>
           </main>
           <div className="toasts" aria-live="polite">

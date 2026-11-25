@@ -237,18 +237,66 @@ export async function editDraft(ctx: Ctx, draftId: string, data: Record<string, 
   return { ...d, payload: p };
 }
 
+/** Danish names of the types AI can propose (the UI is in Danish). */
+export const DRAFT_TYPE_LABELS: Record<string, string> = {
+  item: "genstand",
+  item_part: "reservedel",
+  building_part: "bygningsdel",
+  location: "rum",
+  contact: "kontakt",
+  vehicle: "bil",
+  odometer_reading: "km-stand",
+  work_order: "arbejdsordre",
+  task: "opgave",
+  policy: "police",
+  claim: "skadesag",
+  bank_transaction: "postering",
+  recurring_expense: "fast udgift",
+  budget_line: "budgetlinje",
+  health_visit: "lægebesøg",
+  health_screening: "screening",
+  health_vaccination: "vaccination",
+  health_medication: "medicin",
+  health_allergy: "allergi",
+  health_measurement: "måling",
+  recipe: "opskrift",
+  meal_plan_entry: "ret i madplanen",
+  shopping_item: "vare på indkøbslisten",
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  receipt: "kvittering",
+  invoice: "faktura",
+  quote: "tilbud",
+  photo: "foto",
+  photo_before: "foto før",
+  photo_after: "foto efter",
+  manual: "manual",
+  policy_terms: "policevilkår",
+  report: "rapport",
+  letter: "brev",
+  other: "andet",
+};
+
+const typeLabel = (t: string) => DRAFT_TYPE_LABELS[t] ?? t;
+
 /** Human-readable one-line summary of an operation for the inbox. */
 export function describeDraft(d: DraftRow): string {
   const p = d.payload;
-  const name = String(p.data?.name ?? p.data?.title ?? p.data?.text ?? p.data?.substance ?? "");
+  const data = p.data ?? {};
+  const name = String(data.name ?? data.title ?? data.text ?? data.substance ?? data.vaccine ?? "");
   switch (p.op) {
     case "create":
-      return `Opret ${p.type}${name ? `: ${name}` : ""}`;
+      if (p.type === "meal_plan_entry") return `Planlæg ret ${String(data.plan_date ?? "")}${name ? `: ${name}` : ""}`;
+      return `Opret ${typeLabel(p.type)}${name ? `: ${name}` : ""}`;
     case "update":
-      return `Ret ${p.type}: ${Object.keys(p.data ?? {}).join(", ")}`;
+      return `Ret ${typeLabel(p.type)}: ${Object.keys(data).join(", ")}`;
     case "complete_task":
-      return `Marker opgave udført ${String(p.data?.completed_date ?? "")}`;
-    case "attach_document":
-      return `Kobl bilag (${String(p.data?.role ?? "")})${p.file ? `: ${String(p.data?.file_path ?? "").split(/[\\/]/).pop()}` : ""}`;
+      return `Marker opgave udført ${String(data.completed_date ?? "")}`;
+    case "attach_document": {
+      const role = ROLE_LABELS[String(data.role)] ?? String(data.role ?? "");
+      const file = p.file ? String(data.file_path ?? "").split(/[\\/]/).pop() : "eksisterende dokument";
+      return `Kobl ${role}: ${file}`;
+    }
   }
 }

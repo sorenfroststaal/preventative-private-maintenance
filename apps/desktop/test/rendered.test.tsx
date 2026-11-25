@@ -20,6 +20,7 @@ import {
   generateShoppingList,
   makeCtx,
   planMeal,
+  runTool,
   type Archive,
   type Env,
   type PublicUser,
@@ -54,6 +55,14 @@ beforeAll(async () => {
   await planMeal(ctx, { plan_date: addDays(TODAY, 1), recipe_id: String(shrimp.id) });
   await generateShoppingList(ctx, TODAY);
   await createEntity(ctx, "item", { name: "Opvaskemaskine", purchase_price_minor: 499900 });
+  // A draft group from the MCP side (only ai_draft is written).
+  await runTool({ env, archive, clientName: "test" }, "propose", {
+    rationale: "Ny støvsuger fra kvittering",
+    ops: [
+      { op: "create", type: "item", data: { name: "Robotstøvsuger", purchase_price_minor: 249900 } },
+      { op: "create", type: "contact", data: { name: "Elbutikken", kind: "shop" } },
+    ],
+  });
 });
 
 afterEach(cleanup);
@@ -113,7 +122,7 @@ describe("phase 2b.9 – rendered components", () => {
     // Menu: every entry has its module icon (decorative) and text.
     const nav = screen.getByRole("navigation", { name: "Hovedmenu" });
     const links = within(nav).getAllByRole("link");
-    expect(links.map((l) => l.textContent?.trim())).toEqual(MODULES.map((m) => m.label));
+    expect(links.map((l) => l.textContent?.replace(/\d+$/, "").trim())).toEqual(MODULES.map((m) => m.label));
     for (const l of links) expect(l.querySelector('.module-icon[aria-hidden="true"] svg')).not.toBeNull();
     // Page header: module icon next to the h1.
     const h1 = screen.getByRole("heading", { level: 1, name: label });
@@ -151,6 +160,31 @@ describe("phase 2b.9 – rendered components", () => {
     await waitFor(() => expect(screen.getByText("Tomatsuppe")).toBeInTheDocument());
     expect(screen.getByText("Rejer med ris")).toBeInTheDocument();
     expect(screen.getByText("Rejer (Ida)")).toBeInTheDocument();
+  });
+
+  it("AI inbox: shows the draft group and approves all through core", async () => {
+    const { container } = renderAt("/ai");
+    await settle("AI-indbakke");
+    const group = await screen.findByRole("region", { name: "Forslag: Ny støvsuger fra kvittering" });
+    expect(within(group).getByText(/1\. Opret genstand: Robotstøvsuger/)).toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: "Redigér operation 1" })).toHaveAttribute("title");
+    checkButtons(container, "AI-indbakke");
+    fireEvent.click(within(group).getByRole("button", { name: "Godkend alle" }));
+    await waitFor(async () => expect(await archive.db.select("SELECT id FROM item WHERE name = 'Robotstøvsuger'")).toHaveLength(1));
+    const audit = await archive.db.select<{ via: string }>("SELECT a.via FROM audit_log a JOIN item i ON i.id = a.entity_id WHERE i.name = 'Robotstøvsuger'");
+    expect(audit[0]?.via).toBe("ai_draft");
+  });
+
+  it("settings: AI access with modules, channels and the access log", async () => {
+    renderAt("/indstillinger");
+    await settle("Indstillinger");
+    expect(await screen.findByRole("heading", { name: "AI-adgang" })).toBeInTheDocument();
+    const modules = screen.getByRole("group", { name: "Moduler, AI må læse" });
+    expect(within(modules).getByRole("checkbox", { name: /Helbred/ })).not.toBeChecked();
+    expect(within(modules).getByRole("checkbox", { name: /Madplan/ })).toBeChecked();
+    expect(screen.getByText(/plugin install ppm@ppm/)).toBeInTheDocument();
+    expect(screen.getByText("codex mcp add ppm -- ppm-mcp")).toBeInTheDocument();
+    expect(await screen.findByText("propose")).toBeInTheDocument();
   });
 
   it("empty states show the module icon, a sentence and the primary action", async () => {
