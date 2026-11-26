@@ -114,7 +114,7 @@ try {
   await click("//button[@role='tab' and normalize-space()='Lån']");
   await click("//button[normalize-space()='Nyt lån']");
   await find("//div[@role='dialog']//label[contains(., 'Restgæld')]");
-  await type("//div[@role='dialog']//input[@id='f-name']", "Billån");
+  await type("//div[@role='dialog']//label[starts-with(normalize-space(.), 'Navn')]/following-sibling::input", "Billån");
   await click("//div[@role='dialog']//button[@type='submit']");
   await sleep(800);
   step("Lån oprettet med standardværdier og vist", Boolean(await find("//table//td[contains(., 'Billån')]")));

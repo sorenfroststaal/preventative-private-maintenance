@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addTextListValue,
@@ -106,6 +106,8 @@ export function RefSelect(props: {
   emptyLabel?: string;
   /** Default true; set false where creating here makes no sense. */
   allowCreate?: boolean;
+  /** Prefilled values in the "+ Ny …" dialog, e.g. kind "shop" for a vendor. */
+  createDefaults?: Record<string, unknown>;
 }) {
   const { archive } = useSession();
   const qc = useQueryClient();
@@ -137,6 +139,7 @@ export function RefSelect(props: {
           <EntityForm
             type={props.type}
             fixed={props.where}
+            defaults={props.createDefaults ?? (props.type === "contact" ? { kind: "other" } : undefined)}
             onSaved={async (r) => {
               await qc.invalidateQueries({ queryKey: [props.type] });
               props.onChange(String(r.id));
@@ -206,8 +209,7 @@ export function ListSelect({ id, list, value, onChange, required }: { id?: strin
   );
 }
 
-function Input({ f, value, onChange }: { f: FieldDef; value: string; onChange(v: string): void }) {
-  const id = `f-${f.key}`;
+function Input({ id, f, value, onChange }: { id: string; f: FieldDef; value: string; onChange(v: string): void }) {
   switch (f.type) {
     case "textarea":
       return <textarea id={id} rows={3} value={value} onChange={(e) => onChange(e.target.value)} />;
@@ -233,7 +235,7 @@ function Input({ f, value, onChange }: { f: FieldDef; value: string; onChange(v:
     case "list":
       return <ListSelect id={id} list={f.list!} value={value} required={f.required} onChange={onChange} />;
     case "ref":
-      return <RefSelect id={id} type={f.ref!.type} labelCol={f.ref!.label} where={f.ref!.where} value={value} required={f.required} onChange={onChange} />;
+      return <RefSelect id={id} type={f.ref!.type} labelCol={f.ref!.label} where={f.ref!.where} createDefaults={f.ref!.createDefaults} value={value} required={f.required} onChange={onChange} />;
     default:
       return <input id={id} value={value} required={f.required} onChange={(e) => onChange(e.target.value)} />;
   }
@@ -260,6 +262,8 @@ interface Props {
 /** Generic create/update form driven by FieldDefs; validation is core's Zod schema (spec 04). */
 export function EntityForm(props: Props) {
   const session = useSession();
+  // Unique ids per form: a "+ Ny …" dialog can show a second form with the same fields.
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const qc = useQueryClient();
   const fields = (props.fields ?? fieldsFor(props.type)).filter((f) => !f.hidden && !(props.fixed && f.key in props.fixed));
   const [values, setValues] = useState<Values>(() =>
@@ -272,6 +276,8 @@ export function EntityForm(props: Props) {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    // A "+ Ny …" dialog renders its form inside this one; its submit must not also save this form.
+    e.stopPropagation();
     const { data, errors: parseErrors } = fromFormValues(fields, values);
     setErrors(parseErrors);
     setGeneral(null);
@@ -307,11 +313,11 @@ export function EntityForm(props: Props) {
       <div className="grid2">
         {fields.map((f) => (
           <div key={f.key} className={f.type === "textarea" ? "span2" : ""}>
-            <label htmlFor={`f-${f.key}`}>
+            <label htmlFor={`f${uid}-${f.key}`}>
               {f.label}
               {f.required && <span aria-hidden="true"> *</span>}
             </label>
-            <Input f={f} value={values[f.key] ?? ""} onChange={(v) => set(f.key, v)} />
+            <Input id={`f${uid}-${f.key}`} f={f} value={values[f.key] ?? ""} onChange={(v) => set(f.key, v)} />
             {f.help && <div className="small muted">{f.help}</div>}
             {errors[f.key] && (
               <div className="error small" role="alert">

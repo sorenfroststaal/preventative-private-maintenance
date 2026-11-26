@@ -83,6 +83,11 @@ Fundet og rettet under E2E:
 
 Fundet og rettet under E2E: typenavne stod på engelsk i AI-indbakken ("item", "recipe"). Nu på dansk, og ingredienser vises som korte linjer.
 
+## Fejl fundet ved brugerens test 26.11.2026 (rettet)
+
+- **"Arkivet er låst – Arkivet er allerede åbent i dette program"** efter genindlæsning af vinduet: låsen med appens eget proces-id overtages nu, i stedet for at afvise (`acquireLock`). Test i `archive.test.ts`.
+- **Kunne ikke tilføje forhandler med "+ Ny kontakt…"**: dialogen lå inde i genstandens `<form>`. I WebKit/WebView2 blev den indre formular sendt af browseren uden at blive annulleret, så appen genindlæste sig (og ramte låsefejlen ovenfor). Dialoger tegnes nu i `document.body` med en portal, formularens submit stopper sin udbredelse, felt-id'er er unikke pr. formular (`useId`), og kontakter oprettet fra et felt får en passende type (forhandler = butik, selskab = forsikringsselskab, långiver = bank, håndværker, dyrlæge/behandler). Reproduceret og verificeret i den rigtige app med `apps/desktop/e2e/vendor.mjs` (fejlede før, 2/2 efter) og testet i `rendered.test.tsx`.
+
 ## Ønsker 25.11.2026: kalender, tidslinje, udlån og serienumre (migration 0007)
 
 - **Kalender** (nyt menupunkt efter Opgaver, ikon `calendar-days`, farvetoken `--c-calendar`): *Månedsvisning* med ugenumre, mandag først, i dag fremhævet, op til tre begivenheder pr. dag (+n flere) og et dagspanel, hvor hver begivenhed fører til posten. Piletasterne flytter mellem dagene. Perioder vises på første og sidste dag; igangværende perioder kun på første.

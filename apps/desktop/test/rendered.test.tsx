@@ -499,5 +499,28 @@ describe("phase 2b.9 – rendered components", () => {
     fireEvent.click(within(row).getByRole("button", { name: "Markér Stige 4 m som afleveret" }));
     await waitFor(() => expect(screen.queryByText("Stige 4 m", { selector: "td" })).toBeNull());
   });
+
+  it("'+ Ny kontakt…' on an item's vendor creates and selects the contact without saving the item form", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const item = await createEntity(ctx, "item", { name: "Harddisk-beslag" });
+    renderAt(`/bolig?id=${String(item.id)}`);
+    await settle("Bolig og inventar");
+    const detail = await screen.findByRole("complementary", { name: "Genstand" });
+    const vendor = within(detail).getByLabelText("Forhandler (kontakt)") as HTMLSelectElement;
+    fireEvent.change(vendor, { target: { value: "__new__" } });
+    const dialog = await screen.findByRole("dialog", { name: "Ny kontakt" });
+    fireEvent.change(within(dialog).getByLabelText(/^Navn/), { target: { value: "Netbutik Eksempel" } });
+    fireEvent.change(within(dialog).getByLabelText(/^Type/), { target: { value: "shop" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Opret|Gem/ }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Ny kontakt" })).toBeNull());
+    const [c] = await archive.db.select<{ id: string }>("SELECT id FROM contact WHERE name = 'Netbutik Eksempel'");
+    expect(c).toBeTruthy();
+    await waitFor(() => expect((within(detail).getByLabelText("Forhandler (kontakt)") as HTMLSelectElement).value).toBe(c!.id));
+    // The item itself is saved only when the user saves the form (the dialog's submit must not bubble).
+    expect((await archive.db.select("SELECT vendor_contact_id FROM item WHERE id = ?", [String(item.id)]))[0]).toEqual({ vendor_contact_id: null });
+    expect(await archive.db.select("SELECT count(*) AS n FROM audit_log WHERE entity_type = 'item' AND entity_id = ? AND action = 'update'", [String(item.id)])).toEqual([{ n: 0 }]);
+    fireEvent.click(within(detail).getByRole("button", { name: "Gem" }));
+    await waitFor(async () => expect((await archive.db.select("SELECT vendor_contact_id FROM item WHERE id = ?", [String(item.id)]))[0]).toEqual({ vendor_contact_id: c!.id }));
+  });
 });
 

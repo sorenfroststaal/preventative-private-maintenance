@@ -42,7 +42,10 @@ export async function acquireLock(env: Env, root: string): Promise<void> {
   if (await env.fs.createExclusive(lockPath(env, root), JSON.stringify(info))) return;
   const existing = await readLock(env, root);
   if (existing && existing.pid === info.pid && existing.hostname === info.hostname) {
-    throw new ArchiveError("Arkivet er allerede åbent i dette program.", "locked");
+    // Our own process holds it: the window was reloaded (F5, update, crash of the web view) and lost
+    // track of the open archive. One process has one window, so take the lock over.
+    await env.fs.writeText(lockPath(env, root), JSON.stringify(info));
+    return;
   }
   if (existing && (await isLockStale(env, existing))) {
     throw new ArchiveError(

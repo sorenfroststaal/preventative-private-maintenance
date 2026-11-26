@@ -109,6 +109,16 @@ describe("phase 1.4 – instance lock", () => {
     await expect(openArchive(other, root, { appVersion: "t" })).rejects.toMatchObject({ code: "locked" });
   });
 
+  it("a reloaded window in the same process takes its own lock over (no 'already open in this program')", async () => {
+    const env = testEnv();
+    const { archive, root } = await newArchive(env);
+    // The web view reloads: the old JS handle is gone, but the lock with our pid stays.
+    void archive;
+    const again = track(await openArchive(env, root, { appVersion: "t" }));
+    expect(again.readOnly).toBe(false);
+    expect(JSON.parse(await fsp.readFile(join(root, ".lock"), "utf8")).pid).toBe(await env.platform.pid());
+  });
+
   it("detects a stale lock and only removes it when asked", async () => {
     const env = testEnv();
     const { archive, root } = await newArchive(env);

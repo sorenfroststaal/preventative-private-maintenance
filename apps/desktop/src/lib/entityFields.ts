@@ -9,7 +9,7 @@ export interface FieldDef {
   required?: boolean;
   options?: [string, string][];
   /** For type "ref": which entity and which column is shown. */
-  ref?: { type: EntityType; label: string; where?: Record<string, string> };
+  ref?: { type: EntityType; label: string; where?: Record<string, string>; createDefaults?: Record<string, unknown> };
   help?: string;
   /** For type "list": key of the editable value list (core TEXT_LISTS). */
   list?: string;
@@ -124,7 +124,7 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
     t("serial_number", "Serienummer"),
     d("purchase_date", "Købsdato"),
     m("purchase_price_minor", "Købspris"),
-    r("vendor_contact_id", "Forhandler (kontakt)", "contact"),
+    r("vendor_contact_id", "Forhandler (kontakt)", "contact", "name", { ref: { type: "contact", label: "name", createDefaults: { kind: "shop" } } }),
     t("vendor_name", "Forhandler (tekst)"),
     d("warranty_until", "Garanti til"),
     d("complaint_until", "Reklamationsret til"),
@@ -138,7 +138,7 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
     d("birth_date", "Født"),
     t("chip_number", "Chipnummer"),
     r("owner_person_id", "Ejer", "person"),
-    r("vet_contact_id", "Dyrlæge", "contact"),
+    r("vet_contact_id", "Dyrlæge", "contact", "name", { ref: { type: "contact", label: "name", createDefaults: { kind: "other" } } }),
     ta("notes", "Noter"),
   ],
   item_part: [t("name", "Navn", { required: true }), t("part_number", "Varenummer"), t("serial_number", "Serienummer"), t("vendor", "Leverandør"), ta("notes", "Noter")],
@@ -146,7 +146,7 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
     r("item_id", "Genstand", "item"),
     t("title", "Eller beskriv tingen", { help: "Hvis tingen ikke er registreret som genstand, fx \"Brætspil\"" }),
     r("borrower_person_id", "Låner (person)", "person"),
-    r("borrower_contact_id", "Låner (kontakt)", "contact"),
+    r("borrower_contact_id", "Låner (kontakt)", "contact", "name", { ref: { type: "contact", label: "name", createDefaults: { kind: "other" } } }),
     t("borrower_name", "Eller lånerens navn"),
     d("lent_date", "Udlånt", { required: true }),
     d("due_date", "Afleveres senest"),
@@ -176,7 +176,7 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
     s("kind", "Type", WO_KIND, { required: true }),
     s("status", "Status", WO_STATUS),
     ta("description", "Beskrivelse"),
-    r("contact_id", "Håndværker/værksted", "contact"),
+    r("contact_id", "Håndværker/værksted", "contact", "name", { ref: { type: "contact", label: "name", createDefaults: { kind: "craftsman" } } }),
     d("reported_date", "Registreret", { required: true }),
     d("completed_date", "Udført"),
     m("cost_minor", "Omkostning"),
@@ -199,7 +199,7 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
   policy: [
     t("title", "Titel", { required: true }),
     s("kind", "Type", POLICY_KIND, { required: true }),
-    r("insurer_contact_id", "Selskab (kontakt)", "contact"),
+    r("insurer_contact_id", "Selskab (kontakt)", "contact", "name", { ref: { type: "contact", label: "name", createDefaults: { kind: "insurer" } } }),
     t("insurer_name", "Selskab (tekst)"),
     t("policy_number", "Policenummer"),
     m("premium_minor", "Præmie"),
@@ -229,7 +229,7 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
     d("end_date", "Slutter", { help: "Sidste betaling, fx når en aftale udløber. Derefter tælles udgiften ikke med." }),
     r("property_id", "Bolig", "property"),
     r("vehicle_id", "Bil", "vehicle"),
-    r("contact_id", "Leverandør", "contact"),
+    r("contact_id", "Leverandør", "contact", "name", { ref: { type: "contact", label: "name", createDefaults: { kind: "other" } } }),
     r("policy_id", "Police", "policy", "title"),
     s("priority", "Prioritet", [["5", "5 – Obligatorisk"], ["4", "4 – Vigtig"], ["3", "3 – Nyttig"], ["2", "2 – Rart at have"], ["1", "1 – Kan undværes"]], {
       help: "Hvor nødvendig er udgiften? 5 = obligatorisk (fx husleje), 1 = kan undværes (fx en ekstra streamingtjeneste).",
@@ -239,7 +239,7 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
   loan: [
     t("name", "Navn", { required: true }),
     s("kind", "Type", [["mortgage", "Realkreditlån"], ["bank", "Banklån"], ["car", "Billån"], ["student", "SU-lån"], ["consumer", "Forbrugslån"], ["private", "Privat lån"], ["other", "Andet"]], { required: true }),
-    r("lender_contact_id", "Långiver", "contact"),
+    r("lender_contact_id", "Långiver", "contact", "name", { ref: { type: "contact", label: "name", createDefaults: { kind: "bank" } } }),
     t("loan_number", "Lånenummer"),
     m("principal_minor", "Hovedstol (oprindeligt lånt)"),
     m("balance_minor", "Restgæld"),
@@ -257,7 +257,7 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
   health_visit: [
     d("visit_date", "Dato", { required: true }),
     s("kind", "Type", [["gp", "Egen læge"], ["dentist", "Tandlæge"], ["specialist", "Speciallæge"], ["hospital", "Hospital"], ["physio", "Fysioterapeut"], ["other", "Andet"]], { required: true }),
-    r("contact_id", "Behandler", "contact"),
+    r("contact_id", "Behandler", "contact", "name", { ref: { type: "contact", label: "name", createDefaults: { kind: "doctor" } } }),
     t("reason", "Årsag"),
     ta("notes", "Noter"),
     t("referral", "Henvisning"),

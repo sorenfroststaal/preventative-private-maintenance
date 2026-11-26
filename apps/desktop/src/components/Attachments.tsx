@@ -99,7 +99,7 @@ function Thumb({ doc, onOpen }: { doc: Row; onOpen(): void }) {
   }, [archive, doc.ext, doc.mime, doc.sha256, env]);
   const title = String(doc.title ?? doc.filename);
   return (
-    <button className="photo-thumb" onClick={onOpen} aria-label={`Vis foto: ${title}`} title={title}>
+    <button type="button" className="photo-thumb" onClick={onOpen} aria-label={`Vis foto: ${title}`} title={title}>
       {url ? <img src={url} alt="" /> : <span aria-hidden="true" />}
     </button>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 /** Tabs; uncontrolled by default, or controlled with `active`/`onChange` (e.g. from the URL). */
 export function Tabs({
@@ -52,18 +53,21 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
       prev?.focus();
     };
   }, [onClose]);
-  return (
+  // Rendered in document.body, so a dialog with a form is never nested inside another form in the DOM
+  // (WebKit/WebView2 then submit the inner form natively and reload the app).
+  return createPortal(
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`modal ${wide ? "wide" : ""}`} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
         <div className="header-row">
           <h2>{title}</h2>
-          <button className="link" onClick={onClose} aria-label="Luk">
+          <button type="button" className="link" onClick={onClose} aria-label="Luk">
             Luk
           </button>
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
