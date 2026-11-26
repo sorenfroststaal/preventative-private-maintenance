@@ -232,7 +232,7 @@ describe("phase 2b.9 – rendered components", () => {
     expect(within(dialog).getByRole("group", { name: "Fotos og kvittering" }).closest("form")).not.toBeNull();
   });
 
-  it("dropdowns: category from an editable list with '+ Tilføj ny…', and '+ Ny rum…' creates a location and selects it", async () => {
+  it("dropdowns: category from an editable list with '+ Tilføj ny…', and '+ Nyt rum…' creates a location and selects it", async () => {
     renderAt("/bolig");
     await settle("Bolig og inventar");
     fireEvent.click(screen.getAllByRole("button", { name: "Ny genstand" })[0]!);
@@ -246,9 +246,9 @@ describe("phase 2b.9 – rendered components", () => {
     await waitFor(() => expect((within(dialog).getByLabelText("Kategori") as HTMLSelectElement).value).toBe("Smarthome"));
 
     const placement = within(dialog).getByLabelText("Placering") as HTMLSelectElement;
-    expect([...placement.options].at(-1)?.textContent).toBe("+ Ny rum…");
+    expect([...placement.options].at(-1)?.textContent).toBe("+ Nyt rum…");
     fireEvent.change(placement, { target: { value: "__new__" } });
-    const newRoom = await screen.findByRole("dialog", { name: "Ny rum" });
+    const newRoom = await screen.findByRole("dialog", { name: "Nyt rum" });
     expect(within(newRoom).getByLabelText(/Bolig/)).toBeInTheDocument();
   });
 
@@ -550,6 +550,26 @@ describe("phase 2b.9 – rendered components", () => {
     checkButtons(container, "Dokumenter");
     fireEvent.click(chip);
     await screen.findByRole("heading", { level: 1, name: "Bolig og inventar" });
+  });
+
+  it("Nyt rum: the only property is chosen, 'Del af' lists only rooms in that property and is optional", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const props = await archive.db.select<{ id: string }>("SELECT id FROM property WHERE archived_at IS NULL");
+    for (const p of props) await archive.db.execute("UPDATE property SET archived_at = 'x' WHERE id = ?", [p.id]);
+    const house = await createEntity(ctx, "property", { name: "Rumtest-hus", kind: "house" });
+    await createEntity(ctx, "location", { property_id: String(house.id), name: "Rumtest-køkken" });
+    renderAt("/lister?liste=location");
+    await settle("Lister");
+    fireEvent.click(await screen.findByRole("button", { name: "Nyt rum" }));
+    const dialog = await screen.findByRole("dialog", { name: "Nyt rum" });
+    await waitFor(() => expect((within(dialog).getByLabelText(/^Bolig/) as HTMLSelectElement).value).toBe(String(house.id)));
+    const parent = within(dialog).getByLabelText(/^Del af/) as HTMLSelectElement;
+    await waitFor(() => expect([...parent.options].map((o) => o.textContent)).toEqual(["– vælg –", "Rumtest-køkken"]));
+    fireEvent.change(within(dialog).getByLabelText(/^Navn/), { target: { value: "Rumtest-skab" } });
+    fireEvent.change(parent, { target: { value: parent.options[1]!.value } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Opret" }));
+    await waitFor(async () => expect(await archive.db.select("SELECT l.name, p.name AS parent FROM location l JOIN location p ON p.id = l.parent_id WHERE l.name = 'Rumtest-skab'")).toEqual([{ name: "Rumtest-skab", parent: "Rumtest-køkken" }]));
+    for (const p of props) await archive.db.execute("UPDATE property SET archived_at = NULL WHERE id = ?", [p.id]);
   });
 });
 

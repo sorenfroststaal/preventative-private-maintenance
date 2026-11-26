@@ -14,7 +14,7 @@ import {
 } from "@ppm/core";
 import { errorText, useSession } from "../app/session";
 import { useToast } from "../layout/Shell";
-import { EntityForm, TYPE_SINGULAR } from "../components/EntityForm";
+import { EntityForm, newLabel, TYPE_SINGULAR } from "../components/EntityForm";
 import { ArchiveButton } from "../components/ArchiveButton";
 import { DocumentsTab } from "../components/DetailTabs";
 
@@ -117,7 +117,7 @@ function EntityListTab({ list }: { list: EntityList }) {
       <div className="row filters">
         <SearchBox value={q} onChange={setQ} placeholder={`Søg i ${list.label.toLowerCase()}`} />
         <TextIconButton icon={Plus} className="primary" onClick={() => setCreating(true)} disabled={archive.readOnly}>
-          Ny {singular}
+          {newLabel(list.type)}
         </TextIconButton>
       </div>
       <div className="split">
@@ -166,7 +166,7 @@ function EntityListTab({ list }: { list: EntityList }) {
         )}
       </div>
       {creating && (
-        <Modal title={`Ny ${singular}`} onClose={() => setCreating(false)}>
+        <Modal title={newLabel(list.type)} onClose={() => setCreating(false)}>
           <EntityForm
             type={list.type}
             onSaved={(r) => {

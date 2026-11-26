@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addTextListValue,
@@ -70,6 +70,14 @@ export function fromFormValues(fields: FieldDef[], values: Values): { data: Reco
   return { data, errors };
 }
 
+/** Danish neuter nouns take "Nyt" ("Nyt rum", "Nyt husdyr"). */
+const NEUTER = new Set(["rum", "husdyr", "lån", "udlån", "budget"]);
+/** "Ny kontakt", "Nyt rum". */
+export const newLabel = (type: EntityType): string => {
+  const w = TYPE_SINGULAR[type] ?? type;
+  return `${NEUTER.has(w) ? "Nyt" : "Ny"} ${w}`;
+};
+
 /** Danish singular names used in "+ Ny …" options. */
 export const TYPE_SINGULAR: Partial<Record<EntityType, string>> = {
   location: "rum",
@@ -117,7 +125,12 @@ export function RefSelect(props: {
     queryFn: () => listEntities(archive.db, props.type, { where: props.where, orderBy: props.labelCol }),
   });
   const canCreate = (props.allowCreate ?? true) && !archive.readOnly && fieldsFor(props.type).length > 0;
-  const singular = TYPE_SINGULAR[props.type] ?? props.type;
+  // A required choice with only one option (e.g. the only property) is chosen for the user.
+  const only = props.required && !props.value && q.data?.length === 1 ? String(q.data[0]!.id) : null;
+  useEffect(() => {
+    if (only) props.onChange(only);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [only]);
   return (
     <>
       <select
@@ -132,10 +145,10 @@ export function RefSelect(props: {
             {String(r[props.labelCol] ?? r.id)}
           </option>
         ))}
-        {canCreate && <option value={NEW}>+ Ny {singular}…</option>}
+        {canCreate && <option value={NEW}>+ {newLabel(props.type)}…</option>}
       </select>
       {creating && (
-        <Modal title={`Ny ${singular}`} onClose={() => setCreating(false)}>
+        <Modal title={newLabel(props.type)} onClose={() => setCreating(false)}>
           <EntityForm
             type={props.type}
             fixed={props.where}
@@ -209,7 +222,7 @@ export function ListSelect({ id, list, value, onChange, required }: { id?: strin
   );
 }
 
-function Input({ id, f, value, onChange }: { id: string; f: FieldDef; value: string; onChange(v: string): void }) {
+function Input({ id, f, value, onChange, values }: { id: string; f: FieldDef; value: string; onChange(v: string): void; values: Values }) {
   switch (f.type) {
     case "textarea":
       return <textarea id={id} rows={3} value={value} onChange={(e) => onChange(e.target.value)} />;
@@ -235,7 +248,19 @@ function Input({ id, f, value, onChange }: { id: string; f: FieldDef; value: str
     case "list":
       return <ListSelect id={id} list={f.list!} value={value} required={f.required} onChange={onChange} />;
     case "ref":
-      return <RefSelect id={id} type={f.ref!.type} labelCol={f.ref!.label} where={f.ref!.where} createDefaults={f.ref!.createDefaults} value={value} required={f.required} onChange={onChange} />;
+      return (
+        <RefSelect
+          id={id}
+          type={f.ref!.type}
+          labelCol={f.ref!.label}
+          where={f.ref!.whereFrom ? { ...f.ref!.where, ...Object.fromEntries(Object.entries(f.ref!.whereFrom).map(([col, field]) => [col, values[field] || "__none__"])) } : f.ref!.where}
+          createDefaults={f.ref!.createDefaults}
+          allowCreate={f.ref!.whereFrom ? false : undefined}
+          value={value}
+          required={f.required}
+          onChange={onChange}
+        />
+      );
     default:
       return <input id={id} value={value} required={f.required} onChange={(e) => onChange(e.target.value)} />;
   }
@@ -317,7 +342,7 @@ export function EntityForm(props: Props) {
               {f.label}
               {f.required && <span aria-hidden="true"> *</span>}
             </label>
-            <Input id={`f${uid}-${f.key}`} f={f} value={values[f.key] ?? ""} onChange={(v) => set(f.key, v)} />
+            <Input id={`f${uid}-${f.key}`} f={f} value={values[f.key] ?? ""} onChange={(v) => set(f.key, v)} values={values} />
             {f.help && <div className="small muted">{f.help}</div>}
             {errors[f.key] && (
               <div className="error small" role="alert">

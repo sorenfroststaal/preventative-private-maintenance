@@ -9,7 +9,14 @@ export interface FieldDef {
   required?: boolean;
   options?: [string, string][];
   /** For type "ref": which entity and which column is shown. */
-  ref?: { type: EntityType; label: string; where?: Record<string, string>; createDefaults?: Record<string, unknown> };
+  ref?: {
+    type: EntityType;
+    label: string;
+    where?: Record<string, string>;
+    /** Filter by the value of another field in the same form, e.g. { property_id: "property_id" }. */
+    whereFrom?: Record<string, string>;
+    createDefaults?: Record<string, unknown>;
+  };
   help?: string;
   /** For type "list": key of the editable value list (core TEXT_LISTS). */
   list?: string;
@@ -114,7 +121,14 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
     s("owned", "Ejerforhold", [["1", "Ejer"], ["0", "Lejer"]]),
     ta("notes", "Noter"),
   ],
-  location: [r("property_id", "Bolig", "property", "name", { required: true }), r("parent_id", "Ligger i", "location"), t("name", "Navn", { required: true })],
+  location: [
+    r("property_id", "Bolig", "property", "name", { required: true }),
+    t("name", "Navn", { required: true, help: "Fx Køkken, Kælder, Have eller Skab i gangen" }),
+    r("parent_id", "Del af (valgfrit)", "location", "name", {
+      ref: { type: "location", label: "name", whereFrom: { property_id: "property_id" } },
+      help: "Kun hvis stedet ligger inde i et andet rum, fx et skab i køkkenet. Lad stå tom for et almindeligt rum.",
+    }),
+  ],
   item: [
     t("name", "Navn", { required: true }),
     { key: "category", label: "Kategori", type: "list", list: "item_category" },
