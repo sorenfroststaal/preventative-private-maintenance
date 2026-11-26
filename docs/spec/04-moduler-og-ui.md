@@ -207,6 +207,12 @@ Under **Bolig og inventar** har fanen **Husdyr** en liste (navn, art og race, ch
 
 - Bolig og inventar har fanen **Udlån**. En ting (genstand eller fri tekst) lånes ud til en person, en kontakt eller et frit navn med udlånsdato og eventuel afleveringsdato. En genstand kan kun være udlånt én gang ad gangen. Overskredne udlån markeres. *Markér afleveret* sætter `returned_date`; afleverede udlån kan vises som historik. Genstandens detalje viser "Udlånt til …" eller *Lån ud…*.
 
+## Komponenter og trævisning
+
+- Genstande har fanen **Komponenter** grupperet efter rolle (indbyggede dele, tilbehør, forbrugsstoffer, reservedele) med *Tilføj komponent* og *Brug …* (antal, arbejdsordre, dato). En komponent viser "Del af …" med links til genstandene over den.
+- Bolig og inventar → Genstande kan vises som **Liste** (hovedgenstande med antal dele; komponenter kan slås til) eller **Træ**, grupperet efter placering (bolig › rum › underrum › genstand › komponenter), ejer eller kategori, og foldes ud og sammen. En genstand med flere ejere står under hver ejer. En komponent med egen placering står også i sit eget rum, mærket "del af …". En søgning viser træfferne med vejen til dem.
+- Arbejdsordrer har fanen **Reservedele** med de brugte dele og *Brug fra lager*.
+
 ## Gaver og personer uden for husstanden
 
 - Personer har feltet *Hører til*: husstanden (standard) eller uden for husstanden. "+ Ny person" fra udlån og gaver opretter som standard en person uden for husstanden. Valg af ejere, personer på faste udgifter, forsikringsdækning, husdyrs ejer og helbred viser kun husstanden.
