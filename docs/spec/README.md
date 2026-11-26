@@ -13,6 +13,7 @@ Nøgleordene **SKAL**, **BØR** og **KAN** bruges som i RFC 2119.
 | [05-import-og-rapporter.md](05-import-og-rapporter.md) | Import af bilag, bank-CSV, forsikringsrapport og eksport |
 | [06-ai-mcp.md](06-ai-mcp.md) | MCP-server, værktøjer, adgangsstyring og kladder |
 | [07-faser-og-accept.md](07-faser-og-accept.md) | Faser og acceptkriterier, som kan testes |
+| [08-mobil.md](08-mobil.md) | Mobiladgang fra iPhone på det lokale netværk: server, HTTPS med egen CA, parring og mobilappens indhold |
 
 ## Fælles konventioner
 
