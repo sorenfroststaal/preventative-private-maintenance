@@ -67,7 +67,7 @@ const ENTITY_LISTS: EntityList[] = [
     ],
     search: ["name", "phone", "email"],
   },
-  { id: "person", label: "Personer", type: "person", sql: "SELECT * FROM person WHERE archived_at IS NULL ORDER BY name", columns: [{ key: "name", label: "Navn" }, { key: "relation", label: "Relation" }], search: ["name", "relation"] },
+  { id: "person", label: "Personer", type: "person", sql: "SELECT * FROM person WHERE archived_at IS NULL ORDER BY household DESC, name", columns: [{ key: "name", label: "Navn" }, { key: "relation", label: "Relation" }, { key: "household", label: "Hører til", render: (r) => (Number(r.household) === 1 ? "Husstanden" : "Uden for husstanden") }], search: ["name", "relation"] },
   { id: "account", label: "Konti", type: "account", sql: "SELECT * FROM account WHERE archived_at IS NULL ORDER BY name", columns: [{ key: "name", label: "Navn" }, { key: "bank", label: "Bank" }], search: ["name", "bank"] },
   {
     id: "category",

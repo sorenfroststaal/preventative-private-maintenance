@@ -166,8 +166,8 @@ export function LendDialog({ itemId, onClose }: { itemId?: string; onClose(): vo
             <input value={v.title} onChange={(e) => set("title", e.target.value)} placeholder="Fx Brætspil, stige, bog" disabled={Boolean(v.item_id)} />
           </label>
           <label>
-            Låner (person i husstanden)
-            <RefSelect type="person" labelCol="name" value={v.borrower_person_id} onChange={(x) => set("borrower_person_id", x)} />
+            Låner (person)
+            <RefSelect type="person" labelCol="name" value={v.borrower_person_id} onChange={(x) => set("borrower_person_id", x)} createDefaults={{ household: 0 }} />
           </label>
           <label>
             Låner (kontakt)

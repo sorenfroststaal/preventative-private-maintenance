@@ -17,10 +17,11 @@ import { Avatar, EmptyState, PageHeader } from "../components/visual";
 import { attachPending, PendingAttachments, PhotoStrip, type PendingFile } from "../components/Attachments";
 import { ReceiptSuggestionBanner } from "../components/ReceiptSuggest";
 import { ItemLending, LendingTab } from "../components/Lending";
+import { GiftsTab } from "../components/Gifts";
 
 export function Home() {
   const [params, setParams] = useSearchParams();
-  const active = params.get("tab") ?? (params.get("part") ? "parts" : params.get("pet") ? "pets" : params.get("udlaan") ? "lending" : "items");
+  const active = params.get("tab") ?? (params.get("part") ? "parts" : params.get("pet") ? "pets" : params.get("udlaan") ? "lending" : params.get("gave") ? "gifts" : "items");
   return (
     <section>
       <PageHeader module="home" />
@@ -33,6 +34,7 @@ export function Home() {
           { id: "parts", label: "Bygningsdele", content: () => <BuildingParts /> },
           { id: "pets", label: "Husdyr", content: () => <Pets /> },
           { id: "lending", label: "Udlån", content: () => <LendingTab /> },
+          { id: "gifts", label: "Gaver", content: () => <GiftsTab /> },
         ]}
       />
     </section>

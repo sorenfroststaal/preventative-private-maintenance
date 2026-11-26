@@ -1,9 +1,21 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Camera, ChevronLeft, CircleCheck, House, Search, ShoppingBasket, Package } from "lucide-react";
+import { CalendarDays, Camera, CircleCheck, House, ImagePlus, Pencil, Plus, Search, ShoppingBasket, Package, Users } from "lucide-react";
 import { api, ApiError, getToken, imageUrl, setToken } from "./api";
+import { GiftForm, ItemForm, LendForm, NewPersonForm, type GiftValue } from "./forms";
+import { PeopleScreen, PersonDetail } from "./people";
+import { Header } from "./ui";
 
-type Tab = "overview" | "calendar" | "food" | "items" | "search";
+type Tab = "overview" | "calendar" | "food" | "items" | "people";
+/** A screen on top of the tabs (a detail or a form); "Tilbage" pops it. */
+type Screen =
+  | { kind: "item"; id: string }
+  | { kind: "itemForm"; id: string | null; item: Record<string, unknown> | null }
+  | { kind: "person"; id: string }
+  | { kind: "personForm" }
+  | { kind: "giftForm"; personId?: string; gift?: GiftValue }
+  | { kind: "lendForm"; itemId?: string; personId?: string }
+  | { kind: "search" };
 
 const MONTHS = ["jan.", "feb.", "mar.", "apr.", "maj", "jun.", "jul.", "aug.", "sep.", "okt.", "nov.", "dec."];
 const WEEKDAYS = ["søndag", "mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag"];
@@ -35,7 +47,7 @@ const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 export function App() {
   const [paired, setPaired] = useState(Boolean(getToken()));
   const [tab, setTab] = useState<Tab>("overview");
-  const [itemId, setItemId] = useState<string | null>(null);
+  const [stack, setStack] = useState<Screen[]>([]);
   const me = useQuery({ queryKey: ["me"], queryFn: () => api<{ user: string | null; today: string }>("/api/me"), enabled: paired });
   useEffect(() => {
     if (me.error instanceof ApiError && me.error.status === 401) {
@@ -43,24 +55,43 @@ export function App() {
       setPaired(false);
     }
   }, [me.error]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [stack.length, tab]);
   if (!paired) return <Pairing onPaired={() => setPaired(true)} />;
   const today = me.data?.today ?? new Date().toISOString().slice(0, 10);
+  const push = (sc: Screen) => setStack((x) => [...x, sc]);
+  const back = () => setStack((x) => x.slice(0, -1));
+  /** Replaces the top screen, e.g. a new item's form becomes the new item. */
+  const replace = (sc: Screen) => setStack((x) => [...x.slice(0, -1), sc]);
+  const top = stack[stack.length - 1];
+  let body;
+  if (top?.kind === "item") body = <ItemDetail key={top.id} id={top.id} onBack={back} onEdit={(item) => push({ kind: "itemForm", id: top.id, item })} onLend={() => push({ kind: "lendForm", itemId: top.id })} />;
+  else if (top?.kind === "itemForm") body = <ItemForm item={top.item} onCancel={back} onDone={(id) => (top.id ? back() : replace({ kind: "item", id }))} />;
+  else if (top?.kind === "person")
+    body = (
+      <PersonDetail
+        key={top.id}
+        id={top.id}
+        onBack={back}
+        onGift={() => push({ kind: "giftForm", personId: top.id })}
+        onEditGift={(gift) => push({ kind: "giftForm", personId: top.id, gift })}
+        onLend={() => push({ kind: "lendForm", personId: top.id })}
+      />
+    );
+  else if (top?.kind === "personForm") body = <NewPersonForm onCancel={back} onDone={(id) => replace({ kind: "person", id })} />;
+  else if (top?.kind === "giftForm") body = <GiftForm personId={top.personId} gift={top.gift} today={today} onCancel={back} onDone={back} />;
+  else if (top?.kind === "lendForm") body = <LendForm itemId={top.itemId} personId={top.personId} today={today} onCancel={back} onDone={back} />;
+  else if (top?.kind === "search") body = <SearchScreen onBack={back} onOpenItem={(id) => push({ kind: "item", id })} />;
+  else if (tab === "overview") body = <Overview today={today} user={me.data?.user ?? null} onSearch={() => push({ kind: "search" })} />;
+  else if (tab === "calendar") body = <CalendarList today={today} />;
+  else if (tab === "food") body = <Food today={today} />;
+  else if (tab === "items") body = <Items onOpen={(id) => push({ kind: "item", id })} onNew={() => push({ kind: "itemForm", id: null, item: null })} />;
+  else body = <PeopleScreen onOpen={(id) => push({ kind: "person", id })} onNew={() => push({ kind: "personForm" })} />;
   return (
     <div className="app">
       <main className="screen">
-        {itemId ? (
-          <ItemDetail id={itemId} onBack={() => setItemId(null)} />
-        ) : tab === "overview" ? (
-          <Overview today={today} user={me.data?.user ?? null} />
-        ) : tab === "calendar" ? (
-          <CalendarList today={today} />
-        ) : tab === "food" ? (
-          <Food today={today} />
-        ) : tab === "items" ? (
-          <Items onOpen={setItemId} />
-        ) : (
-          <SearchScreen onOpenItem={setItemId} />
-        )}
+        {body}
         {me.error && !(me.error instanceof ApiError && me.error.status === 401) && <p className="banner error">{errorText(me.error)}</p>}
       </main>
       <nav className="tabbar" aria-label="Faner">
@@ -70,14 +101,14 @@ export function App() {
             ["calendar", "Kalender", CalendarDays],
             ["food", "Mad", ShoppingBasket],
             ["items", "Ting", Package],
-            ["search", "Søg", Search],
+            ["people", "Folk", Users],
           ] as const
         ).map(([id, label, Icon]) => (
           <button
             key={id}
-            aria-current={tab === id && !itemId ? "page" : undefined}
+            aria-current={tab === id && !top ? "page" : undefined}
             onClick={() => {
-              setItemId(null);
+              setStack([]);
               setTab(id);
             }}
           >
@@ -87,25 +118,6 @@ export function App() {
         ))}
       </nav>
     </div>
-  );
-}
-
-function Header({ title, children, onBack }: { title: string; children?: ReactNode; onBack?(): void }) {
-  return (
-    <header className={`header${onBack ? " detail" : ""}`}>
-      {onBack && (
-        <div className="header-row">
-          <button className="back" onClick={onBack} aria-label="Tilbage">
-            <ChevronLeft size={26} aria-hidden="true" /> Tilbage
-          </button>
-          {children}
-        </div>
-      )}
-      <div className="header-row">
-        <h1>{title}</h1>
-        {!onBack && children}
-      </div>
-    </header>
   );
 }
 
@@ -182,7 +194,7 @@ interface Overview {
   lending: { id: string; thing: string; borrower: string; due: string | null; overdue: boolean }[];
 }
 
-function Overview({ today, user }: { today: string; user: string | null }) {
+function Overview({ today, user, onSearch }: { today: string; user: string | null; onSearch(): void }) {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["overview"], queryFn: () => api<Overview>("/api/overview") });
   const done = useMutation({
@@ -218,7 +230,12 @@ function Overview({ today, user }: { today: string; user: string | null }) {
   return (
     <>
       <Header title="Overblik">
-        <UploadButton />
+        <div className="upload">
+          <button className="icon-btn ghost" onClick={onSearch} aria-label="Søg i alt">
+            <Search size={22} aria-hidden="true" />
+          </button>
+          <UploadButton />
+        </div>
       </Header>
       {user && <p className="muted greeting">Hej {user.split(" ")[0]} · {dayLabel(today, today).toLowerCase()} {fmtDate(today)}</p>}
       {q.isLoading && <p className="muted">Henter …</p>}
@@ -441,13 +458,17 @@ function Thumb({ docId }: { docId: string | null }) {
   );
 }
 
-function Items({ onOpen }: { onOpen(id: string): void }) {
+function Items({ onOpen, onNew }: { onOpen(id: string): void; onNew(): void }) {
   const [q, setQ] = useState("");
   const items = useQuery({ queryKey: ["items"], queryFn: () => api<ItemRow[]>("/api/items") });
   const shown = (items.data ?? []).filter((i) => !q || [i.name, i.location, i.brand].some((v) => v?.toLowerCase().includes(q.toLowerCase())));
   return (
     <>
-      <Header title="Ting" />
+      <Header title="Ting">
+        <button className="icon-btn" onClick={onNew} aria-label="Ny genstand">
+          <Plus size={24} aria-hidden="true" />
+        </button>
+      </Header>
       <input className="search" type="search" placeholder="Søg i genstande" value={q} onChange={(e) => setQ(e.target.value)} />
       <ul className="card rows">
         {shown.map((i) => (
@@ -465,12 +486,21 @@ function Items({ onOpen }: { onOpen(id: string): void }) {
           </li>
         ))}
       </ul>
-      {items.data && shown.length === 0 && <p className="empty">Ingen genstande.</p>}
+      {items.error && <p className="banner error">{errorText(items.error)}</p>}
+      {items.data && shown.length === 0 && (
+        <p className="empty">
+          {q ? "Ingen genstande passer til søgningen." : "Ingen genstande endnu."}
+          <br />
+          <button className="pill" onClick={onNew}>
+            Opret en genstand
+          </button>
+        </p>
+      )}
     </>
   );
 }
 
-function ItemDetail({ id, onBack }: { id: string; onBack(): void }) {
+function ItemDetail({ id, onBack, onEdit, onLend }: { id: string; onBack(): void; onEdit(item: Record<string, unknown>): void; onLend(): void }) {
   const q = useQuery({
     queryKey: ["item", id],
     queryFn: () =>
@@ -489,6 +519,8 @@ function ItemDetail({ id, onBack }: { id: string; onBack(): void }) {
         ["Model", it.model],
         ["Serienummer", it.serial_number],
         ["Købt", fmtDate(it.purchase_date as string | null)],
+        ["Kategori", it.category],
+        ["Forhandler", it.vendor_name],
         ["Pris", it.purchase_price_minor != null ? `${(Number(it.purchase_price_minor) / 100).toLocaleString("da-DK", { minimumFractionDigits: 2 })} kr.` : null],
         ["Garanti til", fmtDate(it.warranty_until as string | null)],
         ["Reklamationsret til", fmtDate(it.complaint_until as string | null)],
@@ -497,8 +529,13 @@ function ItemDetail({ id, onBack }: { id: string; onBack(): void }) {
   return (
     <>
       <Header title={String(it?.name ?? "")} onBack={onBack}>
-        <UploadButton itemId={id} />
+        {it && (
+          <button className="text-btn" onClick={() => onEdit(it)}>
+            <Pencil size={17} aria-hidden="true" /> Ret
+          </button>
+        )}
       </Header>
+      {q.error && <p className="banner error">{errorText(q.error)}</p>}
       {photos.length > 0 && (
         <div className="photos">
           {photos.map((p) => (
@@ -506,6 +543,14 @@ function ItemDetail({ id, onBack }: { id: string; onBack(): void }) {
           ))}
         </div>
       )}
+      <div className="action-row">
+        <PhotoButton itemId={id} />
+        {q.data && !q.data.lending && (
+          <button className="pill big-pill" onClick={onLend}>
+            Lån ud
+          </button>
+        )}
+      </div>
       {q.data?.lending && (
         <p className="banner">
           Udlånt til <b>{q.data.lending.borrower}</b> siden {fmtDate(q.data.lending.since)}
@@ -578,8 +623,64 @@ function UploadButton({ itemId }: { itemId?: string }) {
         <button className="icon-btn" onClick={() => input.current?.click()} disabled={up.isPending} aria-label={itemId ? "Tag billede til genstanden" : "Tag billede af en kvittering"}>
           <Camera size={22} aria-hidden="true" />
         </button>
-        <input ref={input} type="file" accept="image/*,application/pdf" capture="environment" hidden onChange={(e) => e.target.files?.[0] && up.mutate(e.target.files[0])} />
+        <input ref={input} type="file" accept="image/*,application/pdf" hidden onChange={(e) => e.target.files?.[0] && up.mutate(e.target.files[0])} />
       </div>
+      {(msg || up.isPending) && <div className="toast">{up.isPending ? "Sender …" : msg}</div>}
+    </>
+  );
+}
+
+/**
+ * Adds pictures to an item: iOS offers "Tag billede" and "Fotobibliotek" because the input has no
+ * `capture` attribute. Several pictures can be chosen at once.
+ */
+function PhotoButton({ itemId }: { itemId: string }) {
+  const qc = useQueryClient();
+  const input = useRef<HTMLInputElement>(null);
+  const [role, setRole] = useState<"photo" | "receipt">("photo");
+  const [msg, setMsg] = useState<string | null>(null);
+  const up = useMutation({
+    mutationFn: async (files: File[]) => {
+      let saved = 0;
+      for (const [n, f] of files.entries()) {
+        const ext = (f.name.match(/\.\w+$/)?.[0] ?? (f.type === "image/png" ? ".png" : ".jpg")).toLowerCase();
+        const name = `${role === "receipt" ? "kvittering" : "foto"}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "")}-${n + 1}${ext}`;
+        await api(`/api/upload?name=${encodeURIComponent(name)}&item=${itemId}&role=${role}`, { raw: f });
+        saved++;
+      }
+      return saved;
+    },
+    onSuccess: async (n) => {
+      setMsg(n === 1 ? (role === "receipt" ? "Kvitteringen er gemt på genstanden." : "Billedet er gemt på genstanden.") : `${n} billeder er gemt på genstanden.`);
+      await qc.invalidateQueries();
+      setTimeout(() => setMsg(null), 3500);
+    },
+    onError: (e) => setMsg(errorText(e)),
+  });
+  const pick = (r: "photo" | "receipt") => {
+    setRole(r);
+    input.current?.click();
+  };
+  return (
+    <>
+      <button className="pill big-pill" onClick={() => pick("photo")} disabled={up.isPending}>
+        <ImagePlus size={18} aria-hidden="true" /> Tilføj billede
+      </button>
+      <button className="pill big-pill" onClick={() => pick("receipt")} disabled={up.isPending}>
+        <Camera size={18} aria-hidden="true" /> Kvittering
+      </button>
+      <input
+        ref={input}
+        type="file"
+        accept="image/*,application/pdf"
+        multiple
+        hidden
+        onChange={(e) => {
+          const files = [...(e.target.files ?? [])];
+          e.target.value = "";
+          if (files.length) up.mutate(files);
+        }}
+      />
       {(msg || up.isPending) && <div className="toast">{up.isPending ? "Sender …" : msg}</div>}
     </>
   );
@@ -603,7 +704,7 @@ const TYPE_LABEL: Record<string, string> = {
   bank_transaction: "Postering",
 };
 
-function SearchScreen({ onOpenItem }: { onOpenItem(id: string): void }) {
+function SearchScreen({ onOpenItem, onBack }: { onOpenItem(id: string): void; onBack(): void }) {
   const [q, setQ] = useState("");
   const [term, setTerm] = useState("");
   useEffect(() => {
@@ -613,7 +714,7 @@ function SearchScreen({ onOpenItem }: { onOpenItem(id: string): void }) {
   const r = useQuery({ queryKey: ["search", term], queryFn: () => api<{ type: string; id: string; title: string; snippet: string }[]>(`/api/search?q=${encodeURIComponent(term)}`), enabled: term.length > 1 });
   return (
     <>
-      <Header title="Søg" />
+      <Header title="Søg" onBack={onBack} />
       <input className="search" type="search" placeholder="Søg i alt" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
       <ul className="card rows">
         {(r.data ?? []).map((h) => (

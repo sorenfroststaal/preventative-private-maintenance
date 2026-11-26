@@ -720,7 +720,7 @@ function Recurring() {
         </label>
         <label className="inline-label">
           Person
-          <RefSelect type="person" labelCol="name" value={personFilter === "none" ? "" : personFilter} onChange={setPersonFilter} emptyLabel="Alle" allowCreate={false} />
+          <RefSelect type="person" labelCol="name" where={{ household: "1" }} value={personFilter === "none" ? "" : personFilter} onChange={setPersonFilter} emptyLabel="Alle" allowCreate={false} />
         </label>
       </div>
       <table className="list">

@@ -10,6 +10,7 @@ export const TIMELINE_KINDS = [
   { id: "purchase", label: "Køb", module: "home" },
   { id: "warranty", label: "Garanti og reklamationsret", module: "home" },
   { id: "lending", label: "Udlån", module: "home" },
+  { id: "gift", label: "Gaver", module: "home" },
   { id: "policy", label: "Forsikringer", module: "insurance" },
   { id: "recurring", label: "Faste udgifter og bindinger", module: "finance" },
   { id: "loan", label: "Lån", module: "finance" },
@@ -118,6 +119,14 @@ export async function timelineEvents(db: DbAdapter, o: Opts): Promise<TimelineEv
       const overdue = !returned && due !== null && due < o.today;
       push({ id: `lending:${r.id}`, kind: "lending", start: String(r.lent_date), end, ongoing: !returned && end === o.today, title: `${r.thing} lånt ud til ${r.borrower}`, detail: returned ? `Afleveret ${da(returned)}` : due ? `Afleveres ${da(due)}` : "Ingen afleveringsdato", status: returned ? "done" : overdue ? "overdue" : "open", ref: { type: "lending", id: String(r.id) } });
     }
+  }
+  if (kinds.has("gift")) {
+    const rows = await sel(
+      `SELECT g.id, g.direction, g.title, g.occasion, g.gift_date, p.name AS person FROM gift g JOIN person p ON p.id = g.person_id WHERE g.gift_date BETWEEN ? AND ?`,
+      [o.from, o.to],
+    );
+    for (const r of rows)
+      push({ id: `gift:${r.id}`, kind: "gift", start: String(r.gift_date), end: null, title: r.direction === "received" ? `Gave fra ${r.person}: ${r.title}` : `Gave til ${r.person}: ${r.title}`, detail: str(r.occasion), status: null, ref: { type: "gift", id: String(r.id) } });
   }
   if (kinds.has("policy")) {
     for (const r of await sel("SELECT id, title, renewal_date FROM policy WHERE archived_at IS NULL AND renewal_date BETWEEN ? AND ?", [o.from, o.to]))

@@ -6,8 +6,9 @@ import { initials } from "./visual";
 /** Several persons as toggle buttons with round initials (recurring expenses, items, policies). */
 export function PersonPicker({ value, onChange, label }: { value: string[]; onChange(ids: string[]): void; label: string }) {
   const { archive } = useSession();
-  const persons = useQuery({ queryKey: ["person", "list"], queryFn: () => listEntities(archive.db, "person", { orderBy: "name" }) });
-  if ((persons.data ?? []).length === 0) return <p className="small muted">Opret personer under Lister → Personer for at knytte dem til posten.</p>;
+  const persons = useQuery({ queryKey: ["person", "list", "household"], queryFn: () => listEntities(archive.db, "person", { where: { household: 1 }, orderBy: "name" }) });
+  if (!persons.data) return null;
+  if (persons.data.length === 0) return <p className="small muted">Opret personer i husstanden under Lister → Personer for at knytte dem til posten.</p>;
   return (
     <div className="person-picker">
       <div className="small">{label}</div>

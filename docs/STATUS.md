@@ -94,6 +94,15 @@ PPM kan bruges fra iPhone som en app på hjemmeskærmen, når telefonen er på s
 - **Privatliv:** helbred vises ikke på telefonen (kalender, opgaver, søgning), og dokumenter koblet til helbredsdata kan ikke hentes.
 - **Tests:** `mobile.test.ts` i core (parring, nøgler, LAN-adresser), `mobile.test.ts` i mcp-server (rigtig HTTPS mod demoarkivet: certifikatets egenskaber, parring, overblik, udført, kalender, indkøb, madplan, søgning, upload, helbredsspærring, HTTP-porten), `rendered.test.tsx` (Indstillinger → Mobil). E2E: `e2e/mobile.ts` (iPhone-visning i Chromium mod rigtig server, 9/9) og `e2e/mobile-desktop.mjs` (den rigtige app starter og stopper serveren, 6/6). Selve iPhone (Safari, certifikatinstallation, hjemmeskærm) er **ikke** afprøvet; det kræver en rigtig iPhone.
 
+## Ønsker 26.11.2026: mere på telefonen, personer uden for husstanden og gaver (migration 0011)
+
+- **Migration 0011** (foreslået som `docs/spec/schema-0011.sql` på spec-branchen): `person.household` (1 = husstanden, standard for alle eksisterende personer; 0 = familie, venner, naboer) og tabellen `gift` (givet eller fået, person, gave, anledning, dato, pris, evt. genstand).
+- **Personer uden for husstanden** kan låne ting og få gaver. De vælges ikke som ejere af genstande, til faste udgifter, forsikringsdækning, husdyrs ejer eller helbred. Core afviser dem i `setPersonLinks`, og `healthPersons` viser kun husstanden. Lister → *Personer* viser kolonnen *Hører til*, og formularen har feltet *Hører til* (standard: husstanden). "+ Ny person" fra udlån og gaver opretter som standard en person uden for husstanden.
+- **Gaver:** Bolig og inventar → *Gaver* med filtre (givet/fået, person, år), oversigt pr. person (antal, brugt, senest givet, fået), redigering og sletning med bekræftelse. Værdilisten *Anledninger til gaver* ligger i Lister. Gaver kan vises i kalender og tidslinje (typen *Gaver*, slået fra som standard) og findes i søgning.
+- **Mobilappen:** ny fane *Folk* (husstanden og andre, med gaver og udlån pr. person, *Registrér gave*, *Lån noget ud*, *Ny person*), *Ny genstand* og *Ret* på genstande (navn, kategori, placering, mærke, model, serienummer, køb, pris, forhandler, garanti, reklamationsret, noter), *Tilføj billede* og *Kvittering* på genstanden (iOS tilbyder kamera og fotobibliotek, flere billeder ad gangen), *Lån ud* fra genstanden og redigering af gaver. Søg ligger nu som knap på Overblik. Serveren skriver kun tilladte felter og går gennem core.
+- **iPhone-vejledningen** siger nu "Indst. til certifikatgodkendelse" (iOS' navn), nævner *VPN og enhedsadministration*, og at telefonen skal parres i hjemmeskærms-ikonet, fordi Safari og ikonet husker hver for sig.
+- **Tests:** `gifts.test.ts` (migration, husstandsregler, gaver, søgning, kalender), `mobile.test.ts` i mcp-server (oprette og rette genstande, personer, gaver og udlån over HTTPS), `rendered.test.tsx` (fanen Gaver; personer uden for husstanden tilbydes ikke som ejere). E2E `e2e/mobile.ts` 14/14 (ret genstand, billede fra fotobiblioteket, udlån til ny person, gave, ny genstand).
+
 ## Fejl fundet ved brugerens test 26.11.2026 (rettet)
 
 - **"Arkivet er låst – Arkivet er allerede åbent i dette program"** efter genindlæsning af vinduet: låsen med appens eget proces-id overtages nu, i stedet for at afvise (`acquireLock`). Test i `archive.test.ts`.
@@ -202,11 +211,11 @@ CI laver nu også artefaktet `ppm-demo-backup` med syntetiske demodata, som kan 
 
 | Suite | Antal | Resultat |
 | --- | --- | --- |
-| core (Vitest) | 194 (heraf 29 for madplan, 18 for AI/MCP i `ai.test.ts`, 7 for migration 0003–0006 og værdilister og 6 for økonomihistorik og lån) | Grøn |
-| mcp-server (Vitest) | 4 (protokol, `tools/list`, log og versionsfejl) | Grøn |
-| desktop (Vitest) | 37 (kontrast, renderede sider, AI-indbakke, AI-adgang, fotos, rullelister, Lister, husdyr, forsikringsdækning, økonomioverblik og lån) | Grøn |
+| core (Vitest) | 202 (heraf 29 for madplan, 18 for AI/MCP i `ai.test.ts`, 3 for personer uden for husstanden og gaver i `gifts.test.ts`) | Grøn |
+| mcp-server (Vitest) | 8 (protokol, `tools/list`, log, versionsfejl og mobilserveren over rigtig HTTPS) | Grøn |
+| desktop (Vitest) | 53 (kontrast, renderede sider, AI-indbakke, AI-adgang, fotos, rullelister, Lister, husdyr, forsikringsdækning, økonomi, Mobil og Gaver) | Grøn |
 | Rust (`cargo test`) | 17 (+1 ignoreret måletest) | Grøn |
-| **I alt** | **252** | **Grøn** |
+| **I alt** | **280** | **Grøn** |
 
 ESLint, `tsc -b`, `cargo fmt --check` og `cargo clippy -D warnings` er rene.
 

@@ -173,7 +173,7 @@ export function canSeeHealth(person: Row, userId: string | null): boolean {
 /** Persons whose health data the user may see. */
 export async function healthPersons(db: DbAdapter, userId: string | null): Promise<Row[]> {
   return db.select<Row>(
-    `SELECT * FROM person WHERE archived_at IS NULL AND (health_private_user_id IS NULL OR health_private_user_id = ?)
+    `SELECT * FROM person WHERE archived_at IS NULL AND household = 1 AND (health_private_user_id IS NULL OR health_private_user_id = ?)
       ORDER BY name`,
     [userId],
   );

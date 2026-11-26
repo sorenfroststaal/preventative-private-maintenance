@@ -3,6 +3,8 @@ export function routeFor(type: string, id: string, date?: string): string {
   switch (type) {
     case "item":
       return `/bolig?id=${id}`;
+    case "gift":
+      return `/bolig?tab=gifts&gave=${id}`;
     case "lending":
       return `/bolig?tab=lending&udlaan=${id}`;
     case "pet":

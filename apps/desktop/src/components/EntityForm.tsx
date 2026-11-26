@@ -95,6 +95,7 @@ export const TYPE_SINGULAR: Partial<Record<EntityType, string>> = {
   budget: "budget",
   claim: "skadesag",
   work_order: "arbejdsordre",
+  gift: "gave",
 };
 
 const NEW = "__new__";
@@ -292,7 +293,7 @@ export function EntityForm(props: Props) {
   const qc = useQueryClient();
   const fields = (props.fields ?? fieldsFor(props.type)).filter((f) => !f.hidden && !(props.fixed && f.key in props.fixed));
   const [values, setValues] = useState<Values>(() =>
-    Object.fromEntries(fields.map((f) => [f.key, toFormValue(f, props.row ? props.row[f.key] : props.defaults?.[f.key])])),
+    Object.fromEntries(fields.map((f) => [f.key, toFormValue(f, props.row ? props.row[f.key] : (props.defaults?.[f.key] ?? f.defaultValue))])),
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [general, setGeneral] = useState<string | null>(null);

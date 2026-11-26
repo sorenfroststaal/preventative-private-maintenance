@@ -34,9 +34,12 @@ const archive = await openArchiveForAi(env, info.root);
 const { code } = await createPairingCode(makeCtx(env, archive.db, info.annaUserId, "ui"));
 
 const browser = await chromium.launch();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Playwright is loaded with require
+let page: any;
 try {
   const ctx = await browser.newContext({ ...devices["iPhone 13"], ignoreHTTPSErrors: true, locale: "da-DK" });
-  const page = await ctx.newPage();
+  page = await ctx.newPage();
+  page.on("pageerror", (e: Error) => console.log("PAGEERROR", e.message, e.stack?.split("\n").slice(0, 4).join(" | ")));
   await page.goto(`https://127.0.0.1:${port}/`);
   await page.getByText("PPM på iPhone").waitFor();
   step("Parringsskærm med vejledning", await page.getByText("Læg PPM på hjemmeskærmen først").isVisible());
@@ -74,18 +77,71 @@ try {
   await page.waitForTimeout(800);
   step("Genstand med fakta og foto", await page.locator("img.photo").count() > 0);
   await page.screenshot({ path: join(shots, "5-genstand.png") });
-  await page.getByRole("button", { name: "Søg" }).click();
+  // Edit the item from the phone.
+  await page.getByRole("button", { name: "Ret" }).click();
+  await page.getByRole("heading", { name: "Ret genstand" }).waitFor();
+  await page.screenshot({ path: join(shots, "6-ret-genstand.png") });
+  await page.getByLabel("Serienummer").fill("MOBIL-123");
+  await page.getByRole("button", { name: "Gem ændringer" }).click();
+  await page.getByText("MOBIL-123").waitFor();
+  step("Genstand rettet fra telefonen", (await archive.db.select<{ n: number }>("SELECT count(*) AS n FROM item WHERE serial_number = 'MOBIL-123'"))[0]!.n === 1);
+  // Add a picture (camera or photo library on iOS) to the item.
+  const photosBefore = await page.locator("img.photo").count();
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Tilføj billede" }).click();
+  await (await chooser).setFiles({ name: "IMG_0001.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64") });
+  await page.getByText("Billedet er gemt på genstanden.").waitFor();
+  await page.waitForTimeout(800);
+  step("Billede tilføjet fra fotobiblioteket", (await page.locator("img.photo").count()) > photosBefore, `${photosBefore} → ${await page.locator("img.photo").count()}`);
+  // Lend it to a new person outside the household.
+  await page.getByRole("button", { name: "Lån ud" }).click();
+  await page.getByRole("heading", { name: "Lån noget ud" }).waitFor();
+  await page.getByLabel("Låner").selectOption("__new");
+  await page.getByPlaceholder("Navn, fx Karl (ven)").fill("Karl Ven");
+  await page.getByRole("button", { name: "Tilføj", exact: true }).click();
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: join(shots, "7-laan-ud.png") });
+  await page.getByRole("button", { name: "Registrér udlån" }).click();
+  await page.getByText(/Udlånt til/).waitFor();
+  step("Udlånt til ny person uden for husstanden", (await archive.db.select<{ household: number }>("SELECT p.household FROM lending l JOIN person p ON p.id = l.borrower_person_id WHERE p.name = 'Karl Ven'"))[0]?.household === 0);
+  // Folk → Karl → register a gift.
+  await page.getByRole("button", { name: "Folk" }).click();
+  await page.getByRole("heading", { name: "Folk" }).waitFor();
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: join(shots, "8-folk.png") });
+  await page.getByText("Karl Ven").click();
+  await page.getByRole("button", { name: "Registrér gave" }).click();
+  await page.getByLabel("Gave").fill("Brætspillet Eksempel");
+  await page.getByLabel("Anledning").fill("Fødselsdag");
+  await page.getByLabel("Pris (kr.)").fill("299,95");
+  await page.screenshot({ path: join(shots, "9-ny-gave.png") });
+  await page.getByRole("button", { name: "Gem gave" }).click();
+  await page.getByText("Gaver givet").waitFor();
+  await page.waitForTimeout(400);
+  step("Gave registreret", (await archive.db.select<{ amount_minor: number }>("SELECT amount_minor FROM gift WHERE title = 'Brætspillet Eksempel'"))[0]?.amount_minor === 29995);
+  await page.screenshot({ path: join(shots, "10-person.png") });
+  // New item from the Ting tab.
+  await page.getByRole("button", { name: "Ting" }).click();
+  await page.getByRole("button", { name: "Ny genstand" }).click();
+  await page.getByLabel("Navn").fill("Mobil-boremaskine");
+  await page.getByRole("button", { name: "Opret genstand" }).click();
+  await page.getByRole("heading", { name: "Mobil-boremaskine" }).waitFor();
+  step("Ny genstand oprettet", true);
+  // Search from the overview.
+  await page.getByRole("button", { name: "Overblik" }).click();
+  await page.getByRole("button", { name: "Søg i alt" }).click();
   await page.getByPlaceholder("Søg i alt").fill("kvittering");
   await page.waitForTimeout(900);
   step("Søgning", (await page.locator(".link-row").count()) > 0);
-  await page.screenshot({ path: join(shots, "6-soeg.png") });
+  await page.screenshot({ path: join(shots, "11-soeg.png") });
   // Dark mode.
   await page.emulateMedia({ colorScheme: "dark" });
   await page.getByRole("button", { name: "Overblik" }).click();
   await page.waitForTimeout(500);
-  await page.screenshot({ path: join(shots, "7-overblik-moerk.png") });
+  await page.screenshot({ path: join(shots, "12-overblik-moerk.png") });
 } catch (e) {
   step("Uventet fejl", false, (e as Error).message);
+  await page?.screenshot({ path: join(shots, "fejl.png") }).catch(() => undefined);
 } finally {
   await browser.close();
   server.stdin.end();

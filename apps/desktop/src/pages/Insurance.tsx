@@ -167,7 +167,7 @@ function Coverage({ policyId }: { policyId: string }) {
     queryKey: ["policy_coverage", policyId],
     queryFn: () => policyCoverages(session.archive.db, policyId),
   });
-  const persons = useQuery({ queryKey: ["person", "list"], queryFn: () => listEntities(session.archive.db, "person", { orderBy: "name" }) });
+  const persons = useQuery({ queryKey: ["person", "list", "household"], queryFn: () => listEntities(session.archive.db, "person", { where: { household: 1 }, orderBy: "name" }) });
   const coveredPersons = new Set((covered.data ?? []).filter((c) => c.target_type === "person").map((c) => c.target_id));
   const togglePerson = useMutation({
     mutationFn: async (personId: string): Promise<unknown> =>

@@ -108,6 +108,7 @@ export const fields = {
     app_user_id: opt(zId),
     health_private_user_id: opt(zId),
     notes: opt(z.string()),
+    household: zBool01.default(1),
   },
   contact: {
     name: zText,
@@ -172,6 +173,16 @@ export const fields = {
     lent_date: zDate,
     due_date: opt(zDate),
     returned_date: opt(zDate),
+    notes: opt(z.string()),
+  },
+  gift: {
+    direction: z.enum(["given", "received"]).default("given"),
+    person_id: zId,
+    title: zText,
+    occasion: opt(z.string()),
+    gift_date: zDate,
+    amount_minor: opt(zMoney.nonnegative()),
+    item_id: opt(zId),
     notes: opt(z.string()),
   },
   vehicle: {

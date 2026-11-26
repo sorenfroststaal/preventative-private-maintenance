@@ -69,6 +69,8 @@ Listen dækker de steder, hvor implementeringen afviger fra specifikationen elle
 | F45 | 04 Navigation | Menuen har punktet **Kalender** efter Opgaver (ønsket af brugeren 25.11.2026) med fanerne *Månedsvisning* og *Tidslinje*. Valget af typer gemmes i `setting` under `calendar.kinds:<bruger-id>`. |
 | F46 | 03 Datamodel | Udlån (`lending`) slettes ikke; et afleveret udlån har `returned_date`. Registret tillader fysisk sletning med audit som for andre koblingsagtige poster, men UI tilbyder det ikke. |
 | F47 | 03 Datamodel | `recurring_expense.person_id` (0008) og `item.owner_person_id` (0009) bruges ikke efter migration 0010; deres indhold er flyttet til `person_link`, og kolonnerne står tomme, fordi SQLite ikke kan fjerne en kolonne med `REFERENCES`. Zod-skemaerne har ikke længere felterne. |
+| F49 | 03 Datamodel | En gave har præcis én person (`gift.person_id`). En gave til et par registreres på den ene eller som en person "Mette og Jens". Gaver slettes fysisk (med audit) fra detaljen efter en bekræftelse; udlån slettes stadig ikke (F46). |
+| F50 | 08 Mobil | Telefonen kan oprette og rette genstande, oprette personer uden for husstanden, registrere og rette gaver og registrere udlån. Den kan ikke arkivere, slette eller rette personer i husstanden; det sker på computeren. |
 | F48 | 03 Audit | Ændringer fra telefonen auditeres med `via = 'ui'` og den parrede brugers id, fordi `audit_log.via` ikke har værdien "mobil" (CHECK i skemaet). |
 
 ## Fjernet efter PR #2 (nu en del af specifikationen)

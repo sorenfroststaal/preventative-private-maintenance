@@ -22,6 +22,8 @@ export interface FieldDef {
   list?: string;
   /** Hidden in forms (set by context, e.g. person_id). */
   hidden?: boolean;
+  /** Value in a new record's form when nothing else sets it. */
+  defaultValue?: string;
 }
 
 const t = (key: string, label: string, extra: Partial<FieldDef> = {}): FieldDef => ({ key, label, type: "text", ...extra });
@@ -146,7 +148,8 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
   ],
   person: [
     t("name", "Navn", { required: true }),
-    t("relation", "Relation", { help: "Fx mig, partner, barn" }),
+    s("household", "Hører til", [["1", "Husstanden"], ["0", "Uden for husstanden (familie, venner, naboer)"]], { required: true, defaultValue: "1" }),
+    t("relation", "Relation", { help: "Fx mig, partner, barn, mor, ven, nabo" }),
     n("birth_year", "Fødselsår"),
     ta("notes", "Noter"),
   ],
@@ -157,7 +160,7 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
     s("sex", "Køn", [["female", "Hun"], ["male", "Han"]]),
     d("birth_date", "Født"),
     t("chip_number", "Chipnummer"),
-    r("owner_person_id", "Ejer", "person"),
+    r("owner_person_id", "Ejer", "person", "name", { ref: { type: "person", label: "name", where: { household: "1" } } }),
     r("vet_contact_id", "Dyrlæge", "contact", "name", { ref: { type: "contact", label: "name", createDefaults: { kind: "other" } } }),
     ta("notes", "Noter"),
   ],
@@ -165,7 +168,7 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
   lending: [
     r("item_id", "Genstand", "item"),
     t("title", "Eller beskriv tingen", { help: "Hvis tingen ikke er registreret som genstand, fx \"Brætspil\"" }),
-    r("borrower_person_id", "Låner (person)", "person"),
+    r("borrower_person_id", "Låner (person)", "person", "name", { ref: { type: "person", label: "name", createDefaults: { household: 0 } } }),
     r("borrower_contact_id", "Låner (kontakt)", "contact", "name", { ref: { type: "contact", label: "name", createDefaults: { kind: "other" } } }),
     t("borrower_name", "Eller lånerens navn"),
     d("lent_date", "Udlånt", { required: true }),
@@ -201,6 +204,16 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
     d("completed_date", "Udført"),
     m("cost_minor", "Omkostning"),
     n("odometer_km", "Km-stand", { help: "Kun for biler" }),
+  ],
+  gift: [
+    s("direction", "Retning", [["given", "Givet"], ["received", "Fået"]], { required: true, defaultValue: "given" }),
+    r("person_id", "Person", "person", "name", { required: true, ref: { type: "person", label: "name", createDefaults: { household: 0 } } }),
+    t("title", "Gave", { required: true }),
+    { key: "occasion", label: "Anledning", type: "list", list: "gift_occasion" },
+    d("gift_date", "Dato", { required: true }),
+    m("amount_minor", "Pris"),
+    r("item_id", "Genstand (modtaget gave)", "item"),
+    ta("notes", "Noter"),
   ],
   vehicle: [
     t("name", "Navn", { required: true }),

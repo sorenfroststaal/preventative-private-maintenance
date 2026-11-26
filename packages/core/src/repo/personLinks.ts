@@ -1,6 +1,6 @@
 /** Persons attached to recurring expenses and items (migration 0010, several per record). */
 import type { DbAdapter } from "../db/adapter";
-import { createEntity, deleteLink, type Ctx } from "./entities";
+import { createEntity, deleteLink, ValidationError, type Ctx } from "./entities";
 
 export type PersonLinkTarget = "recurring_expense" | "item";
 
@@ -29,6 +29,11 @@ export async function setPersonLinks(ctx: Ctx, targetType: PersonLinkTarget, tar
       (await tx.select<{ person_id: string }>("SELECT person_id FROM person_link WHERE target_type = ? AND target_id = ?", [targetType, targetId])).map((r) => r.person_id),
     );
     const want = new Set(personIds);
+    const added = [...want].filter((id) => !now.has(id));
+    if (added.length) {
+      const outside = await tx.select<{ name: string }>(`SELECT name FROM person WHERE household = 0 AND id IN (${added.map(() => "?").join(",")})`, added);
+      if (outside.length) throw new ValidationError([{ path: "person_id", message: `${outside.map((p) => p.name).join(", ")} er ikke med i husstanden` }], "person_link");
+    }
     for (const id of want) if (!now.has(id)) await createEntity(c, "person_link", { person_id: id, target_type: targetType, target_id: targetId });
     for (const id of now) if (!want.has(id)) await deleteLink(c, "person_link", { person_id: id, target_type: targetType, target_id: targetId });
   });

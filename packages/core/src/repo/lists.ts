@@ -31,6 +31,13 @@ export const TEXT_LISTS: TextListDef[] = [
     column: "kind",
     defaults: ["Tag", "Facade", "Vinduer og døre", "Varme", "Ventilation", "VVS", "El", "Kloak og afløb", "Have og udearealer", "Andet"],
   },
+  {
+    key: "gift_occasion",
+    label: "Anledninger til gaver",
+    entity: "gift",
+    column: "occasion",
+    defaults: ["Fødselsdag", "Jul", "Bryllup", "Konfirmation", "Barnedåb", "Jubilæum", "Værtindegave", "Andet"],
+  },
 ];
 
 const def = (key: string) => {

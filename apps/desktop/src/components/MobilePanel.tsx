@@ -91,10 +91,10 @@ export function MobilePanel() {
                 <ol className="small">
                   <li>Scan koden med iPhones kamera, og åbn linket i Safari.</li>
                   <li>
-                    Tryk <b>Hent certifikatet</b> → <b>Tillad</b>. Åbn <b>Indstillinger → Profil hentet → Installer</b>.
+                    Tryk <b>Hent certifikatet</b> → <b>Tillad</b>. Åbn <b>Indstillinger → Profil hentet → Installer</b> (eller <b>Generelt → VPN og enhedsadministration</b>).
                   </li>
                   <li>
-                    <b>Indstillinger → Generelt → Om → Indstillinger for certifikattillid</b>: slå <b>PPM lokal CA</b> til.
+                    <b>Indstillinger → Generelt → Om → Indst. til certifikatgodkendelse</b>: slå <b>PPM lokal CA</b> til.
                   </li>
                 </ol>
                 <p className="small muted">
@@ -105,7 +105,7 @@ export function MobilePanel() {
                 <h3>2. Læg PPM på hjemmeskærmen</h3>
                 <QrCode text={`https://${ip}:${s.httpsPort}/`} label={`QR-kode til PPM: https://${ip}:${s.httpsPort}/`} />
                 <p className="small">
-                  Scan, åbn i Safari, tryk <b>Del → Føj til hjemmeskærm</b>, og åbn PPM fra ikonet.
+                  Scan, åbn i Safari, tryk <b>Del → Føj til hjemmeskærm</b>, og åbn PPM fra ikonet. Parr telefonen i ikonet, ikke i Safari: de husker hver for sig.
                 </p>
               </div>
               <div className="mobile-step">

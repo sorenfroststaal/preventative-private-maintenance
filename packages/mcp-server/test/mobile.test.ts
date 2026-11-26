@@ -132,6 +132,44 @@ describe("mobile web app server (iPhone, local network)", () => {
     expect((await call("GET", "/api/overview", { token: token.slice(0, -2) + "xx" })).status).toBe(401);
   });
 
+  it("the phone creates and edits items, people outside the household, gifts and lendings through core", async () => {
+    const { call, ctx, archive } = await setup();
+    const { code } = await createPairingCode(ctx);
+    const token = (await call("POST", "/api/pair", { body: { code, name: "Annas iPhone" } })).body.token as string;
+    const opts = (await call("GET", "/api/options", { token })).body;
+    expect(opts.locations.length).toBeGreaterThan(0);
+    expect(opts.categories).toContain("Værktøj");
+    expect(opts.occasions).toContain("Fødselsdag");
+
+    // New item, then edit it; only allowed columns are written.
+    const created = await call("POST", "/api/items", { token, body: { name: "Mobil-stige", category: "Værktøj", location_id: opts.locations[0].id, purchase_price_minor: 49900, archived_at: "2026-01-01" } });
+    expect(created.status).toBe(200);
+    const id = created.body.id as string;
+    expect((await call("PATCH", `/api/items/${id}`, { token, body: { serial_number: "ST-77", brand: "" } })).status).toBe(200);
+    expect(await archive.db.select("SELECT name, serial_number, brand, purchase_price_minor, archived_at FROM item WHERE id = ?", [id])).toEqual([
+      { name: "Mobil-stige", serial_number: "ST-77", brand: null, purchase_price_minor: 49900, archived_at: null },
+    ]);
+    expect((await call("PATCH", `/api/items/${id}`, { token, body: { name: "" } })).status).toBe(400);
+    expect((await call("PATCH", "/api/items/00000000-0000-4000-8000-000000000999", { token, body: { name: "x" } })).status).toBe(404);
+
+    // A friend outside the household borrows the item and gets a gift.
+    expect((await call("POST", "/api/people", { token, body: { name: " " } })).status).toBe(400);
+    const friend = (await call("POST", "/api/people", { token, body: { name: "Karl Ven", relation: "ven" } })).body as { id: string };
+    expect(await archive.db.select("SELECT household FROM person WHERE id = ?", [friend.id])).toEqual([{ household: 0 }]);
+    expect((await call("POST", "/api/lending", { token, body: { item_id: id, borrower_person_id: friend.id, due_date: "2026-12-01" } })).status).toBe(200);
+    expect((await call("POST", "/api/lending", { token, body: { item_id: id, borrower_name: "Nabo" } })).status).toBe(400);
+    const gift = await call("POST", "/api/gifts", { token, body: { person_id: friend.id, title: "Brætspil", occasion: "Fødselsdag", gift_date: "2026-11-20", amount_minor: 29900 } });
+    expect(gift.status).toBe(200);
+    expect((await call("PATCH", `/api/gifts/${gift.body.id}`, { token, body: { title: "Brætspillet Eksempel" } })).status).toBe(200);
+    expect((await call("POST", "/api/gifts", { token, body: { person_id: friend.id, gift_date: "2026-11-20" } })).status).toBe(400);
+
+    const people = (await call("GET", "/api/people", { token })).body as { id: string; household: number; gifts: number; lent: number }[];
+    expect(people.find((p) => p.id === friend.id)).toMatchObject({ household: 0, gifts: 1, lent: 1 });
+    const detail = (await call("GET", `/api/people/${friend.id}`, { token })).body;
+    expect(detail.gifts.map((g: { title: string }) => g.title)).toEqual(["Brætspillet Eksempel"]);
+    expect(detail.lendings.map((l: { thing: string; due: string }) => [l.thing, l.due])).toEqual([["Mobil-stige", "2026-12-01"]]);
+  });
+
   it("the plain HTTP port only hands out the CA and a guide", async () => {
     const { port, s } = await setup();
     const get = (path: string) =>
@@ -149,5 +187,7 @@ describe("mobile web app server (iPhone, local network)", () => {
     expect(new X509Certificate(ca.body).fingerprint256).toBe(s.caFingerprint);
     const guide = await get("/api/overview");
     expect(guide.body.toString()).toContain("Hent certifikatet");
+    expect(guide.body.toString()).toContain("Indst. til certifikatgodkendelse");
+    expect(guide.body.toString()).toContain("parr telefonen dér");
   });
 });

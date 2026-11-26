@@ -12,6 +12,18 @@ import {
   activeLendingForItem,
   addDays,
   completeOccurrence,
+  createEntity,
+  createGift,
+  createOutsidePerson,
+  getEntity,
+  giftSummary,
+  lendItem,
+  listEntities,
+  listGifts,
+  listPersons,
+  locationOptions,
+  textListValues,
+  updateEntity,
   dashboard,
   documentRelPath,
   documentsFor,
@@ -67,6 +79,11 @@ const MIME: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 const MAX_UPLOAD = 25 * 1024 * 1024;
+
+/** Item columns the phone may set. Everything else (archiving, links) stays on the computer. */
+const ITEM_FIELDS = ["name", "category", "location_id", "brand", "model", "serial_number", "purchase_date", "purchase_price_minor", "vendor_name", "warranty_until", "complaint_until", "notes"] as const;
+const GIFT_FIELDS = ["direction", "person_id", "title", "occasion", "gift_date", "amount_minor", "notes"] as const;
+const pick = (b: Record<string, unknown>, keys: readonly string[]) => Object.fromEntries(keys.filter((k) => k in b).map((k) => [k, b[k] === "" ? null : b[k]]));
 
 /** Private IPv4 addresses of this computer (what the phone connects to). */
 export function lanAddresses(): string[] {
@@ -241,6 +258,72 @@ export async function startMobileServer(o: MobileServerOptions) {
         lending: lending ? { id: lending.id, borrower: lending.borrower, since: lending.lent_date, due: lending.due_date } : null,
       });
     }
+    if (m === "PATCH" && item) {
+      if (!(await getEntity(archive.db, "item", item[1]!))) throw new HttpError(404, "Genstanden findes ikke.");
+      const row = await updateEntity(ctx, "item", item[1]!, pick(await json<Record<string, unknown>>(req), ITEM_FIELDS) as never);
+      return send(res, 200, { id: row.id });
+    }
+    if (m === "POST" && path === "/api/items") {
+      const row = await createEntity(ctx, "item", pick(await json<Record<string, unknown>>(req), ITEM_FIELDS) as never);
+      return send(res, 200, { id: row.id });
+    }
+    if (m === "GET" && path === "/api/options") {
+      return send(res, 200, {
+        locations: await locationOptions(archive.db),
+        categories: (await textListValues(archive.db, "item_category")).map((v) => v.value),
+        occasions: (await textListValues(archive.db, "gift_occasion")).map((v) => v.value),
+        persons: (await listPersons(archive.db)).map((p) => ({ id: p.id, name: p.name, relation: p.relation, household: p.household })),
+        items: (await listEntities(archive.db, "item", { orderBy: "name" })).map((i) => ({ id: String(i.id), name: String(i.name) })),
+      });
+    }
+    if (m === "GET" && path === "/api/people") {
+      const summary = new Map((await giftSummary(archive.db)).map((s) => [s.person_id, s]));
+      const lent = (await listLendings(archive.db, today(), { active: true })).filter((l) => l.borrower_person_id);
+      return send(
+        res,
+        200,
+        (await listPersons(archive.db)).map((p) => ({
+          id: p.id,
+          name: p.name,
+          relation: p.relation,
+          household: p.household,
+          gifts: (summary.get(p.id)?.given ?? 0) + (summary.get(p.id)?.received ?? 0),
+          lent: lent.filter((l) => l.borrower_person_id === p.id).length,
+        })),
+      );
+    }
+    if (m === "POST" && path === "/api/people") {
+      const b = await json<{ name?: string; relation?: string }>(req);
+      if (!b.name?.trim()) throw new HttpError(400, "Skriv personens navn.");
+      const row = await createOutsidePerson(ctx, b.name, b.relation);
+      return send(res, 200, { id: row.id, name: row.name });
+    }
+    const person = path.match(/^\/api\/people\/([\w-]+)$/);
+    if (m === "GET" && person) {
+      const [p] = (await listPersons(archive.db)).filter((x) => x.id === person[1]);
+      if (!p) throw new HttpError(404, "Personen findes ikke.");
+      const lendings = (await listLendings(archive.db, today())).filter((l) => l.borrower_person_id === p.id);
+      return send(res, 200, {
+        person: { id: p.id, name: p.name, relation: p.relation, household: p.household },
+        gifts: (await listGifts(archive.db, { personId: p.id })).map((g) => ({ id: g.id, direction: g.direction, title: g.title, occasion: g.occasion, date: g.gift_date, amount_minor: g.amount_minor, notes: g.notes })),
+        lendings: lendings.map((l) => ({ id: l.id, thing: l.thing, since: l.lent_date, due: l.due_date, returned: l.returned_date, overdue: l.overdue })),
+      });
+    }
+    if (m === "POST" && path === "/api/gifts") {
+      const row = await createGift(ctx, pick(await json<Record<string, unknown>>(req), GIFT_FIELDS) as never);
+      return send(res, 200, { id: row.id });
+    }
+    const gift = path.match(/^\/api\/gifts\/([\w-]+)$/);
+    if (m === "PATCH" && gift) {
+      if (!(await getEntity(archive.db, "gift", gift[1]!))) throw new HttpError(404, "Gaven findes ikke.");
+      await updateEntity(ctx, "gift", gift[1]!, pick(await json<Record<string, unknown>>(req), GIFT_FIELDS) as never);
+      return send(res, 200, { ok: true });
+    }
+    if (m === "POST" && path === "/api/lending") {
+      const b = await json<Record<string, unknown>>(req);
+      const row = await lendItem(ctx, { lent_date: today(), ...pick(b, ["item_id", "title", "borrower_person_id", "borrower_name", "lent_date", "due_date", "notes"]) } as never);
+      return send(res, 200, { id: row.id });
+    }
     const file = path.match(/^\/api\/documents\/([\w-]+)\/file$/);
     if (m === "GET" && file) {
       await assertViewable(file[1]!);
@@ -334,11 +417,13 @@ ol li{margin:8px 0}code{font-size:12px;word-break:break-all;color:#5f6b67}</styl
 <h1>PPM på iPhone</h1>
 <p>Telefonen skal stole på computerens certifikat én gang. Så er forbindelsen krypteret, og intet går via internettet.</p>
 <a class="btn" href="/ppm-ca.cer">1. Hent certifikatet</a>
-<ol><li>Tryk <b>Tillad</b>, og derefter <b>Luk</b>.</li>
-<li>Åbn <b>Indstillinger → Profil hentet</b>, og tryk <b>Installer</b>.</li>
-<li>Gå til <b>Indstillinger → Generelt → Om → Indstillinger for certifikattillid</b>, og slå <b>PPM lokal CA</b> til.</li></ol>
+<ol><li>Brug <b>Safari</b>. Tryk <b>Tillad</b>, og derefter <b>Luk</b>.</li>
+<li>Åbn <b>Indstillinger</b>, tryk <b>Profil hentet</b> øverst, og tryk <b>Installer</b>. Står den der ikke, så find profilen under <b>Generelt → VPN og enhedsadministration</b>.</li>
+<li>Gå til <b>Indstillinger → Generelt → Om → Indst. til certifikatgodkendelse</b>, og slå <b>PPM lokal CA</b> til under <i>Aktivér fuld tillid til rodcertifikater</i>.</li></ol>
 <a class="btn" href="${httpsUrl}">2. Åbn PPM</a>
-<p>Tryk så på <b>Del</b> → <b>Føj til hjemmeskærm</b>, og åbn PPM fra ikonet.</p>
+<ol start="4"><li>Tryk på <b>Del</b> → <b>Føj til hjemmeskærm</b>.</li>
+<li>Åbn PPM fra det nye ikon, og parr telefonen dér med koden fra computeren. Ikonet husker parringen; Safari og ikonet husker hver for sig.</li></ol>
+<p><small>Siger Safari &quot;Forbindelsen er ikke privat&quot;, mangler trin 3.</small></p>
 <p><small>Certifikatets fingeraftryk (skal stå i PPM på computeren):</small><br><code>${fingerprint}</code></p>
 </body></html>`;
 }

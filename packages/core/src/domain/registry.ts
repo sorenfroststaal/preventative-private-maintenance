@@ -112,6 +112,14 @@ export const registry: Record<EntityType, EntityMeta> = {
       body: async (r, db) => join(await nameOf(db, "item", r.item_id), r.borrower_name, await nameOf(db, "person", r.borrower_person_id), await nameOf(db, "contact", r.borrower_contact_id), r.notes),
     },
   }),
+  gift: plain("home", {
+    createdAt: true,
+    deletable: true,
+    search: {
+      title: (r) => s(r.title),
+      body: async (r, db) => join(await nameOf(db, "person", r.person_id), r.occasion, r.notes),
+    },
+  }),
   vehicle: plain("vehicle", {
     createdAt: true,
     archivable: true,

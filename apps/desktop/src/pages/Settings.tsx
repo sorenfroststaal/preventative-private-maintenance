@@ -259,7 +259,7 @@ function PersonsPanel() {
   const session = useSession();
   const qc = useQueryClient();
   const toast = useToast();
-  const persons = useQuery({ queryKey: ["persons"], queryFn: () => listEntities(session.archive.db, "person", { orderBy: "name" }) });
+  const persons = useQuery({ queryKey: ["persons"], queryFn: () => listEntities(session.archive.db, "person", { where: { household: 1 }, orderBy: "name" }) });
   const [name, setName] = useState("");
   const [relation, setRelation] = useState("");
   const [birthYear, setBirthYear] = useState("");

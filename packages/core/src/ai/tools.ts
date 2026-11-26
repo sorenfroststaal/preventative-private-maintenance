@@ -160,6 +160,7 @@ const LIST_TYPES: Record<string, string | null> = {
   pet: "birth_date",
   loan: "end_date",
   lending: "lent_date",
+  gift: "gift_date",
   odometer_reading: "reading_date",
   policy: "renewal_date",
   claim: "incident_date",

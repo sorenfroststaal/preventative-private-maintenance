@@ -22,6 +22,7 @@ export * from "./repo/categorySuggest";
 export * from "./repo/bankPresets";
 export * from "./repo/receipt";
 export * from "./repo/lending";
+export * from "./repo/gifts";
 export * from "./repo/personLinks";
 export * from "./repo/timeline";
 export * from "./repo/eml";

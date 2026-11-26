@@ -16,6 +16,8 @@ import {
   createArchive,
   createEntity,
   createRecipe,
+  createGift,
+  createOutsidePerson,
   createTask,
   createPairingCode,
   createUser,
@@ -594,7 +596,7 @@ describe("phase 2b.9 – rendered components", () => {
     expect(within(rows[0]!).getByRole("img", { name: "Ejer Testesen" }).textContent).toBe("ET");
     fireEvent.click(within(rows[0]!).getByText("Ejertest-cykel"));
     const detail = await screen.findByRole("complementary", { name: "Genstand" });
-    const group = within(detail).getByRole("group", { name: "Ejere" });
+    const group = await within(detail).findByRole("group", { name: "Ejere" });
     await waitFor(() => expect(within(group).getByRole("button", { name: /Ejer Testesen/ })).toHaveAttribute("aria-pressed", "true"));
     fireEvent.click(within(group).getByRole("button", { name: /Anden Ejer/ }));
     await waitFor(async () => expect((await personLinks(archive.db, "item")).get(String(bike.id))?.map((p) => p.id).sort()).toEqual([String(owner.id), String(other.id)].sort()));
@@ -639,6 +641,33 @@ describe("phase 2b.9 – rendered components", () => {
     fireEvent.click(within(screen.getByText("Annas iPhone").closest("li")!).getByRole("button", { name: "Fjern" }));
     await waitFor(() => expect(screen.queryByText("Annas iPhone")).toBeNull());
     picked.mobile = null;
+  });
+  it("gifts: a gift to a person outside the household is registered, listed and summed; outside persons are not offered as owners", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const friend = await createOutsidePerson(ctx, "Gavetest Ven", "ven");
+    await createGift(ctx, { person_id: String(friend.id), title: "Gavetest-bog", occasion: "Jul", gift_date: "2026-12-24", amount_minor: 19900 });
+    renderAt("/bolig?tab=gifts");
+    await settle("Bolig og inventar");
+    const row = (await screen.findByText("Gavetest-bog")).closest("tr")!;
+    expect(within(row).getByText(/Gavetest Ven/)).toBeTruthy();
+    expect(within(row).getByText("Jul")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Pr. person/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Registrér gave" }));
+    const dialog = await screen.findByRole("dialog", { name: "Registrér gave" });
+    const who = within(dialog).getByLabelText(/^Person/) as HTMLSelectElement;
+    await waitFor(() => expect([...who.options].map((o) => o.textContent)).toContain("Gavetest Ven"));
+    fireEvent.change(who, { target: { value: String(friend.id) } });
+    fireEvent.change(within(dialog).getByLabelText(/^Gave/), { target: { value: "Gavetest-vin" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Gem gave" }));
+    await waitFor(async () => expect(await archive.db.select("SELECT direction, title FROM gift WHERE title = 'Gavetest-vin'")).toEqual([{ direction: "given", title: "Gavetest-vin" }]));
+    cleanup();
+    // The owner picker on an item only offers the household.
+    const bike = await createEntity(ctx, "item", { name: "Gavetest-cykel" });
+    renderAt(`/bolig?id=${String(bike.id)}`);
+    await settle("Bolig og inventar");
+    const detail = await screen.findByRole("complementary", { name: "Genstand" });
+    const group = await within(detail).findByRole("group", { name: "Ejere" });
+    expect(within(group).queryByRole("button", { name: /Gavetest Ven/ })).toBeNull();
   });
 });
 

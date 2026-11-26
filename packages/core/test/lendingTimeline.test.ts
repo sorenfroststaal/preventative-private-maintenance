@@ -157,7 +157,7 @@ describe("migration 0010 – several persons per record", () => {
     await db.execute("INSERT INTO person (id, name, created_at) VALUES ('00000000-0000-4000-8000-0000000000c1', 'Noah', 'x')");
     await db.execute("INSERT INTO recurring_expense (id, name, amount_minor, period, person_id) VALUES ('00000000-0000-4000-8000-0000000000c2', 'Kontingent', 100, 'month', '00000000-0000-4000-8000-0000000000c1')");
     await db.execute("INSERT INTO item (id, name, created_at, updated_at, owner_person_id) VALUES ('00000000-0000-4000-8000-0000000000c3', 'Cykel', 'x', 'x', '00000000-0000-4000-8000-0000000000c1')");
-    await migrate(db, () => env.clock.nowIso());
+    await migrate(db, () => env.clock.nowIso(), migrations.filter((m) => m.version <= 10));
     expect(await getSchemaVersion(db)).toBe(10);
     expect(await db.select("SELECT target_type, target_id FROM person_link ORDER BY target_type")).toEqual([
       { target_type: "item", target_id: "00000000-0000-4000-8000-0000000000c3" },
