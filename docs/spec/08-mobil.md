@@ -18,4 +18,5 @@ PPM kan bruges fra en iPhone som en app på hjemmeskærmen, når telefonen er p�
 
 - Appen åbnes fra hjemmeskærmen i fuld skærm (web app manifest og iOS-metadata) og følger lys/mørk tilstand.
 - Indhold i første version: overblik (forfaldne og kommende opgaver med *udført*, udløber snart, dagens og morgendagens ret, udlån med *afleveret*), kalender som dagsliste, ugens madplan og indkøbsliste med afkrydsning, genstande med fotos og fakta, søgning, og kamera til kvitteringer og fotos (lander i Dokumenter eller på genstanden).
+- Telefonen kan også oprette og rette genstande, tilføje billeder fra kamera eller fotobibliotek til en genstand, låne ting ud, registrere og rette gaver og oprette personer uden for husstanden (fanen *Folk*). Serveren skriver kun de felter, appen viser, og går gennem core. Arkivering, sletning og personer i husstanden håndteres på computeren.
 - Helbredsdata vises ikke på telefonen, og dokumenter koblet til helbredsdata kan ikke hentes derfra.

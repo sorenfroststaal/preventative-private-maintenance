@@ -207,6 +207,11 @@ Under **Bolig og inventar** har fanen **Husdyr** en liste (navn, art og race, ch
 
 - Bolig og inventar har fanen **Udlån**. En ting (genstand eller fri tekst) lånes ud til en person, en kontakt eller et frit navn med udlånsdato og eventuel afleveringsdato. En genstand kan kun være udlånt én gang ad gangen. Overskredne udlån markeres. *Markér afleveret* sætter `returned_date`; afleverede udlån kan vises som historik. Genstandens detalje viser "Udlånt til …" eller *Lån ud…*.
 
+## Gaver og personer uden for husstanden
+
+- Personer har feltet *Hører til*: husstanden (standard) eller uden for husstanden. "+ Ny person" fra udlån og gaver opretter som standard en person uden for husstanden. Valg af ejere, personer på faste udgifter, forsikringsdækning, husdyrs ejer og helbred viser kun husstanden.
+- Bolig og inventar har fanen **Gaver**: gaver givet og fået med person, anledning (værdiliste), dato, pris og noter, filtre for givet/fået, person og år, og en oversigt pr. person (antal, brugt, senest givet, fået). Gaver er en type i kalender og tidslinje (slået fra som standard) og findes i søgning.
+
 ## Lister og rullelister
 
 - Menupunktet **Lister** (ikon `list-tree`, farvetoken `--c-lists`) viser de poster og værdier, som rullelisterne i formularerne henter fra, med en fane for hver: rum og placeringer, boliger, kontakter, personer, konti, økonomikategorier, genstandskategorier og bygningsdelstyper. Poster rettes med samme formular som andre steder og arkiveres i stedet for at blive slettet. Poster, der kan have bilag (boliger, rum, kontakter, personer og konti), har også fanen *Bilag*. Værdilister (03) kan få nye værdier, omdøbes og få ubrugte værdier slettet.
