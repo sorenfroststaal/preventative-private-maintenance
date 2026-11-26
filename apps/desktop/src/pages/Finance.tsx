@@ -679,6 +679,7 @@ function Recurring() {
   const toast = useToast();
   const [editing, setEditing] = useState<Row | "new" | null>(null);
   const [sort, setSort] = useState<"name" | "priority" | "amount">("name");
+  const [personFilter, setPersonFilter] = useState("");
   const today = session.env.clock.today();
   const q = useQuery({ queryKey: ["recurring_expense", "summary", today], queryFn: () => recurringSummary(archive.db, { today }) });
   const archiveRow = useMutation({
@@ -689,13 +690,14 @@ function Recurring() {
     },
     onError: (e) => toast(errorText(e), "error"),
   });
-  const items = [...(q.data?.items ?? [])].sort((a, b) =>
+  const items = [...(q.data?.items ?? [])].filter((r) => !personFilter || (personFilter === "none" ? !r.person_id : r.person_id === personFilter)).sort((a, b) =>
     sort === "priority"
       ? Number(a.priority ?? 0) - Number(b.priority ?? 0) || b.monthly_minor - a.monthly_minor
       : sort === "amount"
         ? b.monthly_minor - a.monthly_minor
         : String(a.name).localeCompare(String(b.name), "da"),
   );
+  const shownTotal = items.filter((r) => !r.ended).reduce((a, r) => a + r.monthly_minor, 0);
   const byP = q.data?.monthly_by_priority ?? {};
   const optional = (byP["1"] ?? 0) + (byP["2"] ?? 0);
   return (
@@ -711,6 +713,10 @@ function Recurring() {
             <option value="priority">Prioritet (laveste først)</option>
             <option value="amount">Beløb pr. måned</option>
           </select>
+        </label>
+        <label className="inline-label">
+          Person
+          <RefSelect type="person" labelCol="name" value={personFilter === "none" ? "" : personFilter} onChange={setPersonFilter} emptyLabel="Alle" allowCreate={false} />
         </label>
       </div>
       <table className="list">
@@ -733,7 +739,9 @@ function Recurring() {
             <tr key={String(r.id)} tabIndex={0} onClick={() => setEditing(r)} onKeyDown={(e) => e.key === "Enter" && e.target === e.currentTarget && setEditing(r)}>
               <td>
                 {String(r.name)}
-                {r.property_name || r.vehicle_name ? <div className="small muted">{String(r.property_name ?? r.vehicle_name)}</div> : null}
+                {r.person_name || r.property_name || r.vehicle_name ? (
+                  <div className="small muted">{[r.person_name, r.property_name, r.vehicle_name].filter(Boolean).map(String).join(" · ")}</div>
+                ) : null}
               </td>
               <td>{String(r.category_name ?? "–")}</td>
               <td>{r.priority != null ? <PriorityDots value={Number(r.priority)} label={priorityLabel(r.priority)} /> : <span className="muted small">Ikke vurderet</span>}</td>
@@ -760,9 +768,9 @@ function Recurring() {
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan={5}>I alt pr. måned</td>
+            <td colSpan={5}>{personFilter ? "I alt pr. måned for den valgte person" : "I alt pr. måned"}</td>
             <td className="num">
-              <strong>{formatMoney(q.data?.monthly_total_minor ?? 0)}</strong>
+              <strong>{formatMoney(personFilter ? shownTotal : (q.data?.monthly_total_minor ?? 0))}</strong>
             </td>
             <td colSpan={2} />
           </tr>

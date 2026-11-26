@@ -361,6 +361,7 @@ export const fields = {
     priority: opt(z.number().int().min(1).max(5)),
     property_id: opt(zId),
     vehicle_id: opt(zId),
+    person_id: opt(zId),
     end_date: opt(zDate),
     amount_variable: z.union([z.literal(0), z.literal(1)]).default(0),
     notes: opt(z.string()),

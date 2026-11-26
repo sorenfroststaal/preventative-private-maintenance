@@ -424,6 +424,7 @@ async function financeTool(c: Call, a: { kind: string; year?: number; month?: nu
           binding_until: i.binding_until,
           end: i.end_date,
           ended: i.ended || undefined,
+          person: i.person_name,
           property: i.property_name,
           vehicle: i.vehicle_name,
         })),

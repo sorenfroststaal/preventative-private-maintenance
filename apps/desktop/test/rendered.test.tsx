@@ -522,5 +522,17 @@ describe("phase 2b.9 – rendered components", () => {
     fireEvent.click(within(detail).getByRole("button", { name: "Gem" }));
     await waitFor(async () => expect((await archive.db.select("SELECT vendor_contact_id FROM item WHERE id = ?", [String(item.id)]))[0]).toEqual({ vendor_contact_id: c!.id }));
   });
+
+  it("Lister: a person can be created (the form has fields)", async () => {
+    renderAt("/lister?liste=person");
+    await settle("Lister");
+    fireEvent.click(await screen.findByRole("button", { name: "Ny person" }));
+    const dialog = await screen.findByRole("dialog", { name: "Ny person" });
+    fireEvent.change(within(dialog).getByLabelText(/^Navn/), { target: { value: "Noah Eksempel" } });
+    fireEvent.change(within(dialog).getByLabelText(/^Relation/), { target: { value: "barn" } });
+    fireEvent.change(within(dialog).getByLabelText(/^Fødselsår/), { target: { value: "2016" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Opret" }));
+    await waitFor(async () => expect(await archive.db.select("SELECT relation, birth_year FROM person WHERE name = 'Noah Eksempel'")).toEqual([{ relation: "barn", birth_year: 2016 }]));
+  });
 });
 

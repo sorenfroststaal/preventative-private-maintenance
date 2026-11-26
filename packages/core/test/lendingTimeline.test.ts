@@ -8,6 +8,7 @@ import {
   lendItem,
   listLendings,
   migrate,
+  recurringSummary,
   returnLending,
   search,
   timelineEvents,
@@ -23,7 +24,7 @@ describe("migration 0007 – lending and serial numbers", () => {
     await migrate(db, () => env.clock.nowIso(), migrations.filter((m) => m.version <= 6));
     await db.execute("INSERT INTO property (id, name, kind, created_at) VALUES ('00000000-0000-4000-8000-000000000001', 'Hus', 'house', 'x')");
     await db.execute("INSERT INTO building_part (id, property_id, name, created_at) VALUES ('00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000001', 'Varmepumpe', 'x')");
-    await migrate(db, () => env.clock.nowIso());
+    await migrate(db, () => env.clock.nowIso(), migrations.filter((m) => m.version <= 7));
     expect(await getSchemaVersion(db)).toBe(7);
     await db.execute("UPDATE building_part SET brand = 'Mærke', model = 'M1', serial_number = 'SN-123'");
     expect(await db.select("SELECT name, serial_number FROM building_part")).toEqual([{ name: "Varmepumpe", serial_number: "SN-123" }]);
@@ -102,3 +103,25 @@ describe("calendar and timeline events", () => {
     expect((await timelineEvents(db, { from: "2026-11-01", to: "2026-12-31", kinds: ["purchase"], today: "2026-11-25", userId: null })).length).toBe(0);
   });
 });
+
+describe("migration 0008 – recurring expenses per person", () => {
+  it("adds person_id; the summary can be filtered by person and names the person", async () => {
+    const env = testEnv();
+    const db = await env.openDb(join(tempDir(), "v7.sqlite"));
+    await migrate(db, () => env.clock.nowIso(), migrations.filter((m) => m.version <= 7));
+    await db.execute("INSERT INTO recurring_expense (id, name, amount_minor, period) VALUES ('00000000-0000-4000-8000-0000000000a1', 'Avis', 9900, 'month')");
+    await migrate(db, () => env.clock.nowIso());
+    expect(await getSchemaVersion(db)).toBe(8);
+    expect(await db.select("SELECT name, person_id FROM recurring_expense")).toEqual([{ name: "Avis", person_id: null }]);
+
+    const { env: e2, archive } = await newArchive();
+    const ctx = ctxFor(e2, archive);
+    const noah = await createEntity(ctx, "person", { name: "Noah Testesen", relation: "barn" });
+    await createEntity(ctx, "recurring_expense", { name: "Fodboldkontingent", amount_minor: 60000, period: "half_year", person_id: String(noah.id) });
+    await createEntity(ctx, "recurring_expense", { name: "Internet", amount_minor: 29900, period: "month" });
+    const only = await recurringSummary(archive.db, { personId: String(noah.id) });
+    expect(only.items.map((i) => [i.name, i.person_name])).toEqual([["Fodboldkontingent", "Noah Testesen"]]);
+    expect(only.monthly_total_minor).toBe(10000);
+  });
+});
+

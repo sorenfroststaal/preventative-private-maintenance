@@ -130,6 +130,12 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
     d("complaint_until", "Reklamationsret til"),
     ta("notes", "Noter"),
   ],
+  person: [
+    t("name", "Navn", { required: true }),
+    t("relation", "Relation", { help: "Fx mig, partner, barn" }),
+    n("birth_year", "Fødselsår"),
+    ta("notes", "Noter"),
+  ],
   pet: [
     t("name", "Navn", { required: true }),
     s("species", "Art", [["dog", "Hund"], ["cat", "Kat"], ["horse", "Hest"], ["rabbit", "Kanin"], ["bird", "Fugl"], ["other", "Andet"]], { required: true }),
@@ -227,6 +233,7 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
     d("next_date", "Næste betaling"),
     d("binding_until", "Binding til"),
     d("end_date", "Slutter", { help: "Sidste betaling, fx når en aftale udløber. Derefter tælles udgiften ikke med." }),
+    r("person_id", "Person", "person"),
     r("property_id", "Bolig", "property"),
     r("vehicle_id", "Bil", "vehicle"),
     r("contact_id", "Leverandør", "contact", "name", { ref: { type: "contact", label: "name", createDefaults: { kind: "other" } } }),

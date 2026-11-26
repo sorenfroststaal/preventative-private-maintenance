@@ -536,7 +536,7 @@ export const RECURRING_PRIORITY: [number, string][] = [
 
 export async function recurringSummary(
   db: DbAdapter,
-  opts: { today?: string; propertyId?: string; vehicleId?: string } = {},
+  opts: { today?: string; propertyId?: string; vehicleId?: string; personId?: string } = {},
 ): Promise<RecurringSummary> {
   const where = ["r.archived_at IS NULL"];
   const params: string[] = [];
@@ -548,9 +548,14 @@ export async function recurringSummary(
     where.push("r.vehicle_id = ?");
     params.push(opts.vehicleId);
   }
+  if (opts.personId) {
+    where.push("r.person_id = ?");
+    params.push(opts.personId);
+  }
   const rows = await db.select<Row>(
-    `SELECT r.*, c.name AS category_name, p.name AS property_name, v.name AS vehicle_name FROM recurring_expense r
+    `SELECT r.*, c.name AS category_name, p.name AS property_name, v.name AS vehicle_name, pe.name AS person_name FROM recurring_expense r
        LEFT JOIN category c ON c.id = r.category_id LEFT JOIN property p ON p.id = r.property_id LEFT JOIN vehicle v ON v.id = r.vehicle_id
+       LEFT JOIN person pe ON pe.id = r.person_id
       WHERE ${where.join(" AND ")} ORDER BY r.name`,
     params,
   );

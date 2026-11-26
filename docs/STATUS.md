@@ -86,6 +86,8 @@ Fundet og rettet under E2E: typenavne stod på engelsk i AI-indbakken ("item", "
 ## Fejl fundet ved brugerens test 26.11.2026 (rettet)
 
 - **"Arkivet er låst – Arkivet er allerede åbent i dette program"** efter genindlæsning af vinduet: låsen med appens eget proces-id overtages nu, i stedet for at afvise (`acquireLock`). Test i `archive.test.ts`.
+- **"Ny person" under Lister viste en tom formular med "Required"**: personer havde ingen feltdefinition. Nu: navn, relation, fødselsår og noter (privat helbred sættes stadig under Indstillinger). Test i `rendered.test.tsx`.
+- **Faste udgifter kan høre til en person** (migration 0008, `recurring_expense.person_id`): feltet *Person* i formularen, personens navn i listen, filter *Person* med sum pr. måned for den valgte, og `finance` (MCP) viser personen. Test i `lendingTimeline.test.ts`.
 - **Kunne ikke tilføje forhandler med "+ Ny kontakt…"**: dialogen lå inde i genstandens `<form>`. I WebKit/WebView2 blev den indre formular sendt af browseren uden at blive annulleret, så appen genindlæste sig (og ramte låsefejlen ovenfor). Dialoger tegnes nu i `document.body` med en portal, formularens submit stopper sin udbredelse, felt-id'er er unikke pr. formular (`useId`), og kontakter oprettet fra et felt får en passende type (forhandler = butik, selskab = forsikringsselskab, långiver = bank, håndværker, dyrlæge/behandler). Reproduceret og verificeret i den rigtige app med `apps/desktop/e2e/vendor.mjs` (fejlede før, 2/2 efter) og testet i `rendered.test.tsx`.
 
 ## Ønsker 25.11.2026: kalender, tidslinje, udlån og serienumre (migration 0007)
