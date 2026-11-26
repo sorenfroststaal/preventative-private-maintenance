@@ -1,9 +1,12 @@
 import { useState } from "react";
+import { PersonPicker } from "../components/PersonPicker";
 import { useSearchParams } from "react-router-dom";
 import { DocumentsTab } from "../components/DetailTabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   acceptCategorySuggestions,
+  personLinks,
+  setPersonLinks,
   BANK_PRESETS,
   detectBankPreset,
   resolvePreset,
@@ -690,7 +693,8 @@ function Recurring() {
     },
     onError: (e) => toast(errorText(e), "error"),
   });
-  const items = [...(q.data?.items ?? [])].filter((r) => !personFilter || (personFilter === "none" ? !r.person_id : r.person_id === personFilter)).sort((a, b) =>
+  const recLinks = useQuery({ queryKey: ["person_link", "recurring_expense"], queryFn: () => personLinks(archive.db, "recurring_expense") });
+  const items = [...(q.data?.items ?? [])].filter((r) => !personFilter || (recLinks.data?.get(String(r.id)) ?? []).some((p) => p.id === personFilter)).sort((a, b) =>
     sort === "priority"
       ? Number(a.priority ?? 0) - Number(b.priority ?? 0) || b.monthly_minor - a.monthly_minor
       : sort === "amount"
@@ -784,14 +788,7 @@ function Recurring() {
       <p className="small muted">Arkivér en udgift, du har opsagt. Den forsvinder fra listen og summerne, men historikken bevares.</p>
       {q.data?.items.length === 0 && <Empty>Ingen faste udgifter registreret.</Empty>}
       {editing && (
-        <Modal title={editing === "new" ? "Ny fast udgift" : "Fast udgift"} onClose={() => setEditing(null)} wide>
-          <EntityForm type="recurring_expense" row={editing === "new" ? null : editing} defaults={{ amount_variable: 0, period: "month" }} onSaved={() => setEditing(null)} onCancel={() => setEditing(null)} />
-          {editing !== "new" && (
-            <div className="row" style={{ marginTop: "0.6rem" }}>
-              <ArchiveButton type="recurring_expense" id={String(editing.id)} label="Den faste udgift" onDone={() => setEditing(null)} />
-            </div>
-          )}
-        </Modal>
+        <RecurringDialog row={editing === "new" ? null : editing} onClose={() => setEditing(null)} />
       )}
     </div>
   );
@@ -1146,5 +1143,36 @@ function CategorySuggestions() {
         </table>
       )}
     </div>
+  );
+}
+
+/** New or existing recurring expense, with several persons (migration 0010). */
+function RecurringDialog({ row, onClose }: { row: Row | null; onClose(): void }) {
+  const session = useSession();
+  const qc = useQueryClient();
+  const links = useQuery({ queryKey: ["person_link", "recurring_expense"], queryFn: () => personLinks(session.archive.db, "recurring_expense") });
+  const [people, setPeople] = useState<string[] | null>(null);
+  const current = people ?? (row ? (links.data?.get(String(row.id)) ?? []).map((p) => p.id) : []);
+  return (
+    <Modal title={row ? "Fast udgift" : "Ny fast udgift"} onClose={onClose} wide>
+      <EntityForm
+        type="recurring_expense"
+        row={row}
+        defaults={{ amount_variable: 0, period: "month" }}
+        renderAfter={(key) => (key === "end_date" ? <PersonPicker label="Personer, udgiften hører til" value={current} onChange={setPeople} /> : null)}
+        onSaved={async (saved) => {
+          if (people !== null) await setPersonLinks(session.ctx(), "recurring_expense", String(saved.id), people);
+          await qc.invalidateQueries({ queryKey: ["person_link"] });
+          await qc.invalidateQueries({ queryKey: ["recurring_expense"] });
+          onClose();
+        }}
+        onCancel={onClose}
+      />
+      {row && (
+        <div className="row" style={{ marginTop: "0.6rem" }}>
+          <ArchiveButton type="recurring_expense" id={String(row.id)} label="Den faste udgift" onDone={onClose} />
+        </div>
+      )}
+    </Modal>
   );
 }

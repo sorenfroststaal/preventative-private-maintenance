@@ -3,7 +3,8 @@ import { RowThumb, useThumbnails } from "../components/RowThumb";
 import { Hammer, Package, PawPrint } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { addMonths, archiveEntity, listEntities, policiesForItem, type Row } from "@ppm/core";
+import { addMonths, archiveEntity, listEntities, personLinks, policiesForItem, setPersonLinks, type Row } from "@ppm/core";
+import { PersonPicker } from "../components/PersonPicker";
 import { errorText, useSession } from "../app/session";
 import { EntityForm } from "../components/EntityForm";
 import { DocumentsTab, HistoryTab, TasksTab } from "../components/DetailTabs";
@@ -59,7 +60,7 @@ function Items() {
   const [creating, setCreating] = useState(false);
   const items = useQuery({ queryKey: ["item", "list"], queryFn: () => listEntities(archive.db, "item", { orderBy: "name" }) });
   const persons = useQuery({ queryKey: ["person", "list"], queryFn: () => listEntities(archive.db, "person", { orderBy: "name" }) });
-  const personName = new Map((persons.data ?? []).map((p) => [String(p.id), String(p.name)]));
+  const owners = useQuery({ queryKey: ["person_link", "item"], queryFn: () => personLinks(archive.db, "item") });
   const locations = useLocations();
   const locName = useMemo(() => new Map((locations.data ?? []).map((l) => [l.id, `${l.name}`])), [locations.data]);
   const photos = useQuery({
@@ -72,7 +73,7 @@ function Items() {
   const hasReceipt = new Set((photos.data ?? []).map((p) => p.target_id));
   const thumbs = useThumbnails("item");
   const rows = (items.data ?? []).filter(
-    (i) => (!loc || i.location_id === loc) && (!owner || i.owner_person_id === owner) && includesText(i, ["name", "brand", "model", "serial_number", "category"], q),
+    (i) => (!loc || i.location_id === loc) && (!owner || (owners.data?.get(String(i.id)) ?? []).some((p) => p.id === owner)) && includesText(i, ["name", "brand", "model", "serial_number", "category"], q),
   );
   const selectedId = params.get("id");
   const selected = items.data?.find((i) => i.id === selectedId) ?? null;
@@ -121,7 +122,13 @@ function Items() {
                   <span className="with-thumb">
                     <RowThumb doc={thumbs?.get(String(i.id))} icon={Package} />
                     <span className="text">{String(i.name)}</span>
-                    {i.owner_person_id && personName.get(String(i.owner_person_id)) ? <Avatar name={personName.get(String(i.owner_person_id))!} /> : null}
+                    {(owners.data?.get(String(i.id)) ?? []).length > 0 && (
+                      <span className="avatars">
+                        {(owners.data?.get(String(i.id)) ?? []).map((p) => (
+                          <Avatar key={p.id} name={p.name} />
+                        ))}
+                      </span>
+                    )}
                   </span>
                 </td>
                 <td>{locName.get(String(i.location_id)) ?? "–"}</td>
@@ -152,14 +159,23 @@ function NewItem({ onClose, onCreated }: { onClose(): void; onCreated(id: string
   const qc = useQueryClient();
   const toast = useToast();
   const [pending, setPending] = useState<PendingFile[]>([]);
+  const [owners, setOwners] = useState<string[]>([]);
   return (
     <Modal title="Ny genstand" onClose={onClose} wide>
       <EntityForm
         type="item"
         renderAfter={(key, values, set) =>
-          key === "notes" ? <PendingAttachments value={pending} onChange={setPending} /> : complaintSuggestion(key, values, set)
+          key === "notes" ? (
+            <>
+              <PersonPicker label="Ejere" value={owners} onChange={setOwners} />
+              <PendingAttachments value={pending} onChange={setPending} />
+            </>
+          ) : (
+            complaintSuggestion(key, values, set)
+          )
         }
         onSaved={async (r) => {
+          if (owners.length) await setPersonLinks(session.ctx(), "item", String(r.id), owners);
           const res = await attachPending(session, "item", String(r.id), pending);
           for (const e of res.errors) toast(e, "error");
           await qc.invalidateQueries({ queryKey: ["documents"] });
@@ -210,6 +226,7 @@ function ItemDetail({ item, onArchived }: { item: Row; onArchived(): void }) {
         </button>
       </div>
       <PhotoStrip targetType="item" targetId={id} />
+      <ItemOwners itemId={id} />
       <ItemLending itemId={id} />
       <ReceiptSuggestionBanner itemId={id} />
       <Tabs
@@ -555,4 +572,19 @@ function PetPolicies({ petId }: { petId: string }) {
       ))}
     </ul>
   );
+}
+
+/** Persons the item belongs to; toggling saves at once (migration 0010). */
+function ItemOwners({ itemId }: { itemId: string }) {
+  const session = useSession();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const links = useQuery({ queryKey: ["person_link", "item"], queryFn: () => personLinks(session.archive.db, "item") });
+  const value = (links.data?.get(itemId) ?? []).map((p) => p.id);
+  const save = useMutation({
+    mutationFn: (ids: string[]) => setPersonLinks(session.ctx(), "item", itemId, ids),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["person_link"] }),
+    onError: (e) => toast(errorText(e), "error"),
+  });
+  return <PersonPicker label="Ejere" value={value} onChange={(ids) => save.mutate(ids)} />;
 }

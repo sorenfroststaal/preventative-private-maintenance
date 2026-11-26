@@ -136,7 +136,6 @@ export const fields = {
     brand: opt(z.string()),
     model: opt(z.string()),
     serial_number: opt(z.string()),
-    owner_person_id: opt(zId),
     purchase_date: opt(zDate),
     purchase_price_minor: opt(zMoney),
     currency: zCurrency.default("DKK"),
@@ -230,6 +229,11 @@ export const fields = {
     deductible_minor: opt(zMoney),
     coverage_sum_minor: opt(zMoney),
     notes: opt(z.string()),
+  },
+  person_link: {
+    person_id: zId,
+    target_type: z.enum(["recurring_expense", "item"]),
+    target_id: zId,
   },
   policy_coverage: {
     policy_id: zId,
@@ -362,7 +366,6 @@ export const fields = {
     priority: opt(z.number().int().min(1).max(5)),
     property_id: opt(zId),
     vehicle_id: opt(zId),
-    person_id: opt(zId),
     end_date: opt(zDate),
     amount_variable: z.union([z.literal(0), z.literal(1)]).default(0),
     notes: opt(z.string()),

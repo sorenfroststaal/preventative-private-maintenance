@@ -549,13 +549,15 @@ export async function recurringSummary(
     params.push(opts.vehicleId);
   }
   if (opts.personId) {
-    where.push("r.person_id = ?");
+    where.push("EXISTS (SELECT 1 FROM person_link pl WHERE pl.target_type = 'recurring_expense' AND pl.target_id = r.id AND pl.person_id = ?)");
     params.push(opts.personId);
   }
   const rows = await db.select<Row>(
-    `SELECT r.*, c.name AS category_name, p.name AS property_name, v.name AS vehicle_name, pe.name AS person_name FROM recurring_expense r
+    `SELECT r.*, c.name AS category_name, p.name AS property_name, v.name AS vehicle_name,
+       (SELECT group_concat(name, ', ') FROM (SELECT pe.name FROM person_link pl JOIN person pe ON pe.id = pl.person_id
+          WHERE pl.target_type = 'recurring_expense' AND pl.target_id = r.id ORDER BY pe.name)) AS person_name
+       FROM recurring_expense r
        LEFT JOIN category c ON c.id = r.category_id LEFT JOIN property p ON p.id = r.property_id LEFT JOIN vehicle v ON v.id = r.vehicle_id
-       LEFT JOIN person pe ON pe.id = r.person_id
       WHERE ${where.join(" AND ")} ORDER BY r.name`,
     params,
   );

@@ -45,5 +45,10 @@ export const migrations: Migration[] = [
     "version": 9,
     "name": "0009_item_owner.sql",
     "sql": "-- Preventative Private Maintenance: normativ migration 0009 (schemaVersion 9) – ejer af en genstand.\n-- Implementeringer kopierer denne fil uændret til packages/core/migrations/0009_item_owner.sql.\n-- En genstand kan høre til en person i husstanden (fx høretelefoner, cykel, legetøj).\n\nALTER TABLE item ADD COLUMN owner_person_id TEXT REFERENCES person(id);\nCREATE INDEX idx_item_owner ON item(owner_person_id);\n"
+  },
+  {
+    "version": 10,
+    "name": "0010_person_links.sql",
+    "sql": "-- Preventative Private Maintenance: normativ migration 0010 (schemaVersion 10) – flere personer pr. post.\n-- Implementeringer kopierer denne fil uændret til packages/core/migrations/0010_person_links.sql.\n-- En fast udgift eller en genstand kan høre til flere personer i husstanden. Koblingerne fra\n-- recurring_expense.person_id (0008) og item.owner_person_id (0009) flyttes hertil, og de to kolonner\n-- bruges ikke længere (de står tomme; SQLite kan ikke fjerne en kolonne med REFERENCES).\n\nCREATE TABLE person_link (\n  person_id   TEXT NOT NULL REFERENCES person(id) ON DELETE CASCADE,\n  target_type TEXT NOT NULL CHECK (target_type IN ('recurring_expense','item')),\n  target_id   TEXT NOT NULL,\n  PRIMARY KEY (person_id, target_type, target_id)\n);\nCREATE INDEX idx_person_link_target ON person_link(target_type, target_id);\n\nINSERT INTO person_link (person_id, target_type, target_id)\n  SELECT person_id, 'recurring_expense', id FROM recurring_expense WHERE person_id IS NOT NULL;\nINSERT INTO person_link (person_id, target_type, target_id)\n  SELECT owner_person_id, 'item', id FROM item WHERE owner_person_id IS NOT NULL;\nUPDATE recurring_expense SET person_id = NULL WHERE person_id IS NOT NULL;\nUPDATE item SET owner_person_id = NULL WHERE owner_person_id IS NOT NULL;\n"
   }
 ];

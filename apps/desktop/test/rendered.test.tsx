@@ -18,6 +18,8 @@ import {
   createRecipe,
   createTask,
   createUser,
+  personLinks,
+  setPersonLinks,
   timelineEvents,
   importDocument,
   linkDocument,
@@ -572,10 +574,12 @@ describe("phase 2b.9 – rendered components", () => {
     for (const p of props) await archive.db.execute("UPDATE property SET archived_at = NULL WHERE id = ?", [p.id]);
   });
 
-  it("items: an owner (person) can be chosen; the list can be filtered by person and shows the owner's initials", async () => {
+  it("items: several owners can be chosen; the list can be filtered by person and shows the owner's initials", async () => {
     const ctx = makeCtx(env, archive.db, user.id, "ui");
     const owner = await createEntity(ctx, "person", { name: "Ejer Testesen" });
-    await createEntity(ctx, "item", { name: "Ejertest-cykel", owner_person_id: String(owner.id) });
+    const other = await createEntity(ctx, "person", { name: "Anden Ejer" });
+    const bike = await createEntity(ctx, "item", { name: "Ejertest-cykel" });
+    await setPersonLinks(ctx, "item", String(bike.id), [String(owner.id)]);
     renderAt("/bolig");
     await settle("Bolig og inventar");
     const filter = (await screen.findByLabelText("Ejer")) as HTMLSelectElement;
@@ -586,7 +590,31 @@ describe("phase 2b.9 – rendered components", () => {
     expect(within(rows[0]!).getByRole("img", { name: "Ejer Testesen" }).textContent).toBe("ET");
     fireEvent.click(within(rows[0]!).getByText("Ejertest-cykel"));
     const detail = await screen.findByRole("complementary", { name: "Genstand" });
-    await waitFor(() => expect((within(detail).getByLabelText("Ejer (person)") as HTMLSelectElement).value).toBe(String(owner.id)));
+    const group = within(detail).getByRole("group", { name: "Ejere" });
+    await waitFor(() => expect(within(group).getByRole("button", { name: /Ejer Testesen/ })).toHaveAttribute("aria-pressed", "true"));
+    fireEvent.click(within(group).getByRole("button", { name: /Anden Ejer/ }));
+    await waitFor(async () => expect((await personLinks(archive.db, "item")).get(String(bike.id))?.map((p) => p.id).sort()).toEqual([String(owner.id), String(other.id)].sort()));
+  });
+
+  it("recurring expense: several persons can be chosen in the dialog; the list filters by person", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const a = await createEntity(ctx, "person", { name: "Udgift Person A" });
+    const b = await createEntity(ctx, "person", { name: "Udgift Person B" });
+    renderAt("/okonomi?tab=recurring");
+    await settle("Økonomi");
+    fireEvent.click(await screen.findByRole("button", { name: "Ny fast udgift" }));
+    const dialog = await screen.findByRole("dialog", { name: "Ny fast udgift" });
+    fireEvent.change(within(dialog).getByLabelText(/^Navn/), { target: { value: "Familie-streaming" } });
+    fireEvent.change(within(dialog).getByLabelText(/^Beløb \*/), { target: { value: "129" } });
+    const group = await within(dialog).findByRole("group", { name: "Personer, udgiften hører til" });
+    fireEvent.click(within(group).getByRole("button", { name: /Udgift Person A/ }));
+    fireEvent.click(within(group).getByRole("button", { name: /Udgift Person B/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Opret" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Ny fast udgift" })).toBeNull());
+    const [rec] = await archive.db.select<{ id: string }>("SELECT id FROM recurring_expense WHERE name = 'Familie-streaming'");
+    expect((await personLinks(archive.db, "recurring_expense")).get(rec!.id)?.map((p) => p.id).sort()).toEqual([String(a.id), String(b.id)].sort());
+    const row = (await screen.findByText("Familie-streaming")).closest("tr")!;
+    expect(row.textContent).toContain("Udgift Person A, Udgift Person B");
   });
 });
 

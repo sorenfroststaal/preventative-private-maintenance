@@ -8,7 +8,9 @@ import {
   lendItem,
   listLendings,
   migrate,
+  personLinks,
   recurringSummary,
+  setPersonLinks,
   returnLending,
   search,
   timelineEvents,
@@ -117,11 +119,21 @@ describe("migration 0008 – recurring expenses per person", () => {
     const { env: e2, archive } = await newArchive();
     const ctx = ctxFor(e2, archive);
     const noah = await createEntity(ctx, "person", { name: "Noah Testesen", relation: "barn" });
-    await createEntity(ctx, "recurring_expense", { name: "Fodboldkontingent", amount_minor: 60000, period: "half_year", person_id: String(noah.id) });
+    const anna = await createEntity(ctx, "person", { name: "Anna Testesen" });
+    const fb = await createEntity(ctx, "recurring_expense", { name: "Fodboldkontingent", amount_minor: 60000, period: "half_year" });
+    const tv = await createEntity(ctx, "recurring_expense", { name: "Streaming", amount_minor: 12900, period: "month" });
     await createEntity(ctx, "recurring_expense", { name: "Internet", amount_minor: 29900, period: "month" });
+    // Several persons per expense (migration 0010).
+    await setPersonLinks(ctx, "recurring_expense", String(fb.id), [String(noah.id)]);
+    await setPersonLinks(ctx, "recurring_expense", String(tv.id), [String(noah.id), String(anna.id)]);
     const only = await recurringSummary(archive.db, { personId: String(noah.id) });
-    expect(only.items.map((i) => [i.name, i.person_name])).toEqual([["Fodboldkontingent", "Noah Testesen"]]);
-    expect(only.monthly_total_minor).toBe(10000);
+    expect(only.items.map((i) => [i.name, i.person_name])).toEqual([
+      ["Fodboldkontingent", "Noah Testesen"],
+      ["Streaming", "Anna Testesen, Noah Testesen"],
+    ]);
+    expect(only.monthly_total_minor).toBe(10000 + 12900);
+    await setPersonLinks(ctx, "recurring_expense", String(tv.id), [String(anna.id)]);
+    expect((await personLinks(archive.db, "recurring_expense")).get(String(tv.id))?.map((p) => p.name)).toEqual(["Anna Testesen"]);
   });
 });
 
@@ -131,14 +143,28 @@ describe("migration 0009 – item owner", () => {
     const db = await env.openDb(join(tempDir(), "v8.sqlite"));
     await migrate(db, () => env.clock.nowIso(), migrations.filter((m) => m.version <= 8));
     await db.execute("INSERT INTO item (id, name, created_at, updated_at) VALUES ('00000000-0000-4000-8000-0000000000b1', 'Høretelefoner', 'x', 'x')");
-    await migrate(db, () => env.clock.nowIso());
+    await migrate(db, () => env.clock.nowIso(), migrations.filter((m) => m.version <= 9));
     expect(await getSchemaVersion(db)).toBe(9);
     expect(await db.select("SELECT name, owner_person_id FROM item")).toEqual([{ name: "Høretelefoner", owner_person_id: null }]);
-    const { env: e2, archive } = await newArchive();
-    const ctx = ctxFor(e2, archive);
-    const noah = await createEntity(ctx, "person", { name: "Noah" });
-    const it = await createEntity(ctx, "item", { name: "Cykel", owner_person_id: String(noah.id) });
-    expect(it.owner_person_id).toBe(noah.id);
+  });
+});
+
+describe("migration 0010 – several persons per record", () => {
+  it("moves the single person on recurring expenses and items into person_link", async () => {
+    const env = testEnv();
+    const db = await env.openDb(join(tempDir(), "v9.sqlite"));
+    await migrate(db, () => env.clock.nowIso(), migrations.filter((m) => m.version <= 9));
+    await db.execute("INSERT INTO person (id, name, created_at) VALUES ('00000000-0000-4000-8000-0000000000c1', 'Noah', 'x')");
+    await db.execute("INSERT INTO recurring_expense (id, name, amount_minor, period, person_id) VALUES ('00000000-0000-4000-8000-0000000000c2', 'Kontingent', 100, 'month', '00000000-0000-4000-8000-0000000000c1')");
+    await db.execute("INSERT INTO item (id, name, created_at, updated_at, owner_person_id) VALUES ('00000000-0000-4000-8000-0000000000c3', 'Cykel', 'x', 'x', '00000000-0000-4000-8000-0000000000c1')");
+    await migrate(db, () => env.clock.nowIso());
+    expect(await getSchemaVersion(db)).toBe(10);
+    expect(await db.select("SELECT target_type, target_id FROM person_link ORDER BY target_type")).toEqual([
+      { target_type: "item", target_id: "00000000-0000-4000-8000-0000000000c3" },
+      { target_type: "recurring_expense", target_id: "00000000-0000-4000-8000-0000000000c2" },
+    ]);
+    expect(await db.select("SELECT person_id FROM recurring_expense")).toEqual([{ person_id: null }]);
+    await expect(db.execute("INSERT INTO person_link VALUES ('00000000-0000-4000-8000-0000000000c1', 'vehicle', 'x')")).rejects.toThrow();
   });
 });
 

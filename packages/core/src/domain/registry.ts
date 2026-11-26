@@ -138,6 +138,7 @@ export const registry: Record<EntityType, EntityMeta> = {
     },
   }),
   policy_coverage: link("insurance", ["policy_id", "target_type", "target_id"]),
+  person_link: link("core", ["person_id", "target_type", "target_id"]),
   claim: plain("insurance", { createdAt: true }),
   work_order: plain("maintenance", {
     createdAt: true,
