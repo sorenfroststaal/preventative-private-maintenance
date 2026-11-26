@@ -94,7 +94,7 @@ describe("phase 3.2 / 3.8 – tools against the seed archive, compact output", (
     expect(json(await runTool(deps, "get", { ref: item.ref, fields: ["name", "purchase_price_minor"] }))).toEqual({ type: "item", name: "Opvaskemaskine", purchase_price_minor: 499900 });
 
     const l = json(await runTool(deps, "list", { type: "item", limit: 2 }));
-    expect(l).toMatchObject({ n: 6, more: true, cursor: "2" });
+    expect(l).toMatchObject({ n: 9, more: true, cursor: "2" });
     expect(l.items).toHaveLength(2);
     const l2 = json(await runTool(deps, "list", { type: "item", limit: 2, cursor: l.cursor }));
     expect(l2.items[0].ref).not.toBe(l.items[0].ref);

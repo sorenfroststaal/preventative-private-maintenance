@@ -139,7 +139,10 @@ export async function createDemoArchive(env: Env, root: string): Promise<DemoInf
       }),
     );
   }
-  await createEntity(ctx, "item_part", { item_id: String(items[2]!.id), name: "Kulfilter", part_number: "KF-100" });
+  // Components (migration 0012): spare parts in stock, a consumable and an accessory.
+  await createEntity(ctx, "item", { name: "Kulfilter", parent_item_id: String(items[2]!.id), component_role: "spare_part", part_number: "KF-100", quantity: 2, stock_status: "in_stock", location_id: String(kitchen.id) });
+  await createEntity(ctx, "item", { name: "Afspændingsmiddel", parent_item_id: String(items[0]!.id), component_role: "consumable", quantity: 1, stock_status: "in_stock", location_id: String(kitchen.id) });
+  await createEntity(ctx, "item", { name: "Fjernbetjening", parent_item_id: String(items[3]!.id), component_role: "accessory", location_id: String(living.id) });
   await doc("kvittering-opvasker.pdf", syntheticPdf("Kvittering opvaskemaskine 4.999,00 kr (syntetisk)"), { type: "item", id: items[0]!.id, role: "receipt" });
   await doc("kvittering-tv.pdf", syntheticPdf("Kvittering fjernsyn 7.995,00 kr (syntetisk)"), { type: "item", id: items[3]!.id, role: "receipt" });
   await doc("foto-opvasker.png", syntheticPng(1), { type: "item", id: items[0]!.id, role: "photo" });

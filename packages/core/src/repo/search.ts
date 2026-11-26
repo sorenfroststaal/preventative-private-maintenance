@@ -37,7 +37,8 @@ export async function search(
     sql += ` AND module IN (${opts.modules.map(() => "?").join(",")})`;
     params.push(...opts.modules);
   }
-  sql += " ORDER BY rank LIMIT ?";
+  // A match in the title weighs ten times a match in the body (a dishwasher before its rinse aid).
+  sql += " ORDER BY bm25(search_index, 0, 0, 0, 10.0, 1.0) LIMIT ?";
   params.push(limit);
   return db.select<SearchHit>(sql, params);
 }
