@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { X509Certificate } from "node:crypto";
 import forge from "node-forge";
 import { ensureTls, hasNameConstraints } from "../src/mobile/tls";
 import { dpapiAvailable, protectWithDpapi, readKey, unprotectWithDpapi, writeKey } from "../src/mobile/keyStore";
@@ -102,5 +103,20 @@ describe("local CA for the phone", () => {
       if (process.platform !== "win32") expect(statSync(join(dir, "ca.key")).mode & 0o077).toBe(0);
     }
     expect(readKey(join(dir, "ca.key"))).toContain("PRIVATE KEY");
+  });
+});
+
+describe("unreadable CA key", () => {
+  it("makes a new CA instead of failing, and always covers 127.0.0.1", () => {
+    const dir = tmp();
+    const first = ensureTls(dir, ["10.1.0.65"], "pc");
+    expect(new X509Certificate(first.cert).subjectAltName).toContain("IP Address:127.0.0.1");
+    expect(new X509Certificate(first.cert).subjectAltName).toContain("IP Address:10.1.0.65");
+    // A damaged or foreign key file (on Windows: a DPAPI blob for another user).
+    if (dpapiAvailable()) writeFileSync(join(dir, "ca.key.dpapi"), "AQAAANCMnd8BFdERjHoAwE/Cl+s=");
+    else writeFileSync(join(dir, "ca.key"), "ødelagt");
+    const second = ensureTls(dir, ["10.1.0.65"], "pc");
+    expect(second.caRenewed).toBe(true);
+    expect(second.caFingerprint).not.toBe(first.caFingerprint);
   });
 });

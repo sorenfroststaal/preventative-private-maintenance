@@ -4,7 +4,7 @@
  */
 import type { DbAdapter } from "../db/adapter";
 import type { Row } from "../domain/registry";
-import { createEntity, mustGet, registerAfterWrite, reindex, updateEntity, ValidationError, type Ctx } from "./entities";
+import { archiveEntity, createEntity, mustGet, registerAfterWrite, reindex, restoreEntity, updateEntity, ValidationError, type Ctx } from "./entities";
 
 export type ComponentRole = "part" | "accessory" | "consumable" | "spare_part";
 export const COMPONENT_ROLES: [ComponentRole, string, string][] = [
@@ -19,9 +19,11 @@ export const STOCK_STATUSES: [string, string][] = [
   ["to_buy", "Skal købes"],
 ];
 
-// A component may not be its own ancestor, and its parent must exist and not be archived.
-registerAfterWrite("item", async (ctx, row) => {
+// A component may not be its own ancestor, and a new parent must exist and not be archived. The check
+// runs when an item is created or moved, not when it is only edited or archived.
+registerAfterWrite("item", async (ctx, row, action, before) => {
   if (!row.parent_item_id) return;
+  if (action !== "create" && before?.parent_item_id === row.parent_item_id) return;
   const seen = new Set<string>([String(row.id)]);
   let cur: string | null = String(row.parent_item_id);
   while (cur) {
@@ -32,6 +34,24 @@ registerAfterWrite("item", async (ctx, row) => {
     if (cur === row.parent_item_id && p.archived_at) throw new ValidationError([{ path: "parent_item_id", message: "Den overordnede genstand er arkiveret" }], "item");
     cur = p.parent_item_id;
   }
+});
+
+// Archiving an item archives its components; restoring it restores those archived with it (at or after
+// the item's own archive time; components archived earlier on their own stay archived).
+registerAfterWrite("item", async (ctx, row, action, before) => {
+  if (action !== "archive" && action !== "restore") return;
+  const kids = await ctx.db.select<{ id: string; archived_at: string | null }>("SELECT id, archived_at FROM item WHERE parent_item_id = ?", [String(row.id)]);
+  const since = String(before?.archived_at ?? "");
+  for (const k of kids) {
+    if (action === "archive" && !k.archived_at) await archiveEntity(ctx, "item", k.id);
+    if (action === "restore" && k.archived_at && since && k.archived_at >= since) await restoreEntity(ctx, "item", k.id);
+  }
+});
+
+// The parent's name is part of a component's search text: renaming an item updates its components.
+registerAfterWrite("item", async (ctx, row, action, before) => {
+  if (action !== "update" || before?.name === row.name) return;
+  for (const k of await ctx.db.select<Row>("SELECT * FROM item WHERE parent_item_id = ?", [String(row.id)])) await reindex(ctx.db, "item", k);
 });
 
 export interface ComponentRow extends Row {
@@ -80,7 +100,9 @@ export async function consumeComponent(ctx: Ctx, itemId: string, opts: { quantit
   const item = await mustGet(ctx.db, "item", itemId);
   const have = Number(item.quantity ?? 1);
   const qty = opts.quantity ?? have;
+  if (item.component_role !== "spare_part" && item.component_role !== "consumable") throw new ValidationError([{ path: "component_role", message: "Kun reservedele og forbrugsstoffer kan registreres som brugt" }], "item");
   if (item.stock_status === "used") throw new ValidationError([{ path: "stock_status", message: "Delen er allerede brugt" }], "item");
+  if ((item.stock_status ?? "in_stock") !== "in_stock") throw new ValidationError([{ path: "stock_status", message: "Delen er ikke på lager" }], "item");
   if (!Number.isInteger(qty) || qty < 1 || qty > have) throw new ValidationError([{ path: "quantity", message: `Vælg et antal mellem 1 og ${have}` }], "item");
   const used = { stock_status: "used", used_work_order_id: opts.workOrderId ?? null, used_date: opts.date ?? ctx.clock.today() };
   return ctx.db.transaction(async (tx) => {
@@ -283,3 +305,22 @@ function prune(n: TreeNode): TreeNode | null {
 export async function reindexMovedParts(db: DbAdapter): Promise<void> {
   for (const r of await db.select<Row>("SELECT * FROM item WHERE component_role = 'spare_part'")) await reindex(db, "item", r);
 }
+
+export interface MobileItemRow {
+  id: string;
+  name: string;
+  category: string | null;
+  brand: string | null;
+  model: string | null;
+  serial_number: string | null;
+  location: string | null;
+  parent: string | null;
+}
+
+/** Active items for the phone's list, with room and parent name (review A2: no SQL in the server). */
+export const itemsForMobile = (db: DbAdapter) =>
+  db.select<MobileItemRow>(
+    `SELECT i.id, i.name, i.category, i.brand, i.model, i.serial_number, l.name AS location, p.name AS parent
+       FROM item i LEFT JOIN location l ON l.id = i.location_id LEFT JOIN item p ON p.id = i.parent_item_id AND p.archived_at IS NULL
+      WHERE i.archived_at IS NULL ORDER BY i.name`,
+  );

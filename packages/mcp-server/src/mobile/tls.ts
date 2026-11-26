@@ -123,8 +123,10 @@ function makeServerCert(ca: { keyPem: string; certPem: string }, addresses: stri
  * A CA without the name constraint, or expiring within 60 days, is replaced (`caRenewed`); the phone
  * must then install the new certificate.
  */
-export function ensureTls(dir: string, addresses: string[], hostname: string): TlsMaterial & { caRenewed: boolean } {
+export function ensureTls(dir: string, lanAddresses: string[], hostname: string): TlsMaterial & { caRenewed: boolean } {
   mkdirSync(dir, { recursive: true });
+  // Loopback is always included, so the computer itself (and tests) can reach the server too.
+  const addresses = [...new Set([...lanAddresses, "127.0.0.1"])];
   const p = (n: string) => join(dir, n);
   let ca: { keyPem: string; certPem: string } | null = null;
   let caRenewed = false;

@@ -16,7 +16,7 @@ try {
   step("Login", await waitText("Overblik"));
   await click("//nav//a[contains(., 'Bolig og inventar')]");
   await waitText("Genstande");
-  step("Listen viser antal dele", await waitText("1 dele"));
+  step("Listen viser antal dele", await waitText("1 del"));
   await click("//button[normalize-space()='Træ']");
   await sleep(600);
   await click("//button[normalize-space()='Fold alt ud']");

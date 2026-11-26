@@ -155,7 +155,7 @@ function Items() {
                   <span className="with-thumb">
                     <RowThumb doc={thumbs?.get(String(i.id))} icon={Package} />
                     <span className="text">{String(i.name)}</span>
-                    {componentCount.get(String(i.id)) ? <span className="small muted">{componentCount.get(String(i.id))} dele</span> : null}
+                    {componentCount.get(String(i.id)) ? <span className="small muted">{componentCount.get(String(i.id)) === 1 ? "1 del" : `${componentCount.get(String(i.id))} dele`}</span> : null}
                     {(owners.data?.get(String(i.id)) ?? []).length > 0 && (
                       <span className="avatars">
                         {(owners.data?.get(String(i.id)) ?? []).map((p) => (

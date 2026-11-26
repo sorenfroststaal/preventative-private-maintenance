@@ -44,6 +44,7 @@ export function readKey(base: string): string | null {
   }
   if (!existsSync(base)) return null;
   const pem = readFileSync(base, "utf8");
+  if (!pem.includes("PRIVATE KEY")) return null;
   if (dpapiAvailable()) writeKey(base, pem);
   return pem;
 }

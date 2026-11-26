@@ -622,7 +622,7 @@ function ItemDetail({
                 <div className="grow">
                   <div>{c.name}</div>
                   <div className="small muted">
-                    {[c.role ? ROLE_LABEL[c.role] : null, c.part_number, c.role === "spare_part" || c.role === "consumable" ? `${c.quantity} stk. ${STOCK_LABEL[c.stock ?? "in_stock"] ?? ""}` : null, c.children ? `${c.children} dele` : null]
+                    {[c.role ? ROLE_LABEL[c.role] : null, c.part_number, c.role === "spare_part" || c.role === "consumable" ? `${c.quantity} stk. ${STOCK_LABEL[c.stock ?? "in_stock"] ?? ""}` : null, c.children ? (c.children === 1 ? "1 del" : `${c.children} dele`) : null]
                       .filter(Boolean)
                       .join(" · ")}
                   </div>

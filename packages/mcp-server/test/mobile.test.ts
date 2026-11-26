@@ -179,6 +179,30 @@ describe("mobile web app server (iPhone, local network)", () => {
     expect(detail.lendings.map((l: { thing: string; due: string }) => [l.thing, l.due])).toEqual([["Mobil-stige", "2026-12-01"]]);
   });
 
+  it("a busy database answers 503 and constraint errors answer 400 in Danish", async () => {
+    const { call, ctx, archive } = await setup();
+    const { code } = await createPairingCode(ctx);
+    const token = (await call("POST", "/api/pair", { body: { code, name: "x" } })).body.token as string;
+    const orig = archive.db.select.bind(archive.db);
+    let fail: string | null = "database is locked";
+    archive.db.select = (async (sql: string, params?: unknown[]) => {
+      if (fail && sql.includes("FROM item")) {
+        const m = fail;
+        fail = null;
+        throw new Error(m);
+      }
+      return orig(sql, params as never);
+    }) as typeof archive.db.select;
+    const busy = await call("GET", "/api/items", { token });
+    expect(busy.status).toBe(503);
+    expect(busy.body.error).toMatch(/optaget/);
+    fail = "FOREIGN KEY constraint failed";
+    const fk = await call("GET", "/api/items", { token });
+    expect(fk.status).toBe(400);
+    expect(fk.body.error).toMatch(/hænger sammen/);
+    archive.db.select = orig;
+  });
+
   it("the plain HTTP port only hands out the CA and a guide", async () => {
     const { port, s } = await setup();
     const get = (path: string) =>

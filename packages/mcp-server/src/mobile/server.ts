@@ -34,6 +34,7 @@ import {
   friendlyDbError,
   groupBySection,
   importDocument,
+  itemsForMobile,
   isLanAddress,
   linkDocument,
   listForWeek,
@@ -227,10 +228,7 @@ export async function startMobileServer(o: MobileServerOptions) {
     }
     if (m === "GET" && path === "/api/items") {
       const q = (url.searchParams.get("q") ?? "").toLowerCase();
-      const rows = await archive.db.select<{ id: string; name: string; category: string | null; brand: string | null; model: string | null; serial_number: string | null; location: string | null; parent: string | null }>(
-        `SELECT i.id, i.name, i.category, i.brand, i.model, i.serial_number, l.name AS location, p.name AS parent FROM item i LEFT JOIN location l ON l.id = i.location_id
-          LEFT JOIN item p ON p.id = i.parent_item_id WHERE i.archived_at IS NULL ORDER BY i.name`,
-      );
+      const rows = await itemsForMobile(archive.db);
       const thumbs = await thumbnailsFor(archive.db, "item");
       return send(
         res,

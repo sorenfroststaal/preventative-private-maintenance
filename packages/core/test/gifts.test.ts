@@ -158,3 +158,20 @@ describe("read models for the UI (review A1)", () => {
     expect(await v.aiAccessLog(archive.db, 5)).toEqual([]);
   });
 });
+
+describe("Danish messages in recipes and Open Planner import (review D2, round 2)", () => {
+  it("does not show Zod's English defaults", async () => {
+    const { env, archive } = await newArchive();
+    const ctx = ctxFor(env, archive);
+    const { createRecipe, parseOpenPlanner } = await import("../src");
+    await expect(createRecipe(ctx, { name: "Suppe" } as never, [{ name: "Salt", unit: 5 } as never])).rejects.toThrow(/ingredients\.0\.unit: Skal være tekst/);
+    let msg = "";
+    try {
+      parseOpenPlanner(JSON.stringify({ version: 2, recipes: "ikke en liste" }));
+    } catch (e) {
+      msg = (e as Error).message;
+    }
+    expect(msg).toMatch(/^Filen er ikke en Open Planner-database/);
+    expect(msg).not.toMatch(/Expected|Required|Invalid/);
+  });
+});

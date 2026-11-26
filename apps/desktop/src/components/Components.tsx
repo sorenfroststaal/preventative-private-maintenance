@@ -94,7 +94,7 @@ export function ComponentsTab({ item }: { item: Row }) {
                   <button className="link text" onClick={() => setParams({ id: c.id })}>
                     {c.name}
                   </button>
-                  {c.children > 0 && <span className="small muted"> · {c.children} dele</span>}
+                  {c.children > 0 && <span className="small muted"> · {c.children === 1 ? "1 del" : `${c.children} dele`}</span>}
                 </span>
                 <span className="small muted">{String(c.part_number ?? "")}</span>
                 <StockInfo c={c} />

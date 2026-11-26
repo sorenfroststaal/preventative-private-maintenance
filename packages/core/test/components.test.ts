@@ -138,3 +138,40 @@ describe("components", () => {
     expect(root!.count).toBe(6);
   });
 });
+
+describe("components – review round 2", () => {
+  it("archiving an item archives its components, and restoring brings back those archived with it", async () => {
+    const { env, archive } = await newArchive();
+    const ctx = ctxFor(env, archive);
+    const { archiveEntity, restoreEntity } = await import("../src");
+    const washer = await createEntity(ctx, "item", { name: "Vaskemaskine" });
+    const brushes = await createEntity(ctx, "item", { name: "Kulbørster", parent_item_id: String(washer.id), component_role: "spare_part" });
+    const old = await createEntity(ctx, "item", { name: "Gammel slange", parent_item_id: String(washer.id), component_role: "part" });
+    await archiveEntity(ctx, "item", String(old.id));
+    (env.clock as unknown as { set(v: string): void }).set("2026-11-25T10:00:00.000Z");
+    await archiveEntity(ctx, "item", String(washer.id));
+    const state = async () => Object.fromEntries((await archive.db.select<{ name: string; archived_at: string | null }>("SELECT name, archived_at FROM item ORDER BY name")).map((r) => [r.name, Boolean(r.archived_at)]));
+    expect(await state()).toEqual({ "Gammel slange": true, Kulbørster: true, Vaskemaskine: true });
+    // An archived component can still be edited (no "parent is archived" lock).
+    await updateEntity(ctx, "item", String(brushes.id), { notes: "Rettet efter arkivering" });
+    await restoreEntity(ctx, "item", String(washer.id));
+    expect(await state()).toEqual({ "Gammel slange": true, Kulbørster: false, Vaskemaskine: false });
+    // A new component under an archived item is still refused.
+    await archiveEntity(ctx, "item", String(washer.id));
+    await expect(createEntity(ctx, "item", { name: "Ny del", parent_item_id: String(washer.id) })).rejects.toThrow(/arkiveret/);
+  });
+
+  it("only spare parts and consumables in stock can be used; renaming an item updates its components' search", async () => {
+    const { env, archive } = await newArchive();
+    const ctx = ctxFor(env, archive);
+    const washer = await createEntity(ctx, "item", { name: "Vaskemaskine" });
+    const buy = await createEntity(ctx, "item", { name: "Filter", parent_item_id: String(washer.id), component_role: "spare_part", quantity: 3, stock_status: "to_buy" });
+    const acc = await createEntity(ctx, "item", { name: "Låg", parent_item_id: String(washer.id), component_role: "accessory" });
+    await expect(consumeComponent(ctx, String(buy.id), { quantity: 1 })).rejects.toThrow(/ikke på lager/);
+    await expect(consumeComponent(ctx, String(acc.id))).rejects.toThrow(/Kun reservedele og forbrugsstoffer/);
+    expect((await search(archive.db, "Vaskemaskine")).map((h) => h.title)).toContain("Filter");
+    await updateEntity(ctx, "item", String(washer.id), { name: "Tørretumbler" });
+    expect((await search(archive.db, "Tørretumbler")).map((h) => h.title).sort()).toEqual(["Filter", "Låg", "Tørretumbler"]);
+    expect((await search(archive.db, "Vaskemaskine")).length).toBe(0);
+  });
+});
