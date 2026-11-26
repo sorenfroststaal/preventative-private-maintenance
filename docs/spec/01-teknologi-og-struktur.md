@@ -29,7 +29,7 @@ apps/
     src-tauri/        Rust: vinduer, filrettigheder, arkivlås og zip
 packages/
   core/
-    migrations/       0001_init.sql (= docs/spec/schema.sql), 0002_meal_plan.sql (= docs/spec/schema-0002.sql), 0003_item_part_documents.sql (= docs/spec/schema-0003.sql), 0004_pets.sql (= docs/spec/schema-0004.sql), 0005_recurring_priority.sql (= docs/spec/schema-0005.sql), 0006_loans_and_documents.sql (= docs/spec/schema-0006.sql), 0007_lending_and_serials.sql (= docs/spec/schema-0007.sql), 0008_recurring_person.sql (= docs/spec/schema-0008.sql)
+    migrations/       0001_init.sql (= docs/spec/schema.sql), 0002_meal_plan.sql (= docs/spec/schema-0002.sql), 0003_item_part_documents.sql (= docs/spec/schema-0003.sql), 0004_pets.sql (= docs/spec/schema-0004.sql), 0005_recurring_priority.sql (= docs/spec/schema-0005.sql), 0006_loans_and_documents.sql (= docs/spec/schema-0006.sql), 0007_lending_and_serials.sql (= docs/spec/schema-0007.sql), 0008_recurring_person.sql (= docs/spec/schema-0008.sql), 0009_item_owner.sql (= docs/spec/schema-0009.sql)
     src/
       db/             DbAdapter-interface, migration-runner
       domain/         Zod-skemaer pr. entitet

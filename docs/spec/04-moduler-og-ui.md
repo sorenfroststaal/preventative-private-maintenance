@@ -189,6 +189,9 @@ En allergi-registrering matcher en nøgle, hvis `substance` indeholder visningsn
 
 Under **Bolig og inventar** har fanen **Husdyr** en liste (navn, art og race, chipnummer, dyrlæge) og en detaljevisning med fotos, oplysninger, bilag og de policer, der dækker dyret. Felterne er navn, art (hund, kat, hest, kanin, fugl, andet), race, køn, fødselsdato, chipnummer, ejer (person), dyrlæge (kontakt) og noter. Under Forsikring kan dækning tilføjes for et husdyr.
 
+- Genstande kan have en ejer (person). Genstandslisten kan filtreres pr. person og viser ejerens initialer.
+- Detaljepanelet ved siden af en liste bliver i synsfeltet, når listen scrolles, og har sin egen scroll.
+
 ## Billeder og koblinger i lister
 
 - Lister over genstande, bygningsdele, husdyr, biler, forsikringer og udlån viser postens første foto som et lille kvadratisk billede til venstre på rækken (en police uden eget billede viser billedet af noget, den dækker). Uden foto vises modulets ikon. Dokumenter viser et preview af billeder.
