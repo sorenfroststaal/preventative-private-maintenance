@@ -18,6 +18,7 @@
   },
   "include": [
     "src",
+    "mobile/src",
     "test",
     "../../templates/da/*.json"
   ],

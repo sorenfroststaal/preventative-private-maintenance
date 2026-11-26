@@ -35,3 +35,6 @@ packages/mcp-server/dist/
 
 # Local OCR assets copied from node_modules by vite.config.ts
 apps/desktop/public/ocr/
+
+# Built iPhone web app (pnpm mobile:build)
+apps/desktop/src-tauri/resources/mobile/

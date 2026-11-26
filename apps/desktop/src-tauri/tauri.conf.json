@@ -56,7 +56,8 @@
       }
     },
     "resources": [
-      "resources/mcp/*"
+      "resources/mcp/*",
+      "resources/mobile/**/*"
     ]
   }
 }

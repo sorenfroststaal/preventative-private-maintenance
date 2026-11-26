@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { MobilePanel } from "../components/MobilePanel";
 import { OnboardingDialog } from "../components/Onboarding";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -49,6 +50,7 @@ export function Settings() {
       <CategoriesPanel />
       <FoodPanel />
       <AiAccessPanel />
+      <MobilePanel />
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useMobileAutostart } from "../components/MobilePanel";
 import { NavLink, Route, Routes } from "react-router-dom";
 import { listen } from "@tauri-apps/api/event";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -135,6 +136,8 @@ export function Shell() {
       clearInterval(id);
     };
   }, [qc, session]);
+
+  useMobileAutostart();
 
   // Ctrl+K / Cmd+K opens global search.
   useEffect(() => {

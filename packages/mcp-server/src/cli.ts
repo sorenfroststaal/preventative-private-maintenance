@@ -3,6 +3,8 @@
  * ppm-mcp: MCP server over stdio (spec 06).
  *   ppm-mcp [--archive <sti>]   Without --archive the path is read from the app's config.json.
  *   ppm-mcp --version
+ *   ppm-mcp serve [--archive <sti>] [--port 4730] [--static <mappe>] [--tls-dir <mappe>]
+ *     Mobile web app on the local network (iPhone). Prints one JSON line with addresses when ready.
  * Nothing but MCP messages is written to stdout; messages for humans go to stderr.
  */
 import { existsSync, promises as fsp, readFileSync } from "node:fs";
@@ -51,6 +53,11 @@ async function main() {
     process.stdout.write("Brug: ppm-mcp [--archive <sti>]\nUden --archive læses arkivstien fra appens config.json.\n");
     return;
   }
+  const serve = argv[0] === "serve";
+  const opt = (name: string) => {
+    const k = argv.indexOf(name);
+    return k >= 0 ? argv[k + 1] : undefined;
+  };
   const i = argv.indexOf("--archive");
   let archivePath = i >= 0 ? argv[i + 1] : undefined;
   if (i >= 0 && !archivePath) fail("--archive kræver en sti.");
@@ -66,6 +73,25 @@ async function main() {
   await loadSeaAddon();
   const env = nodeEnv();
   const archive = await openArchiveForAi(env, resolve(archivePath)).catch((e: Error) => fail(e.message));
+  if (serve) {
+    const { startMobileServer } = await import("./mobile/server");
+    const port = Number(opt("--port") ?? 4730);
+    const staticDir = opt("--static") ?? join(dirname(process.execPath), "..", "mobile");
+    const tlsDir = opt("--tls-dir") ?? join(dirname(appConfigPath()), "mobile");
+    const s = await startMobileServer({ env, archive, staticDir, tlsDir, port }).catch((e: Error) => fail(`Mobilserveren kunne ikke starte: ${e.message}`));
+    process.stdout.write(`${JSON.stringify({ ready: true, addresses: s.addresses, httpsPort: s.httpsPort, httpPort: s.httpPort, caFingerprint: s.caFingerprint })}\n`);
+    const stop = async () => {
+      await s.close().catch(() => undefined);
+      await archive.close().catch(() => undefined);
+      process.exit(0);
+    };
+    // The desktop app stops the server by closing stdin (or killing it).
+    process.stdin.on("end", stop);
+    process.stdin.resume();
+    process.on("SIGINT", stop);
+    process.on("SIGTERM", stop);
+    return;
+  }
   const server = createPpmServer({ env, archive, homeDir: homedir(), realpath: (p) => fsp.realpath(p), sep });
   await server.connect(new StdioServerTransport());
   const close = async () => {

@@ -83,6 +83,17 @@ Fundet og rettet under E2E:
 
 Fundet og rettet under E2E: typenavne stod på engelsk i AI-indbakken ("item", "recipe"). Nu på dansk, og ingredienser vises som korte linjer.
 
+## Mobil (iPhone) på det lokale netværk (ønske 26.11.2026)
+
+PPM kan bruges fra iPhone som en app på hjemmeskærmen, når telefonen er på samme wifi som computeren. Intet går via internettet eller en sky.
+
+- **Server:** `ppm-mcp serve` (samme selvstændige binær som AI-forbindelsen, så installeren ikke får en ekstra Node-runtime). Appen starter den fra Indstillinger → *Mobil (iPhone)* og stopper den ved lukning eller *Slå fra*; valget huskes (`mobile.enabled`). Kun forbindelser fra lokale adresser (10/8, 172.16/12, 192.168/16, link-local, loopback) accepteres.
+- **HTTPS med egen CA:** computeren laver sin egen lille certifikatudsteder (node-forge 1.4.3, BSD-3-Clause) og et servercertifikat for sine LAN-adresser (SHA-256, RSA 2048, SAN, serverAuth, 800 dage, som iOS kræver). CA'en installeres én gang på iPhone via en QR-kode og en vejledningsside på en HTTP-port, der kun udleverer CA'en. Nøglerne ligger i appens konfigurationsmappe (`ppm/mobile`), ikke i arkivet. Et nyt servercertifikat laves, når IP-adressen skifter; CA'en bevares.
+- **Parring:** en 6-tegns kode (gyldig 10 minutter, annulleres efter 5 forkerte forsøg) giver telefonen en nøgle. Kun SHA-256-hashes gemmes (`mobile.pairing`, `mobile.devices`). Telefonen handler som den bruger, der lavede koden; parrede telefoner kan fjernes.
+- **Mobilappen** (React, 64 KB gzip, `apps/desktop/mobile`, bygges til `resources/mobile`): Overblik (forfaldne og kommende opgaver med *udført*, udløber snart, dagens og morgendagens ret, udlånt med *afleveret*), Kalender (dagsliste), Mad (ugens madplan og indkøbsliste med afkrydsning), Ting (genstande med fotos, fakta og bilag), Søg, og kameraknap til kvitteringer og fotos (lander i Dokumenter eller på genstanden). Fuld skærm fra hjemmeskærmen, iOS-ikon, mørk tilstand, safe areas.
+- **Privatliv:** helbred vises ikke på telefonen (kalender, opgaver, søgning), og dokumenter koblet til helbredsdata kan ikke hentes.
+- **Tests:** `mobile.test.ts` i core (parring, nøgler, LAN-adresser), `mobile.test.ts` i mcp-server (rigtig HTTPS mod demoarkivet: certifikatets egenskaber, parring, overblik, udført, kalender, indkøb, madplan, søgning, upload, helbredsspærring, HTTP-porten), `rendered.test.tsx` (Indstillinger → Mobil). E2E: `e2e/mobile.ts` (iPhone-visning i Chromium mod rigtig server, 9/9) og `e2e/mobile-desktop.mjs` (den rigtige app starter og stopper serveren, 6/6). Selve iPhone (Safari, certifikatinstallation, hjemmeskærm) er **ikke** afprøvet; det kræver en rigtig iPhone.
+
 ## Fejl fundet ved brugerens test 26.11.2026 (rettet)
 
 - **"Arkivet er låst – Arkivet er allerede åbent i dette program"** efter genindlæsning af vinduet: låsen med appens eget proces-id overtages nu, i stedet for at afvise (`acquireLock`). Test i `archive.test.ts`.

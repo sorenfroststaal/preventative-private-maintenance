@@ -1,6 +1,7 @@
 mod claude;
 mod db;
 mod files;
+mod mobile;
 mod scope;
 
 use percent_encoding::percent_decode_str;
@@ -397,11 +398,52 @@ async fn db_execute_script(app: AppHandle, handle: u32, sql: String) -> R<()> {
     app.state::<Dbs>().execute_script(handle, &sql)
 }
 
+/// The archive path from config.json (the archive the app has open).
+fn open_archive_path(app: &AppHandle) -> R<String> {
+    let text = std::fs::read_to_string(config_path(app)?)
+        .map_err(|_| "Intet arkiv er åbent.".to_string())?;
+    let v: Json = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    v.get("archivePath")
+        .and_then(|x| x.as_str())
+        .map(String::from)
+        .ok_or_else(|| "Intet arkiv er åbent.".to_string())
+}
+
+/// Turns mobile access on: starts `ppm-mcp serve` for the open archive (local network only).
+#[tauri::command]
+async fn mobile_start(app: AppHandle, port: Option<u16>) -> R<Json> {
+    let binary = mcp_binary(&app)?;
+    let archive = open_archive_path(&app)?;
+    let port = port.unwrap_or(4730);
+    let handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        handle
+            .state::<mobile::MobileServer>()
+            .start(&binary, &archive, port)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn mobile_stop(app: AppHandle) -> R<()> {
+    let handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || handle.state::<mobile::MobileServer>().stop())
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn mobile_status(app: AppHandle) -> Option<Json> {
+    app.state::<mobile::MobileServer>().status()
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Scope::default())
         .manage(Dbs::default())
+        .manage(mobile::MobileServer::default())
         .setup(|app| {
             // Re-admit the archive folder chosen in an earlier session.
             if let Ok(p) = config_path(app.handle()) {
@@ -460,12 +502,16 @@ pub fn run() {
             db_select,
             db_execute,
             db_execute_script,
+            mobile_start,
+            mobile_stop,
+            mobile_status,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
                 // Close all connections (checkpoints the WAL) and release our archive lock.
+                app.state::<mobile::MobileServer>().stop();
                 app.state::<Dbs>().close_all();
                 release_own_lock(app);
             }

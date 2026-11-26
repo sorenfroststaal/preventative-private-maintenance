@@ -17,7 +17,9 @@ import {
   createEntity,
   createRecipe,
   createTask,
+  createPairingCode,
   createUser,
+  redeemPairingCode,
   personLinks,
   setPersonLinks,
   timelineEvents,
@@ -36,8 +38,10 @@ import { localDate } from "@ppm/core";
 import { nodeEnv } from "@ppm/core/node";
 
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => undefined }));
-const picked = vi.hoisted(() => ({ files: [] as string[] }));
-vi.mock("@tauri-apps/api/core", () => ({ invoke: async (cmd: string) => (cmd === "pick_files" ? picked.files.splice(0) : []) }));
+const picked = vi.hoisted(() => ({ files: [] as string[], mobile: null as null | Record<string, unknown> }));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: async (cmd: string) => (cmd === "pick_files" ? picked.files.splice(0) : cmd === "mobile_status" ? picked.mobile : []),
+}));
 
 import { SessionContext, type Session } from "../src/app/session";
 import { Shell } from "../src/layout/Shell";
@@ -615,6 +619,26 @@ describe("phase 2b.9 – rendered components", () => {
     expect((await personLinks(archive.db, "recurring_expense")).get(rec!.id)?.map((p) => p.id).sort()).toEqual([String(a.id), String(b.id)].sort());
     const row = (await screen.findByText("Familie-streaming")).closest("tr")!;
     expect(row.textContent).toContain("Udgift Person A, Udgift Person B");
+  });
+
+  it("Indstillinger → Mobil (iPhone): QR codes for certificate and app, a pairing code, and paired phones that can be removed", async () => {
+    picked.mobile = { ready: true, addresses: ["192.168.1.20"], httpsPort: 4730, httpPort: 4731, caFingerprint: "AA:BB" };
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const { code } = await createPairingCode(ctx);
+    await redeemPairingCode(ctx, code, "Annas iPhone");
+    const { container } = renderAt("/indstillinger");
+    await settle("Indstillinger");
+    expect(await screen.findByRole("img", { name: /certifikat: http:\/\/192\.168\.1\.20:4731\// })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /QR-kode til PPM: https:\/\/192\.168\.1\.20:4730\// })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Parr en telefon" }));
+    const shown = await screen.findByLabelText(/^Parringskode /);
+    expect(shown.textContent).toMatch(/^[A-Z2-9]{3} [A-Z2-9]{3}$/);
+    expect(await screen.findByText("Annas iPhone")).toBeInTheDocument();
+    checkButtons(container, "Mobil");
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    fireEvent.click(within(screen.getByText("Annas iPhone").closest("li")!).getByRole("button", { name: "Fjern" }));
+    await waitFor(() => expect(screen.queryByText("Annas iPhone")).toBeNull());
+    picked.mobile = null;
   });
 });
 

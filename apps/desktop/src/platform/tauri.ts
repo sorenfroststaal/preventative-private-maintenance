@@ -173,3 +173,15 @@ export interface ClaudeConfigResult {
 export const claudeDesktopAdd = () => invoke<ClaudeConfigResult>("claude_desktop_add");
 /** Starts ppm-mcp like an MCP client and does initialize + tools/list. */
 export const mcpSelftest = () => invoke<{ server: string; tools: number; instructionsChars: number }>("mcp_selftest");
+
+/** Mobile access (iPhone web app on the local network). */
+export interface MobileStatus {
+  ready: boolean;
+  addresses: string[];
+  httpsPort: number;
+  httpPort: number;
+  caFingerprint: string;
+}
+export const mobileStart = (port?: number) => invoke<MobileStatus>("mobile_start", { port: port ?? null });
+export const mobileStop = () => invoke<void>("mobile_stop");
+export const mobileStatus = () => invoke<MobileStatus | null>("mobile_status");
