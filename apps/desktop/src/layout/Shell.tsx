@@ -1,6 +1,7 @@
 import { onReportedError } from "../app/queryClient";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useMobileAutostart } from "../components/MobilePanel";
+import { mobileStatus } from "../platform/tauri";
 import { NavLink, Route, Routes } from "react-router-dom";
 import { listen } from "@tauri-apps/api/event";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,7 +24,7 @@ import { Food } from "../pages/Food";
 import { Lists } from "../pages/Lists";
 import { MODULES } from "../lib/modules";
 import { ModuleIcon } from "../components/visual";
-import { Search } from "lucide-react";
+import { Search, Smartphone } from "lucide-react";
 
 const NAV = MODULES;
 
@@ -141,6 +142,7 @@ export function Shell() {
   }, [qc, session]);
 
   useMobileAutostart();
+  const mobileOn = useQuery({ queryKey: ["mobile", "status"], queryFn: mobileStatus, refetchInterval: 30_000 });
 
   // Ctrl+K / Cmd+K opens global search.
   useEffect(() => {
@@ -188,6 +190,11 @@ export function Shell() {
               ))}
             </ul>
             <div className="sidebar-footer">
+              {mobileOn.data && Array.isArray(mobileOn.data.addresses) && (
+                <NavLink to="/indstillinger#mobil" className="mobile-on small" title="Mobiladgang kører: telefoner på samme netværk kan forbinde med kode eller nøgle">
+                  <Smartphone size={14} aria-hidden="true" /> Mobiladgang er slået til
+                </NavLink>
+              )}
               <div className="small">{session.user.name}</div>
               <button className="link" onClick={session.logout}>
                 Skift bruger

@@ -187,3 +187,5 @@ export interface MobileStatus {
 export const mobileStart = (port?: number) => invoke<MobileStatus>("mobile_start", { port: port ?? null });
 export const mobileStop = () => invoke<void>("mobile_stop");
 export const mobileStatus = () => invoke<MobileStatus | null>("mobile_status");
+/** The computer's private IPv4 addresses (checked before mobile access starts by itself). */
+export const mobileAddresses = () => invoke<string[]>("mobile_addresses");

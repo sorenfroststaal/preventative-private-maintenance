@@ -53,6 +53,12 @@ async function main() {
     process.stdout.write("Brug: ppm-mcp [--archive <sti>]\nUden --archive læses arkivstien fra appens config.json.\n");
     return;
   }
+  if (argv[0] === "addresses") {
+    // The desktop app asks which local networks the computer is on before it autostarts mobile access.
+    const { lanAddresses } = await import("./mobile/server");
+    process.stdout.write(`${JSON.stringify({ addresses: lanAddresses() })}\n`);
+    return;
+  }
   const serve = argv[0] === "serve";
   const opt = (name: string) => {
     const k = argv.indexOf(name);

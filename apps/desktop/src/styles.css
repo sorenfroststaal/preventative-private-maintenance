@@ -1585,3 +1585,11 @@ fieldset.yesno legend {
   font-size: 0.68rem;
   word-break: break-all;
 }
+.mobile-on {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  margin-bottom: 6px;
+  text-decoration: none;
+}

@@ -20,6 +20,7 @@ import {
   createRecipe,
   createGift,
   createOutsidePerson,
+  setSetting,
   createTask,
   createPairingCode,
   createUser,
@@ -42,9 +43,15 @@ import { localDate } from "@ppm/core";
 import { nodeEnv } from "@ppm/core/node";
 
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => undefined }));
-const picked = vi.hoisted(() => ({ files: [] as string[], mobile: null as null | Record<string, unknown> }));
+const picked = vi.hoisted(() => ({ files: [] as string[], mobile: null as null | Record<string, unknown>, addresses: [] as string[], calls: [] as string[] }));
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: async (cmd: string) => (cmd === "pick_files" ? picked.files.splice(0) : cmd === "mobile_status" ? picked.mobile : []),
+  invoke: async (cmd: string) => {
+    picked.calls.push(cmd);
+    if (cmd === "pick_files") return picked.files.splice(0);
+    if (cmd === "mobile_status") return picked.mobile;
+    if (cmd === "mobile_addresses") return picked.addresses;
+    return [];
+  },
 }));
 
 import { SessionContext, type Session } from "../src/app/session";
@@ -639,6 +646,7 @@ describe("phase 2b.9 – rendered components", () => {
     const shown = await screen.findByLabelText(/^Parringskode /);
     expect(shown.textContent).toMatch(/^[A-Z2-9]{3} [A-Z2-9]{3}$/);
     expect(await screen.findByText("Annas iPhone")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Mobiladgang er slået til/ })).toBeInTheDocument();
     checkButtons(container, "Mobil");
     vi.spyOn(window, "confirm").mockReturnValue(true);
     fireEvent.click(within(screen.getByText("Annas iPhone").closest("li")!).getByRole("button", { name: "Fjern" }));
@@ -708,6 +716,35 @@ describe("phase 2b.9 – rendered components", () => {
     fireEvent.click(within(detail).getByRole("button", { name: "Arkivér" }));
     await waitFor(async () => expect((await archive.db.select<{ archived_at: string | null }>("SELECT archived_at FROM item WHERE id = ?", [String(item.id)]))[0]!.archived_at).not.toBeNull());
     confirm.mockRestore();
+  });
+  it("C1: persons and finance categories are created in one place (Lister); Settings links there", async () => {
+    renderAt("/indstillinger");
+    await settle("Indstillinger");
+    expect(screen.queryByRole("button", { name: "Tilføj person" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Lister → Personer" }).getAttribute("href")).toContain("liste=person");
+    expect(screen.getByRole("link", { name: "Lister → Økonomikategorier" }).getAttribute("href")).toContain("liste=category");
+    expect(screen.queryByText("Ny kategori")).toBeNull();
+  });
+  it("E2: mobile access does not start by itself on another network and the panel says why", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    await setSetting(ctx, "mobile.enabled", true);
+    await setSetting(ctx, "mobile.networks", ["192.168.1"]);
+    picked.addresses = ["10.20.30.40"];
+    picked.calls.length = 0;
+    renderAt("/indstillinger");
+    await settle("Indstillinger");
+    expect(await screen.findByText(/blev ikke startet automatisk/)).toBeInTheDocument();
+    expect(picked.calls).toContain("mobile_addresses");
+    expect(picked.calls).not.toContain("mobile_start");
+    cleanup();
+    // On the remembered network it starts.
+    picked.addresses = ["192.168.1.77"];
+    picked.calls.length = 0;
+    renderAt("/indstillinger");
+    await settle("Indstillinger");
+    await waitFor(() => expect(picked.calls).toContain("mobile_start"));
+    await setSetting(ctx, "mobile.enabled", false);
+    picked.addresses = [];
   });
 });
 

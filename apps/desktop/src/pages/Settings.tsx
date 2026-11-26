@@ -1,10 +1,10 @@
+import { Link } from "react-router-dom";
 import { useState, type FormEvent } from "react";
 import { MobilePanel } from "../components/MobilePanel";
 import { OnboardingDialog } from "../components/Onboarding";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createBackup,
-  createEntity,
   exportAllJson,
   exportIcs,
   exportableTables,
@@ -260,32 +260,11 @@ function PersonsPanel() {
   const qc = useQueryClient();
   const toast = useToast();
   const persons = useQuery({ queryKey: ["persons"], queryFn: () => listEntities(session.archive.db, "person", { where: { household: 1 }, orderBy: "name" }) });
-  const [name, setName] = useState("");
-  const [relation, setRelation] = useState("");
-  const [birthYear, setBirthYear] = useState("");
-
-  const add = useMutation({
-    mutationFn: () =>
-      createEntity(session.ctx(), "person", {
-        name,
-        relation: relation || null,
-        birth_year: birthYear ? Number(birthYear) : null,
-      }),
-    onSuccess: async () => {
-      setName("");
-      setRelation("");
-      setBirthYear("");
-      await qc.invalidateQueries({ queryKey: ["persons"] });
-    },
-    onError: (e) => toast(errorText(e), "error"),
-  });
-
   return (
     <div className="panel">
       <h2>Personer i husstanden</h2>
       <p className="small muted">
-        Personer kan fx være børn. De har ikke eget login, men helbred og opgaver kan knyttes til dem. Et fødselsår
-        er nok – fuld fødselsdato er ikke nødvendig.
+        Personer kan fx være børn. De har ikke eget login, men helbred og opgaver kan knyttes til dem.
       </p>
       <ul className="plain">
         {(persons.data ?? []).map((p) => (
@@ -315,29 +294,9 @@ function PersonsPanel() {
           </li>
         ))}
       </ul>
-      <form
-        className="row"
-        onSubmit={(e: FormEvent) => {
-          e.preventDefault();
-          add.mutate();
-        }}
-      >
-        <label>
-          Navn
-          <input required value={name} onChange={(e) => setName(e.target.value)} />
-        </label>
-        <label>
-          Relation
-          <input value={relation} placeholder="fx barn" onChange={(e) => setRelation(e.target.value)} />
-        </label>
-        <label>
-          Fødselsår
-          <input type="number" className="short" value={birthYear} onChange={(e) => setBirthYear(e.target.value)} />
-        </label>
-        <button type="submit" disabled={!name.trim() || session.archive.readOnly}>
-          Tilføj person
-        </button>
-      </form>
+      <p className="small">
+        Personer oprettes og rettes ét sted: <Link to="/lister?liste=person">Lister → Personer</Link>. Her vælger du kun, om en persons helbredsdata er private.
+      </p>
     </div>
   );
 }
@@ -399,7 +358,6 @@ function ExportPanel() {
 function CategoriesPanel() {
   const session = useSession();
   const [ruleKey, setRuleKey] = useState(0);
-  const [catKey, setCatKey] = useState(0);
   const rules = useQuery({
     queryKey: ["category_rule", "list"],
     queryFn: () =>
@@ -411,10 +369,10 @@ function CategoriesPanel() {
   const MATCH: Record<string, string> = { contains: "indeholder", starts_with: "starter med", regex: "regex" };
   return (
     <div className="panel">
-      <h2>Kategorier og regler</h2>
-      <p className="small">{(cats.data ?? []).map((c) => String(c.name)).join(" · ")}</p>
-      <EntityForm key={catKey} type="category" title="Ny kategori" submitLabel="Tilføj" invalidate={[["category"]]} onSaved={() => setCatKey((k) => k + 1)} />
-      <h3>Regler for automatisk kategorisering</h3>
+      <h2>Regler for automatisk kategorisering</h2>
+      <p className="small">
+        Kategorierne selv ({(cats.data ?? []).length}) oprettes og rettes under <Link to="/lister?liste=category">Lister → Økonomikategorier</Link>.
+      </p>
       <ul className="plain">
         {(rules.data ?? []).map((r) => (
           <li key={String(r.id)} className="line">

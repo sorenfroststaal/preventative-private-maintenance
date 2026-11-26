@@ -433,6 +433,15 @@ async fn mobile_stop(app: AppHandle) -> R<()> {
         .map_err(|e| e.to_string())
 }
 
+/// The computer's private IPv4 addresses (from `ppm-mcp addresses`), used before autostart.
+#[tauri::command]
+async fn mobile_addresses(app: AppHandle) -> R<Vec<String>> {
+    let binary = mcp_binary(&app)?;
+    tauri::async_runtime::spawn_blocking(move || mobile::addresses(&binary))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 fn mobile_status(app: AppHandle) -> Option<Json> {
     app.state::<mobile::MobileServer>().status()
@@ -505,6 +514,7 @@ pub fn run() {
             mobile_start,
             mobile_stop,
             mobile_status,
+            mobile_addresses,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

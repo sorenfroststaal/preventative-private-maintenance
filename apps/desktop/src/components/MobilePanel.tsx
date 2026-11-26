@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Smartphone } from "lucide-react";
-import { createPairingCode, getSetting, listMobileDevices, revokeMobileDevice, setSetting } from "@ppm/core";
+import { createPairingCode, getSetting, listMobileDevices, mayAutostartMobile, networkKeys, revokeMobileDevice, setSetting } from "@ppm/core";
 import { errorText, useSession } from "../app/session";
 import { useToast } from "../layout/Shell";
-import { mobileStart, mobileStatus, mobileStop } from "../platform/tauri";
+import { mobileAddresses, mobileStart, mobileStatus, mobileStop } from "../platform/tauri";
 import { QrCode } from "./QrCode";
 import { formatDateTime } from "../lib/format";
 
@@ -14,6 +14,7 @@ export function MobilePanel() {
   const qc = useQueryClient();
   const toast = useToast();
   const status = useQuery({ queryKey: ["mobile", "status"], queryFn: mobileStatus, refetchInterval: 10_000 });
+  const skipped = useQuery<{ networks: string[] } | null>({ queryKey: ["mobile", "skipped"], queryFn: () => null, staleTime: Infinity, enabled: false });
   const devices = useQuery({ queryKey: ["mobile", "devices"], queryFn: () => listMobileDevices(session.archive.db), refetchInterval: 10_000 });
   const [pairing, setPairing] = useState<{ code: string; expiresAt: string } | null>(null);
   const [left, setLeft] = useState(0);
@@ -28,6 +29,12 @@ export function MobilePanel() {
     mutationFn: async () => {
       const s = await mobileStart();
       await setSetting(session.ctx(), "mobile.enabled", true);
+      // Remember this network: mobile access only starts by itself here (review E2).
+      const nets = networkKeys(s.addresses ?? []);
+      if (nets.length) {
+        const known = (await getSetting<string[]>(session.archive.db, "mobile.networks")) ?? [];
+        await setSetting(session.ctx(), "mobile.networks", [...new Set([...known, ...nets])]);
+      }
       return s;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["mobile"] }),
@@ -59,6 +66,11 @@ export function MobilePanel() {
       <p className="small muted">
         Brug PPM på iPhone, når telefonen er på samme wifi som denne computer. Telefonen taler direkte med computeren; intet sendes til internettet eller en sky. Helbredsdata vises ikke på telefonen.
       </p>
+      {!s && skipped.data && (
+        <p className="warning" role="status">
+          Mobiladgang blev ikke startet automatisk, fordi computeren er på et andet netværk end der, hvor du slog den til. Slå den til her, hvis du stoler på netværket.
+        </p>
+      )}
       {!s ? (
         <button className="primary" onClick={() => start.mutate()} disabled={ro || start.isPending}>
           {start.isPending ? "Starter …" : "Slå mobiladgang til"}
@@ -154,13 +166,25 @@ export function MobilePanel() {
   );
 }
 
-/** Starts mobile access when the archive opens, if it was on last time. */
+/**
+ * Starts mobile access when the archive opens, if it was on last time and the computer is on a
+ * network where the user turned it on (review E2). Otherwise it stays off and the panel says why.
+ */
 export function useMobileAutostart() {
   const session = useSession();
+  const qc = useQueryClient();
   useEffect(() => {
     if (session.archive.readOnly) return;
     void (async () => {
-      if (await getSetting<boolean>(session.archive.db, "mobile.enabled")) await mobileStart().catch(() => undefined);
+      if (!(await getSetting<boolean>(session.archive.db, "mobile.enabled"))) return;
+      const remembered = await getSetting<string[]>(session.archive.db, "mobile.networks");
+      const now = await mobileAddresses().catch(() => [] as string[]);
+      if (!mayAutostartMobile(remembered, now)) {
+        qc.setQueryData(["mobile", "skipped"], { networks: networkKeys(now) });
+        return;
+      }
+      await mobileStart().catch(() => undefined);
+      await qc.invalidateQueries({ queryKey: ["mobile"] });
     })();
-  }, [session.archive]);
+  }, [session.archive, qc]);
 }
