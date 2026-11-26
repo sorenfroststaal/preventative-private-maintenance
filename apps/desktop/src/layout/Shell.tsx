@@ -1,3 +1,4 @@
+import { onReportedError } from "../app/queryClient";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useMobileAutostart } from "../components/MobilePanel";
 import { NavLink, Route, Routes } from "react-router-dom";
@@ -55,6 +56,8 @@ export function Shell() {
     setToasts((t) => [...t, { id, text, kind }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), kind === "error" ? 8000 : 4500);
   }, []);
+  // Failed loads and unhandled failed saves from anywhere in the app (review D1).
+  useEffect(() => onReportedError((text) => toast(text, "error")), [toast]);
 
   /** Imports files dropped anywhere in the window (spec 04 "træk og slip overalt"). */
   const importFiles = useCallback(

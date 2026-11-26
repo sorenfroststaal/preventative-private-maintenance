@@ -6,7 +6,9 @@
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
+import { createQueryClient } from "../src/app/queryClient";
+let lastQueryClient: QueryClient;
 import { MemoryRouter } from "react-router-dom";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -112,7 +114,8 @@ function renderAt(path: string) {
     closeArchive: async () => undefined,
     restoreFrom: async () => undefined,
   };
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const qc = createQueryClient();
+  lastQueryClient = qc;
   return render(
     <SessionContext.Provider value={session}>
       <QueryClientProvider client={qc}>
@@ -668,6 +671,20 @@ describe("phase 2b.9 – rendered components", () => {
     const detail = await screen.findByRole("complementary", { name: "Genstand" });
     const group = await within(detail).findByRole("group", { name: "Ejere" });
     expect(within(group).queryByRole("button", { name: /Gavetest Ven/ })).toBeNull();
+  });
+  it("errors: a failed load and an unhandled failed save show an error toast instead of an empty page (review D1)", async () => {
+    renderAt("/bolig");
+    await settle("Bolig og inventar");
+    await lastQueryClient.fetchQuery({ queryKey: ["d1-test"], queryFn: () => Promise.reject(new Error("Databasen er låst")) }).catch(() => undefined);
+    expect(await screen.findByText("Kunne ikke hente data: Databasen er låst")).toBeTruthy();
+    const m = lastQueryClient.getMutationCache().build(lastQueryClient, { mutationFn: () => Promise.reject(new Error("Disken er fuld")) });
+    await m.execute(undefined).catch(() => undefined);
+    expect(await screen.findByText("Kunne ikke gemme: Disken er fuld")).toBeTruthy();
+    // A mutation with its own onError is not reported twice.
+    const own = lastQueryClient.getMutationCache().build(lastQueryClient, { mutationFn: () => Promise.reject(new Error("Egen fejl")), onError: () => undefined });
+    await own.execute(undefined).catch(() => undefined);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText(/Egen fejl/)).toBeNull();
   });
 });
 

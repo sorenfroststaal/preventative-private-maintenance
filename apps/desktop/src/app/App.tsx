@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createQueryClient } from "./queryClient";
 import { HashRouter } from "react-router-dom";
 import {
   ArchiveError,
@@ -35,7 +36,7 @@ export function App() {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [config, setConfig] = useState<AppConfig>({});
   const [state, setState] = useState<State>({ step: "loading" });
-  const queryClient = useMemo(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }), []);
+  const queryClient = useMemo(() => createQueryClient(), []);
 
   const afterOpen = useCallback(async (archive: Archive) => {
     const users = await listUsers(archive.db);
