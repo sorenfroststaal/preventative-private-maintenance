@@ -79,7 +79,7 @@ async function main() {
     const staticDir = opt("--static") ?? join(dirname(process.execPath), "..", "mobile");
     const tlsDir = opt("--tls-dir") ?? join(dirname(appConfigPath()), "mobile");
     const s = await startMobileServer({ env, archive, staticDir, tlsDir, port }).catch((e: Error) => fail(`Mobilserveren kunne ikke starte: ${e.message}`));
-    process.stdout.write(`${JSON.stringify({ ready: true, addresses: s.addresses, httpsPort: s.httpsPort, httpPort: s.httpPort, caFingerprint: s.caFingerprint })}\n`);
+    process.stdout.write(`${JSON.stringify({ ready: true, addresses: s.addresses, httpsPort: s.httpsPort, httpPort: s.httpPort, caFingerprint: s.caFingerprint, caRenewed: s.caRenewed })}\n`);
     const stop = async () => {
       await s.close().catch(() => undefined);
       await archive.close().catch(() => undefined);

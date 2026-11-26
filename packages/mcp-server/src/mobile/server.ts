@@ -401,6 +401,8 @@ export async function startMobileServer(o: MobileServerOptions) {
     httpsPort: o.port,
     httpPort: o.port + 1,
     caFingerprint: tls.caFingerprint,
+    /** The CA was replaced at this start; phones must install the new certificate. */
+    caRenewed: tls.caRenewed,
     caCert: tls.caCert,
     close: async () => {
       await new Promise((r) => httpsServer.close(() => r(null)));

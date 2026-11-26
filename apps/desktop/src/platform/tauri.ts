@@ -181,6 +181,8 @@ export interface MobileStatus {
   httpsPort: number;
   httpPort: number;
   caFingerprint: string;
+  /** The certificate authority was replaced at this start; phones must install it again. */
+  caRenewed?: boolean;
 }
 export const mobileStart = (port?: number) => invoke<MobileStatus>("mobile_start", { port: port ?? null });
 export const mobileStop = () => invoke<void>("mobile_stop");

@@ -62,6 +62,8 @@ jobs:
           workspaces: apps/desktop/src-tauri
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - name: Local CA on Windows (DPAPI-encrypted key, name constraints)
+        run: pnpm vitest run packages/mcp-server/test/tls.test.ts
       - name: Installer size
         shell: pwsh
         run: |

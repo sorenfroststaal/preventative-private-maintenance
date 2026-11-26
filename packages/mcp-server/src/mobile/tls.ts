@@ -2,11 +2,16 @@
  * Local certificates for the iPhone web app: a CA made on this computer (installed once on the phone)
  * and a server certificate for the computer's LAN addresses, signed by that CA. Nothing leaves the
  * computer. iOS requires SHA-256, RSA >= 2048, subjectAltName, serverAuth and at most 825 days.
+ *
+ * The CA carries a critical name constraint: it can only vouch for private IPv4 ranges, `localhost`
+ * and `.local` names. Even if its key were stolen, it cannot be used to impersonate other websites
+ * to the phone. The CA key is encrypted with DPAPI on Windows (keyStore.ts).
  */
 import { generateKeyPairSync, X509Certificate } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import forge from "node-forge";
+import { keyExists, readKey, writeKey } from "./keyStore";
 
 export interface TlsMaterial {
   key: string;
@@ -19,6 +24,38 @@ export interface TlsMaterial {
 }
 
 const DAY = 86_400_000;
+/** The CA lasts three years; it is renewed (and must be installed again) 60 days before it expires. */
+export const CA_DAYS = 1095;
+
+/** Private ranges the CA may sign for: [address, mask]. */
+export const PERMITTED_IP_RANGES: [string, string][] = [
+  ["10.0.0.0", "255.0.0.0"],
+  ["172.16.0.0", "255.240.0.0"],
+  ["192.168.0.0", "255.255.0.0"],
+  ["169.254.0.0", "255.255.0.0"],
+  ["127.0.0.0", "255.0.0.0"],
+];
+export const PERMITTED_DNS = ["localhost", "local"];
+
+const ipBytes = (ip: string) => String.fromCharCode(...ip.split(".").map(Number));
+
+/** DER of NameConstraints { permittedSubtrees } (RFC 5280 4.2.1.10): iPAddress [7] and dNSName [2]. */
+function nameConstraintsDer(): string {
+  const { asn1 } = forge;
+  const subtree = (name: forge.asn1.Asn1) => asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [name]);
+  const subtrees = [
+    ...PERMITTED_IP_RANGES.map(([ip, mask]) => subtree(asn1.create(asn1.Class.CONTEXT_SPECIFIC, 7, false, ipBytes(ip) + ipBytes(mask)))),
+    ...PERMITTED_DNS.map((d) => subtree(asn1.create(asn1.Class.CONTEXT_SPECIFIC, 2, false, d))),
+  ];
+  const permitted = asn1.create(asn1.Class.CONTEXT_SPECIFIC, 0, true, subtrees);
+  return asn1.toDer(asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [permitted])).getBytes();
+}
+
+/** True when the CA has the name constraint (CAs made before it was added are replaced). */
+export function hasNameConstraints(certPem: string): boolean {
+  const c = forge.pki.certificateFromPem(certPem);
+  return c.extensions.some((e: { id?: string; critical?: boolean }) => e.id === "2.5.29.30" && e.critical === true);
+}
 
 function rsaPair(): { privateKey: forge.pki.rsa.PrivateKey; publicKey: forge.pki.rsa.PublicKey; pem: string } {
   const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs1", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
@@ -38,7 +75,7 @@ function makeCa(hostname: string): { keyPem: string; certPem: string } {
   cert.publicKey = k.publicKey;
   cert.serialNumber = serial();
   cert.validity.notBefore = new Date(Date.now() - DAY);
-  cert.validity.notAfter = new Date(Date.now() + 3650 * DAY);
+  cert.validity.notAfter = new Date(Date.now() + CA_DAYS * DAY);
   const attrs = [
     { name: "commonName", value: `PPM lokal CA (${hostname})` },
     { name: "organizationName", value: "Preventative Private Maintenance" },
@@ -49,6 +86,7 @@ function makeCa(hostname: string): { keyPem: string; certPem: string } {
     { name: "basicConstraints", cA: true, critical: true },
     { name: "keyUsage", keyCertSign: true, cRLSign: true, critical: true },
     { name: "subjectKeyIdentifier" },
+    { id: "2.5.29.30", critical: true, value: nameConstraintsDer() },
   ]);
   cert.sign(k.privateKey, forge.md.sha256.create());
   return { keyPem: k.pem, certPem: forge.pki.certificateToPem(cert) };
@@ -82,16 +120,26 @@ function makeServerCert(ca: { keyPem: string; certPem: string }, addresses: stri
 /**
  * Loads or creates the CA and server certificate in `dir`. A new server certificate is made when the
  * LAN addresses changed or it expires within 60 days; the CA is kept, so the phone need not reinstall it.
+ * A CA without the name constraint, or expiring within 60 days, is replaced (`caRenewed`); the phone
+ * must then install the new certificate.
  */
-export function ensureTls(dir: string, addresses: string[], hostname: string): TlsMaterial {
+export function ensureTls(dir: string, addresses: string[], hostname: string): TlsMaterial & { caRenewed: boolean } {
   mkdirSync(dir, { recursive: true });
   const p = (n: string) => join(dir, n);
-  let ca: { keyPem: string; certPem: string };
-  if (existsSync(p("ca.key")) && existsSync(p("ca.crt"))) ca = { keyPem: readFileSync(p("ca.key"), "utf8"), certPem: readFileSync(p("ca.crt"), "utf8") };
-  else {
+  let ca: { keyPem: string; certPem: string } | null = null;
+  let caRenewed = false;
+  if (keyExists(p("ca.key")) && existsSync(p("ca.crt"))) {
+    const certPem = readFileSync(p("ca.crt"), "utf8");
+    const keyPem = readKey(p("ca.key"));
+    const fresh = Date.parse(new X509Certificate(certPem).validTo) - Date.now() > 60 * DAY;
+    if (keyPem && fresh && hasNameConstraints(certPem)) ca = { keyPem, certPem };
+    else caRenewed = true;
+  }
+  if (!ca) {
     ca = makeCa(hostname);
-    writeFileSync(p("ca.key"), ca.keyPem, { mode: 0o600 });
+    writeKey(p("ca.key"), ca.keyPem);
     writeFileSync(p("ca.crt"), ca.certPem);
+    for (const f of ["server.key", "server.crt", "server.json"]) rmSync(p(f), { force: true });
   }
   const wanted = [...addresses].sort().join(",");
   let server: { keyPem: string; certPem: string } | null = null;
@@ -108,5 +156,5 @@ export function ensureTls(dir: string, addresses: string[], hostname: string): T
     writeFileSync(p("server.json"), JSON.stringify({ addresses: wanted }));
   }
   const x = new X509Certificate(ca.certPem);
-  return { key: server.keyPem, cert: server.certPem, caCert: ca.certPem, caDer: x.raw, caFingerprint: x.fingerprint256 };
+  return { key: server.keyPem, cert: server.certPem, caCert: ca.certPem, caDer: x.raw, caFingerprint: x.fingerprint256, caRenewed };
 }

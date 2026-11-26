@@ -80,6 +80,11 @@ export function MobilePanel() {
               Slå fra
             </button>
           </p>
+          {s.caRenewed && (
+            <p className="warning" role="alert">
+              Computerens certifikat er fornyet (det er nu begrænset til det lokale netværk). Installér det igen på telefonen med trin 1 nedenfor, og fjern det gamle under <b>Generelt → VPN og enhedsadministration</b>. Telefonen behøver ikke at blive parret igen.
+            </p>
+          )}
           <p className="small muted">
             Første gang spørger Windows måske, om <b>ppm-mcp</b> må modtage forbindelser. Vælg <b>Private netværk</b> (ikke offentlige), så telefonen kan nå computeren.
           </p>
