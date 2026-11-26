@@ -99,7 +99,7 @@ Opgavelisten kan filtreres på modul, ansvarlig, status og periode. Den kan ogs�
 - **Budget:** et årsbudget med linjer pr. kategori. Visningen sammenligner budget og faktisk forbrug pr. måned og hele året.
 - **Overblik:** indtægter og udgifter pr. måned (6, 12 eller 24 måneder) som kurve med gennemsnit. Overførsler tælles ikke med; posteringer uden kategori tælles efter fortegn. **Madbudget:** forbruget i "Mad og dagligvarer" med underkategorier pr. måned mod budgettet; madbudgettet sættes i ét trin og gemmes som en budgetlinje uden måned i årets budget. **Historik pr. kategori:** alle kategorier med posteringer i perioden med minikurve og gennemsnit; valgt kategori vises som kurve.
 - **Budget** forklarer, at "faktisk" kommer fra kategoriserede posteringer, viser antal posteringer i året og hvor mange der mangler kategori, og kan hente månedlige linjer fra de faste udgifter (kun kategorier uden linje).
-- **Faste udgifter:** liste med den beregnede månedlige gennemsnitsudgift og summen pr. måned. Hver udgift har en valgfri prioritet 1–5 (5 obligatorisk, 4 vigtig, 3 nyttig, 2 rart at have, 1 kan undværes), listen kan sorteres efter den, og summen af prioritet 1–2 vises pr. måned og år. En udgift arkiveres fra listen (opsagt). En udgift kan kobles til en bolig eller en bil, have en slutdato (derefter vises den som ophørt og tælles ikke med) og markeres som variabel, så beløbet vises som et skøn ("ca.").
+- **Faste udgifter:** liste med den beregnede månedlige gennemsnitsudgift og summen pr. måned. Hver udgift har en valgfri prioritet 1–5 (5 obligatorisk, 4 vigtig, 3 nyttig, 2 rart at have, 1 kan undværes), listen kan sorteres efter den, og summen af prioritet 1–2 vises pr. måned og år. En udgift arkiveres fra listen (opsagt). En udgift kan kobles til en person, en bolig eller en bil (listen kan filtreres pr. person med sum), have en slutdato (derefter vises den som ophørt og tælles ikke med) og markeres som variabel, så beløbet vises som et skøn ("ca.").
 - **Lån:** liste med type, långiver, restgæld pr. dato, rente, ydelse omregnet til pr. måned og sidste ydelse, med summer for restgæld og ydelse. Detaljen har bilag. Appen beregner ikke afdrag; brugeren retter restgælden ud fra årsopgørelsen. Bilens driftsomkostninger viser bilens faste udgifter og lån.
 - Standardkategorier (seed): Bolig, Forsyning, Mad og dagligvarer, Transport, Forsikring, Børn, Sundhed, Fritid, Abonnementer, Opsparing, Indtægt, Overførsel, Andet.
 
@@ -188,6 +188,11 @@ En allergi-registrering matcher en nøgle, hvis `substance` indeholder visningsn
 ## Husdyr
 
 Under **Bolig og inventar** har fanen **Husdyr** en liste (navn, art og race, chipnummer, dyrlæge) og en detaljevisning med fotos, oplysninger, bilag og de policer, der dækker dyret. Felterne er navn, art (hund, kat, hest, kanin, fugl, andet), race, køn, fødselsdato, chipnummer, ejer (person), dyrlæge (kontakt) og noter. Under Forsikring kan dækning tilføjes for et husdyr.
+
+## Billeder og koblinger i lister
+
+- Lister over genstande, bygningsdele, husdyr, biler, forsikringer og udlån viser postens første foto som et lille kvadratisk billede til venstre på rækken (en police uden eget billede viser billedet af noget, den dækker). Uden foto vises modulets ikon. Dokumenter viser et preview af billeder.
+- Kolonnen *Koblinger* under Dokumenter viser, hvad dokumentet er koblet til (type og navn), som knapper, der åbner posten. Koblinger til helbredsdata vises kun som "Helbred".
 
 ## Kalender og tidslinje
 
