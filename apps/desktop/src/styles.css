@@ -245,7 +245,9 @@ legend {
 .shell {
   display: grid;
   grid-template-columns: 220px 1fr;
-  min-height: 100vh;
+  /* Fixed to the window: the menu stays put and the content area scrolls by itself. */
+  height: 100vh;
+  overflow: hidden;
 }
 .sidebar {
   background: var(--surface);
@@ -253,6 +255,7 @@ legend {
   padding: 1rem 0.6rem;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 .brand {
   font-weight: 700;
@@ -284,6 +287,7 @@ legend {
 .content {
   padding: 1.4rem 2rem;
   overflow: auto;
+  min-height: 0;
 }
 
 ul.plain {
@@ -1530,4 +1534,12 @@ fieldset.yesno legend {
 }
 .link-chip:hover {
   border-color: var(--accent);
+}
+/* The detail panel stays in view while the list scrolls, with its own scroll for long forms. */
+.split > .detail {
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 2.8rem - 1px);
+  overflow: auto;
+  overscroll-behavior: contain;
 }
