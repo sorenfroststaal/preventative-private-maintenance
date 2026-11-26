@@ -8,62 +8,15 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { startApp } from "./lib.mjs";
 
 const archive = resolve(process.argv[2] ?? "./local-data/e2e3");
 const shots = resolve(process.argv[3] ?? "./local-data/screens");
-const app = resolve("apps/desktop/src-tauri/target/release/ppm-desktop");
+const { wd, S, click, js, shot, has, waitText, step, sleep, finish } = await startApp({ archive, shots });
 const mcpBin = resolve("apps/desktop/src-tauri/target/release/resources/mcp/ppm-mcp");
-const base = "http://127.0.0.1:4444";
-mkdirSync(shots, { recursive: true });
-const configDir = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "ppm");
-mkdirSync(configDir, { recursive: true });
-writeFileSync(join(configDir, "config.json"), JSON.stringify({ archivePath: archive }));
 const sdk = createRequire(resolve("packages/mcp-server/package.json"));
 const { Client } = await import(sdk.resolve("@modelcontextprotocol/sdk/client/index.js"));
 const { StdioClientTransport } = await import(sdk.resolve("@modelcontextprotocol/sdk/client/stdio.js"));
-
-async function wd(method, path, body) {
-  const r = await fetch(base + path, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
-  const j = await r.json();
-  if (j.value && j.value.error) throw new Error(`${method} ${path}: ${j.value.error} ${j.value.message}`);
-  return j.value;
-}
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const results = [];
-function step(name, ok, detail = "") {
-  results.push({ name, ok });
-  console.log(`${ok ? "OK  " : "FEJL"} ${name}${detail ? ` – ${detail}` : ""}`);
-}
-
-const session = await wd("POST", "/session", { capabilities: { alwaysMatch: { "tauri:options": { application: app } } } });
-const S = (p) => `/session/${session.sessionId}${p}`;
-async function find(xpath, timeout = 8000) {
-  const end = Date.now() + timeout;
-  for (;;) {
-    try {
-      const e = await wd("POST", S("/element"), { using: "xpath", value: xpath });
-      const id = Object.values(e)[0];
-      if (id) return id;
-    } catch (err) {
-      if (Date.now() > end) throw new Error(`Ikke fundet: ${xpath} (${err.message})`);
-    }
-    await sleep(200);
-  }
-}
-const click = async (xpath) => wd("POST", S(`/element/${await find(xpath)}/click`), {});
-const js = (script, ...args) => wd("POST", S("/execute/sync"), { script, args });
-const has = async (t) => (await js("return document.body.innerText")).includes(t);
-async function waitText(t, timeout = 10000) {
-  const end = Date.now() + timeout;
-  while (Date.now() < end) {
-    if (await has(t)) return true;
-    await sleep(250);
-  }
-  return false;
-}
-async function shot(name) {
-  writeFileSync(join(shots, `${name}.png`), Buffer.from(await wd("GET", S("/screenshot")), "base64"));
-}
 
 try {
   await wd("POST", S("/window/rect"), { width: 1440, height: 1000 }).catch(() => undefined);
@@ -149,8 +102,5 @@ try {
   step("Uventet fejl", false, e.message);
   await shot("fejl3").catch(() => undefined);
 } finally {
-  await wd("DELETE", S("")).catch(() => undefined);
+  await finish();
 }
-const failed = results.filter((r) => !r.ok);
-console.log(`\n${results.length - failed.length}/${results.length} trin bestod`);
-process.exit(failed.length ? 1 : 0);

@@ -46,6 +46,48 @@ jobs:
           cargo clippy --all-targets -- -D warnings
           cargo test
 
+  e2e-linux:
+    # Clicks through the real app (release build) with tauri-driver + WebKitWebDriver (review F1).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: System libraries, WebKitWebDriver and a virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev libayatana-appindicator3-dev librsvg2-dev webkit2gtk-driver xvfb openbox
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          key: e2e
+      - name: tauri-driver
+        run: cargo install tauri-driver --locked
+      - run: pnpm install --frozen-lockfile
+      - name: Build ppm-mcp, the frontends and the app (release)
+        run: |
+          pnpm build:mcp
+          pnpm --filter @ppm/desktop vite:build
+          cd apps/desktop/src-tauri && cargo build --release --features tauri/custom-protocol
+      - name: E2E (all scripts, each with a fresh synthetic archive)
+        run: |
+          Xvfb :99 -screen 0 1600x1200x24 &
+          sleep 1
+          DISPLAY=:99 openbox &
+          DISPLAY=:99 tauri-driver &
+          sleep 2
+          DISPLAY=:99 node apps/desktop/e2e/run-all.mjs --out ./local-data/e2e-ci
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-linux-screenshots
+          path: local-data/e2e-ci/**/*.png
+          if-no-files-found: ignore
+
   build-windows:
     runs-on: windows-latest
     needs: lint-test
@@ -119,3 +161,21 @@ jobs:
           $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
           if ($userPath -split ";" | Where-Object { $_ -eq $dir }) { throw "PATH indeholder stadig $dir efter afinstallation" }
           "Installation, PATH, MCP-røgtest og afinstallation er OK"
+      - name: E2E in the real app on Windows (WebView2, tauri-driver + msedgedriver)
+        shell: pwsh
+        run: |
+          cargo install tauri-driver --locked
+          $edge = Join-Path $env:EDGEWEBDRIVER "msedgedriver.exe"
+          if (-not (Test-Path $edge)) { throw "msedgedriver.exe findes ikke i $env:EDGEWEBDRIVER" }
+          $driver = Start-Process -FilePath tauri-driver -ArgumentList "--native-driver", $edge -PassThru -WindowStyle Hidden
+          Start-Sleep -Seconds 3
+          node apps/desktop/e2e/run-all.mjs --skip phase3,mobile-desktop --out ./local-data/e2e-win
+          $code = $LASTEXITCODE
+          Stop-Process -Id $driver.Id -Force -ErrorAction SilentlyContinue
+          if ($code -ne 0) { throw "E2E fejlede på Windows" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-windows-screenshots
+          path: local-data/e2e-win/**/*.png
+          if-no-files-found: ignore
