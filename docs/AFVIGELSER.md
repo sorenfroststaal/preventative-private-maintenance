@@ -71,6 +71,8 @@ Listen dækker de steder, hvor implementeringen afviger fra specifikationen elle
 | F47 | 03 Datamodel | `recurring_expense.person_id` (0008) og `item.owner_person_id` (0009) bruges ikke efter migration 0010; deres indhold er flyttet til `person_link`, og kolonnerne står tomme, fordi SQLite ikke kan fjerne en kolonne med `REFERENCES`. Zod-skemaerne har ikke længere felterne. |
 | F49 | 03 Datamodel | En gave har præcis én person (`gift.person_id`). En gave til et par registreres på den ene eller som en person "Mette og Jens". Gaver slettes fysisk (med audit) fra detaljen efter en bekræftelse; udlån slettes stadig ikke (F46). |
 | F50 | 08 Mobil | Telefonen kan oprette og rette genstande, oprette personer uden for husstanden, registrere og rette gaver og registrere udlån. Den kan ikke arkivere, slette eller rette personer i husstanden; det sker på computeren. |
+| F51 | 08 Mobil | Mobiladgang starter kun automatisk på et netværk (/24), hvor brugeren selv har slået den til. Er den slået til før denne regel, starter den ikke automatisk, før brugeren har slået den til én gang mere. |
+| F52 | 04 Lister | Personer og økonomikategorier oprettes og rettes kun i Lister (Indstillinger linker dertil). Konti (Økonomi) og Boliger og rum (Bolig og inventar) kan stadig rettes i deres modul, men med samme formular som Lister. |
 | F48 | 03 Audit | Ændringer fra telefonen auditeres med `via = 'ui'` og den parrede brugers id, fordi `audit_log.via` ikke har værdien "mobil" (CHECK i skemaet). |
 
 ## Fjernet efter PR #2 (nu en del af specifikationen)

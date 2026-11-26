@@ -94,6 +94,21 @@ PPM kan bruges fra iPhone som en app på hjemmeskærmen, når telefonen er på s
 - **Privatliv:** helbred vises ikke på telefonen (kalender, opgaver, søgning), og dokumenter koblet til helbredsdata kan ikke hentes.
 - **Tests:** `mobile.test.ts` i core (parring, nøgler, LAN-adresser), `mobile.test.ts` i mcp-server (rigtig HTTPS mod demoarkivet: certifikatets egenskaber, parring, overblik, udført, kalender, indkøb, madplan, søgning, upload, helbredsspærring, HTTP-porten), `rendered.test.tsx` (Indstillinger → Mobil). E2E: `e2e/mobile.ts` (iPhone-visning i Chromium mod rigtig server, 9/9) og `e2e/mobile-desktop.mjs` (den rigtige app starter og stopper serveren, 6/6). Selve iPhone (Safari, certifikatinstallation, hjemmeskærm) er **ikke** afprøvet; det kræver en rigtig iPhone.
 
+## Gennemgang 26.11.2026: top 10 rettet
+
+| Fund | Rettelse | Test |
+| --- | --- | --- |
+| E1 | Mobil-CA'en har en kritisk navnebegrænsning (private IPv4-intervaller, `localhost`, `.local`), lever 3 år og fornyes 60 dage før udløb. En ældre CA uden begrænsning udskiftes, og panelet beder om at installere certifikatet igen. CA-nøglen krypteres med DPAPI på Windows. | `tls.test.ts` (openssl: begrænsning, afvisning af et falsk certifikat for www.example.com, fornyelse, nøglelager); CI kører den på Windows mod rigtig DPAPI |
+| D1 | Fælles `QueryCache`/`MutationCache` viser en fejlbesked, når en hentning fejler, eller når en gemning uden egen fejlhåndtering fejler. | `rendered.test.tsx` "errors" |
+| F1 | Fælles WebDriver-modul (`e2e/lib.mjs`) og `e2e/run-all.mjs`; CI-jobbet `e2e-linux` kører alle 10 scripts i den rigtige app. `build-windows` kører dem mod WebView2 med msedgedriver (undtagen phase3 og mobile-desktop, som bruger Linux-stier). | CI |
+| C1 | Indstillinger opretter ikke længere personer og kategorier selv; de linker til Lister. Konti og Boliger og rum bruger samme `EntityForm` som Lister. | `rendered.test.tsx` "C1" |
+| C5 | Arkivering af genstande, fjernelse af bilag og fjernelse af dækning spørger først. | `rendered.test.tsx` "C5" |
+| E2 | Mobiladgang husker de netværk (/24), hvor den blev slået til, og starter kun selv dér. Ellers forklarer panelet hvorfor. Menuen viser, når den kører. | `mobile.test.ts` (core), `rendered.test.tsx` "E2", Rust `parses_the_address_list` |
+| D2 | Danske Zod-beskeder i core og danske tekster for SQLite-fejl (desktop og mobilserveren). | `gifts.test.ts` "Danish messages" |
+| B2 | Faste udgifter, der ligner et låns ydelse, får en advarsel og tælles kun én gang i bilens omkostninger. | `gifts.test.ts` "duplicate a loan" |
+| A1 | Brugerfladen skriver ingen SQL; 14 forespørgsler er flyttet til `repo/views.ts`, og en ESLint-regel afviser nye. | `gifts.test.ts` "read models", ESLint |
+| G1 | Afventer brugerens accept af en PR fra spec-branchen til `main`. | – |
+
 ## Ønsker 26.11.2026: mere på telefonen, personer uden for husstanden og gaver (migration 0011)
 
 - **Migration 0011** (foreslået som `docs/spec/schema-0011.sql` på spec-branchen): `person.household` (1 = husstanden, standard for alle eksisterende personer; 0 = familie, venner, naboer) og tabellen `gift` (givet eller fået, person, gave, anledning, dato, pris, evt. genstand).
@@ -211,11 +226,11 @@ CI laver nu også artefaktet `ppm-demo-backup` med syntetiske demodata, som kan 
 
 | Suite | Antal | Resultat |
 | --- | --- | --- |
-| core (Vitest) | 202 (heraf 29 for madplan, 18 for AI/MCP i `ai.test.ts`, 3 for personer uden for husstanden og gaver i `gifts.test.ts`) | Grøn |
-| mcp-server (Vitest) | 8 (protokol, `tools/list`, log, versionsfejl og mobilserveren over rigtig HTTPS) | Grøn |
-| desktop (Vitest) | 53 (kontrast, renderede sider, AI-indbakke, AI-adgang, fotos, rullelister, Lister, husdyr, forsikringsdækning, økonomi, Mobil og Gaver) | Grøn |
-| Rust (`cargo test`) | 17 (+1 ignoreret måletest) | Grøn |
-| **I alt** | **280** | **Grøn** |
+| core (Vitest) | 206 (heraf 29 for madplan, 18 for AI/MCP i `ai.test.ts`, 3 for personer uden for husstanden og gaver i `gifts.test.ts`) | Grøn |
+| mcp-server (Vitest) | 12 (protokol, `tools/list`, log, versionsfejl, mobilserveren over rigtig HTTPS og den lokale CA) | Grøn |
+| desktop (Vitest) | 57 (kontrast, renderede sider, AI-indbakke, AI-adgang, fotos, rullelister, Lister, husdyr, forsikringsdækning, økonomi, Mobil og Gaver) | Grøn |
+| Rust (`cargo test`) | 18 (+1 ignoreret måletest) | Grøn |
+| **I alt** | **293** | **Grøn** |
 
 ESLint, `tsc -b`, `cargo fmt --check` og `cargo clippy -D warnings` er rene.
 
