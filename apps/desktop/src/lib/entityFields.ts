@@ -115,6 +115,35 @@ export const DOC_ROLES: [string, string][] = [
   ["other", "Andet"],
 ];
 
+export const COMPONENT_ROLE_OPTIONS: [string, string][] = [
+  ["part", "Indbygget del"],
+  ["accessory", "Tilbehør"],
+  ["consumable", "Forbrugsstof"],
+  ["spare_part", "Reservedel"],
+];
+export const STOCK_OPTIONS: [string, string][] = [
+  ["in_stock", "På lager"],
+  ["used", "Brugt"],
+  ["to_buy", "Skal købes"],
+];
+
+/** The form for a component of an item (Komponenter → Tilføj komponent). */
+export const COMPONENT_FIELDS: FieldDef[] = [
+  t("name", "Navn", { required: true }),
+  s("component_role", "Rolle", COMPONENT_ROLE_OPTIONS, { required: true }),
+  t("part_number", "Varenummer"),
+  n("quantity", "Antal"),
+  s("stock_status", "Lagerstatus", STOCK_OPTIONS, { help: "For reservedele og forbrugsstoffer" }),
+  r("location_id", "Placering", "location"),
+  t("brand", "Mærke"),
+  t("model", "Model"),
+  t("serial_number", "Serienummer"),
+  d("purchase_date", "Købsdato"),
+  m("purchase_price_minor", "Købspris"),
+  t("vendor_name", "Forhandler"),
+  ta("notes", "Noter"),
+];
+
 export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
   property: [
     t("name", "Navn", { required: true }),
@@ -145,6 +174,8 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
     d("warranty_until", "Garanti til"),
     d("complaint_until", "Reklamationsret til"),
     ta("notes", "Noter"),
+    r("parent_item_id", "Del af (anden genstand)", "item", "name", { help: "Fx at en hotend hører til 3D-printeren" }),
+    s("component_role", "Rolle i den anden genstand", COMPONENT_ROLE_OPTIONS),
   ],
   person: [
     t("name", "Navn", { required: true }),

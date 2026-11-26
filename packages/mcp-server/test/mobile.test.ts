@@ -152,6 +152,15 @@ describe("mobile web app server (iPhone, local network)", () => {
     expect((await call("PATCH", `/api/items/${id}`, { token, body: { name: "" } })).status).toBe(400);
     expect((await call("PATCH", "/api/items/00000000-0000-4000-8000-000000000999", { token, body: { name: "x" } })).status).toBe(404);
 
+    // A spare part as a component of the item, shown with the path.
+    const part = await call("POST", "/api/items", { token, body: { name: "Mobil-trin", parent_item_id: id, component_role: "spare_part", quantity: 2, stock_status: "in_stock", part_number: "TR-1" } });
+    expect(part.status).toBe(200);
+    const withParts = (await call("GET", `/api/items/${id}`, { token })).body;
+    expect(withParts.components).toEqual([{ id: part.body.id, name: "Mobil-trin", role: "spare_part", quantity: 2, stock: "in_stock", part_number: "TR-1", children: 0 }]);
+    expect((await call("GET", `/api/items/${part.body.id}`, { token })).body.path).toEqual([{ id, name: "Mobil-stige" }]);
+    expect((await call("PATCH", `/api/items/${id}`, { token, body: { parent_item_id: part.body.id } })).status).toBe(400);
+    expect(((await call("GET", "/api/items?q=mobil-trin", { token })).body as { parent: string }[])[0]!.parent).toBe("Mobil-stige");
+
     // A friend outside the household borrows the item and gets a gift.
     expect((await call("POST", "/api/people", { token, body: { name: " " } })).status).toBe(400);
     const friend = (await call("POST", "/api/people", { token, body: { name: "Karl Ven", relation: "ven" } })).body as { id: string };

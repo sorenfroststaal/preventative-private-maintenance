@@ -1596,3 +1596,83 @@ fieldset.yesno legend {
 .warning-text {
   color: var(--warning-text, var(--danger));
 }
+/* Components and the item tree (migration 0012) */
+.segmented-control {
+  display: inline-flex;
+  border: 1px solid var(--border, #d8d4c8);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.segmented-control button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0.35rem 0.8rem;
+}
+.segmented-control button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.tree-wrap {
+  min-width: 0;
+  flex: 1;
+}
+.tree,
+.tree-sub {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.4rem;
+  border-bottom: 1px solid var(--border, #e6e2d8);
+}
+.tree-row.selected {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.tree-toggle {
+  width: 1.6rem;
+  height: 1.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--muted);
+}
+.tree-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 0;
+  background: none;
+  padding: 0.2rem 0;
+  text-align: left;
+  color: inherit;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.tree-group {
+  font-weight: 600;
+}
+.tree-row.location .tree-group,
+.tree-row.person .tree-group {
+  font-weight: 500;
+}
+.chip {
+  border: 1px solid var(--border, #d8d4c8);
+  border-radius: 999px;
+  padding: 0 0.5rem;
+  color: var(--muted);
+}
+.component-path {
+  margin: -0.25rem 0 0.5rem;
+}
+.component-group h3 {
+  margin: 0.9rem 0 0.2rem;
+}

@@ -91,6 +91,8 @@ export const registry: Record<EntityType, EntityMeta> = {
           r.brand,
           r.model,
           r.serial_number,
+          r.part_number,
+          await nameOf(db, "item", r.parent_item_id),
           r.category,
           await nameOf(db, "location", r.location_id),
           r.notes,

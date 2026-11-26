@@ -1,3 +1,4 @@
+import { reindexMovedParts } from "../repo/components";
 import { applyPragmas, type ClosableDb } from "../db/adapter";
 import { APP_SCHEMA_VERSION, migrate } from "../db/migrate";
 import type { Env } from "../env";
@@ -111,6 +112,8 @@ export async function openArchive(env: Env, root: string, opts: OpenOptions): Pr
     db = await env.openDb(archivePath(env, root, "arkiv.sqlite"));
     await applyPragmas(db);
     const result = await migrate(db, () => env.clock.nowIso());
+    // Spare parts moved from item_part to item by migration 0012 must be found in search.
+    if (result.applied.includes(12)) await reindexMovedParts(db);
     const readOnly = result.newerThanApp;
     if (!readOnly && manifest.schemaVersion !== result.to) {
       manifest.schemaVersion = result.to;

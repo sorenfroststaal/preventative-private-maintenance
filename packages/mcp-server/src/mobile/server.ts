@@ -10,6 +10,8 @@ import { hostname as osHostname, tmpdir } from "node:os";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import {
   activeLendingForItem,
+  ancestorsOf,
+  componentsOf,
   addDays,
   completeOccurrence,
   createEntity,
@@ -83,7 +85,7 @@ const MIME: Record<string, string> = {
 const MAX_UPLOAD = 25 * 1024 * 1024;
 
 /** Item columns the phone may set. Everything else (archiving, links) stays on the computer. */
-const ITEM_FIELDS = ["name", "category", "location_id", "brand", "model", "serial_number", "purchase_date", "purchase_price_minor", "vendor_name", "warranty_until", "complaint_until", "notes"] as const;
+const ITEM_FIELDS = ["name", "category", "location_id", "brand", "model", "serial_number", "purchase_date", "purchase_price_minor", "vendor_name", "warranty_until", "complaint_until", "notes", "parent_item_id", "component_role", "part_number", "quantity", "stock_status"] as const;
 const GIFT_FIELDS = ["direction", "person_id", "title", "occasion", "gift_date", "amount_minor", "notes"] as const;
 const pick = (b: Record<string, unknown>, keys: readonly string[]) => Object.fromEntries(keys.filter((k) => k in b).map((k) => [k, b[k] === "" ? null : b[k]]));
 
@@ -225,16 +227,16 @@ export async function startMobileServer(o: MobileServerOptions) {
     }
     if (m === "GET" && path === "/api/items") {
       const q = (url.searchParams.get("q") ?? "").toLowerCase();
-      const rows = await archive.db.select<{ id: string; name: string; category: string | null; brand: string | null; model: string | null; serial_number: string | null; location: string | null }>(
-        `SELECT i.id, i.name, i.category, i.brand, i.model, i.serial_number, l.name AS location FROM item i LEFT JOIN location l ON l.id = i.location_id
-          WHERE i.archived_at IS NULL ORDER BY i.name`,
+      const rows = await archive.db.select<{ id: string; name: string; category: string | null; brand: string | null; model: string | null; serial_number: string | null; location: string | null; parent: string | null }>(
+        `SELECT i.id, i.name, i.category, i.brand, i.model, i.serial_number, l.name AS location, p.name AS parent FROM item i LEFT JOIN location l ON l.id = i.location_id
+          LEFT JOIN item p ON p.id = i.parent_item_id WHERE i.archived_at IS NULL ORDER BY i.name`,
       );
       const thumbs = await thumbnailsFor(archive.db, "item");
       return send(
         res,
         200,
         rows
-          .filter((r) => !q || [r.name, r.brand, r.model, r.serial_number, r.category, r.location].some((v) => v?.toLowerCase().includes(q)))
+          .filter((r) => !q || [r.name, r.brand, r.model, r.serial_number, r.category, r.location, r.parent].some((v) => v?.toLowerCase().includes(q)))
           .map((r) => ({ ...r, thumb: thumbs.get(r.id)?.id ?? null })),
       );
     }
@@ -249,6 +251,8 @@ export async function startMobileServer(o: MobileServerOptions) {
       const lending = await activeLendingForItem(archive.db, item[1]!);
       return send(res, 200, {
         item: row,
+        path: await ancestorsOf(archive.db, item[1]!),
+        components: (await componentsOf(archive.db, item[1]!)).map((c) => ({ id: c.id, name: c.name, role: c.component_role, quantity: c.quantity, stock: c.stock_status, part_number: c.part_number ?? null, children: c.children })),
         documents: docs.map((x) => ({ id: x.id, title: x.title ?? x.filename, role: x.role, ext: x.ext, mime: x.mime })),
         lending: lending ? { id: lending.id, borrower: lending.borrower, since: lending.lent_date, due: lending.due_date } : null,
       });

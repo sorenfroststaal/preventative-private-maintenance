@@ -10,7 +10,7 @@ type Tab = "overview" | "calendar" | "food" | "items" | "people";
 /** A screen on top of the tabs (a detail or a form); "Tilbage" pops it. */
 type Screen =
   | { kind: "item"; id: string }
-  | { kind: "itemForm"; id: string | null; item: Record<string, unknown> | null }
+  | { kind: "itemForm"; id: string | null; item: Record<string, unknown> | null; parent?: { id: string; name: string; location_id: string | null } }
   | { kind: "person"; id: string }
   | { kind: "personForm" }
   | { kind: "giftForm"; personId?: string; gift?: GiftValue }
@@ -66,8 +66,19 @@ export function App() {
   const replace = (sc: Screen) => setStack((x) => [...x.slice(0, -1), sc]);
   const top = stack[stack.length - 1];
   let body;
-  if (top?.kind === "item") body = <ItemDetail key={top.id} id={top.id} onBack={back} onEdit={(item) => push({ kind: "itemForm", id: top.id, item })} onLend={() => push({ kind: "lendForm", itemId: top.id })} />;
-  else if (top?.kind === "itemForm") body = <ItemForm item={top.item} onCancel={back} onDone={(id) => (top.id ? back() : replace({ kind: "item", id }))} />;
+  if (top?.kind === "item")
+    body = (
+      <ItemDetail
+        key={top.id}
+        id={top.id}
+        onBack={back}
+        onEdit={(item) => push({ kind: "itemForm", id: top.id, item })}
+        onLend={() => push({ kind: "lendForm", itemId: top.id })}
+        onOpen={(id) => push({ kind: "item", id })}
+        onAddComponent={(parent) => push({ kind: "itemForm", id: null, item: null, parent })}
+      />
+    );
+  else if (top?.kind === "itemForm") body = <ItemForm item={top.item} parent={top.parent} onCancel={back} onDone={(id) => (top.id || top.parent ? back() : replace({ kind: "item", id }))} />;
   else if (top?.kind === "person")
     body = (
       <PersonDetail
@@ -435,6 +446,7 @@ interface ItemRow {
   location: string | null;
   brand: string | null;
   thumb: string | null;
+  parent: string | null;
 }
 
 function Thumb({ docId }: { docId: string | null }) {
@@ -461,7 +473,8 @@ function Thumb({ docId }: { docId: string | null }) {
 function Items({ onOpen, onNew }: { onOpen(id: string): void; onNew(): void }) {
   const [q, setQ] = useState("");
   const items = useQuery({ queryKey: ["items"], queryFn: () => api<ItemRow[]>("/api/items") });
-  const shown = (items.data ?? []).filter((i) => !q || [i.name, i.location, i.brand].some((v) => v?.toLowerCase().includes(q.toLowerCase())));
+  // Components are shown under their item; a search finds them too.
+  const shown = (items.data ?? []).filter((i) => (q ? [i.name, i.location, i.brand, i.parent].some((v) => v?.toLowerCase().includes(q.toLowerCase())) : !i.parent));
   return (
     <>
       <Header title="Ting">
@@ -477,7 +490,7 @@ function Items({ onOpen, onNew }: { onOpen(id: string): void; onNew(): void }) {
               <Thumb docId={i.thumb} />
               <div className="grow">
                 <div>{i.name}</div>
-                {(i.location || i.brand) && <div className="small muted">{[i.brand, i.location].filter(Boolean).join(" · ")}</div>}
+                {(i.location || i.brand || i.parent) && <div className="small muted">{[i.parent ? `del af ${i.parent}` : null, i.brand, i.location].filter(Boolean).join(" · ")}</div>}
               </div>
               <span className="chev" aria-hidden="true">
                 ›
@@ -500,7 +513,24 @@ function Items({ onOpen, onNew }: { onOpen(id: string): void; onNew(): void }) {
   );
 }
 
-function ItemDetail({ id, onBack, onEdit, onLend }: { id: string; onBack(): void; onEdit(item: Record<string, unknown>): void; onLend(): void }) {
+const ROLE_LABEL: Record<string, string> = { part: "Indbygget del", accessory: "Tilbehør", consumable: "Forbrugsstof", spare_part: "Reservedel" };
+const STOCK_LABEL: Record<string, string> = { in_stock: "på lager", used: "brugt", to_buy: "skal købes" };
+
+function ItemDetail({
+  id,
+  onBack,
+  onEdit,
+  onLend,
+  onOpen,
+  onAddComponent,
+}: {
+  id: string;
+  onBack(): void;
+  onEdit(item: Record<string, unknown>): void;
+  onLend(): void;
+  onOpen(id: string): void;
+  onAddComponent(parent: { id: string; name: string; location_id: string | null }): void;
+}) {
   const q = useQuery({
     queryKey: ["item", id],
     queryFn: () =>
@@ -508,6 +538,8 @@ function ItemDetail({ id, onBack, onEdit, onLend }: { id: string; onBack(): void
         item: Record<string, string | number | null>;
         documents: { id: string; title: string; role: string; ext: string }[];
         lending: { borrower: string; since: string; due: string | null } | null;
+        path: { id: string; name: string }[];
+        components: { id: string; name: string; role: string | null; quantity: number; stock: string | null; part_number: string | null; children: number }[];
       }>(`/api/items/${id}`),
   });
   const it = q.data?.item;
@@ -536,6 +568,19 @@ function ItemDetail({ id, onBack, onEdit, onLend }: { id: string; onBack(): void
         )}
       </Header>
       {q.error && <p className="banner error">{errorText(q.error)}</p>}
+      {(q.data?.path ?? []).length > 0 && (
+        <p className="muted greeting">
+          Del af{" "}
+          {q.data!.path.map((p, n) => (
+            <span key={p.id}>
+              {n > 0 && " › "}
+              <button className="text-btn inline" onClick={() => onOpen(p.id)}>
+                {p.name}
+              </button>
+            </span>
+          ))}
+        </p>
+      )}
       {photos.length > 0 && (
         <div className="photos">
           {photos.map((p) => (
@@ -566,6 +611,35 @@ function ItemDetail({ id, onBack, onEdit, onLend }: { id: string; onBack(): void
             </div>
           ))}
       </dl>
+      <section className="card">
+        <h2>
+          Komponenter {(q.data?.components ?? []).length > 0 && <span className="count">{q.data!.components.length}</span>}
+        </h2>
+        <ul className="rows">
+          {(q.data?.components ?? []).map((c) => (
+            <li key={c.id}>
+              <button className="row link-row" onClick={() => onOpen(c.id)}>
+                <div className="grow">
+                  <div>{c.name}</div>
+                  <div className="small muted">
+                    {[c.role ? ROLE_LABEL[c.role] : null, c.part_number, c.role === "spare_part" || c.role === "consumable" ? `${c.quantity} stk. ${STOCK_LABEL[c.stock ?? "in_stock"] ?? ""}` : null, c.children ? `${c.children} dele` : null]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
+                </div>
+                <span className="chev" aria-hidden="true">
+                  ›
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        {it && (
+          <button className="pill" onClick={() => onAddComponent({ id, name: String(it.name), location_id: (it.location_id as string | null) ?? null })}>
+            + Tilføj komponent
+          </button>
+        )}
+      </section>
       {(q.data?.documents ?? []).length > 0 && (
         <section className="card">
           <h2>Bilag</h2>

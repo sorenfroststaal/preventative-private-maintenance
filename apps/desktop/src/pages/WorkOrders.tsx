@@ -1,3 +1,4 @@
+import { WorkOrderParts } from "../components/Components";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
@@ -234,6 +235,7 @@ function WorkOrderDetail({ wo }: { wo: Row }) {
             ),
           },
           { id: "info", label: "Oplysninger", content: () => <EntityForm type="work_order" row={wo} invalidate={[["history"], ["odometer_reading"]]} /> },
+          { id: "parts", label: "Reservedele", content: () => <WorkOrderParts wo={wo} /> },
           {
             id: "docs",
             label: "Bilag",

@@ -20,7 +20,6 @@ export const PROPOSE_TYPES = [
   "person",
   "property",
   "item",
-  "item_part",
   "building_part",
   "location",
   "contact",

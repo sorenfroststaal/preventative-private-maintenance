@@ -776,5 +776,61 @@ describe("phase 2b.9 – rendered components", () => {
     expect(screen.getByText(/samme beløb som lånet B2-bil; tælles kun én gang/)).toBeInTheDocument();
     expect(screen.getByText(/ligner lånet B2-bil/)).toBeInTheDocument();
   });
+  it("components: an accessory and a spare part nest under an item, the tree expands with +, and a spare part is used in a repair", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const house = await createEntity(ctx, "property", { name: "Komptest-hus", kind: "house" });
+    const room = await createEntity(ctx, "location", { property_id: String(house.id), name: "Komptest-værksted" });
+    const printer = await createEntity(ctx, "item", { name: "Komptest-printer", location_id: String(room.id) });
+    await createEntity(ctx, "item", { name: "Komptest-hotend", parent_item_id: String(printer.id), component_role: "accessory" });
+    const wo = await createEntity(ctx, "work_order", { title: "Komptest-reparation", kind: "repair", target_type: "item", target_id: String(printer.id), reported_date: "2026-11-20" });
+
+    renderAt(`/bolig?id=${String(printer.id)}&tab=components`);
+    await settle("Bolig og inventar");
+    const detail = await screen.findByRole("complementary", { name: "Genstand" });
+    expect(await within(detail).findByText("Komptest-hotend")).toBeInTheDocument();
+    expect(within(detail).getByRole("heading", { name: "Tilbehør" })).toBeInTheDocument();
+    fireEvent.click(within(detail).getByRole("button", { name: "Tilføj komponent" }));
+    const dialog = await screen.findByRole("dialog", { name: /Ny komponent til Komptest-printer/ });
+    fireEvent.change(within(dialog).getByLabelText(/^Navn/), { target: { value: "Komptest-termistor" } });
+    fireEvent.change(within(dialog).getByLabelText(/^Antal/), { target: { value: "3" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Tilføj" }));
+    await waitFor(async () =>
+      expect(await archive.db.select("SELECT component_role, quantity, stock_status, location_id FROM item WHERE name = 'Komptest-termistor'")).toEqual([
+        { component_role: "spare_part", quantity: 3, stock_status: "in_stock", location_id: String(room.id) },
+      ]),
+    );
+    const line = (await within(detail).findByText("Komptest-termistor")).closest("li")!;
+    fireEvent.click(within(line).getByRole("button", { name: "Brug …" }));
+    const use = await screen.findByRole("dialog", { name: "Brug Komptest-termistor" });
+    fireEvent.change(within(use).getByLabelText(/^Antal/), { target: { value: "1" } });
+    const woSelect = within(use).getByLabelText(/arbejdsordre/) as HTMLSelectElement;
+    await waitFor(() => expect([...woSelect.options].map((o) => o.value)).toContain(String(wo.id)));
+    fireEvent.change(woSelect, { target: { value: String(wo.id) } });
+    fireEvent.click(within(use).getByRole("button", { name: "Registrér som brugt" }));
+    await waitFor(async () =>
+      expect(await archive.db.select("SELECT quantity, stock_status, used_work_order_id FROM item WHERE name = 'Komptest-termistor' ORDER BY stock_status")).toEqual([
+        { quantity: 2, stock_status: "in_stock", used_work_order_id: null },
+        { quantity: 1, stock_status: "used", used_work_order_id: String(wo.id) },
+      ]),
+    );
+    cleanup();
+
+    // The tree: house › workshop › printer, expanded with + to show its components.
+    renderAt("/bolig");
+    await settle("Bolig og inventar");
+    fireEvent.click(screen.getByRole("button", { name: "Træ" }));
+    fireEvent.change(await screen.findByLabelText(/Gruppér efter/), { target: { value: "location" } });
+    const tree = await screen.findByRole("tree");
+    expect(await within(tree).findByText("Komptest-printer")).toBeInTheDocument();
+    expect(within(tree).queryByText("Komptest-hotend")).toBeNull();
+    fireEvent.click(within(tree).getByRole("button", { name: "Fold ud: Komptest-printer" }));
+    expect(await within(tree).findByText("Komptest-hotend")).toBeInTheDocument();
+    expect(within(tree).getAllByText("Komptest-termistor").length).toBeGreaterThan(0);
+    try {
+      localStorage.removeItem("ppm.items.view");
+    } catch {
+      // ignore
+    }
+  });
 });
 

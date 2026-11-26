@@ -42,13 +42,28 @@ function Actions({ busy, label, error, onCancel }: { busy: boolean; label: strin
 
 // ---------------------------------------------------------------- item
 
-export function ItemForm({ item, onDone, onCancel }: { item: Record<string, unknown> | null; onDone(id: string): void; onCancel(): void }) {
+export function ItemForm({
+  item,
+  parent,
+  onDone,
+  onCancel,
+}: {
+  item: Record<string, unknown> | null;
+  /** A new component of this item. */
+  parent?: { id: string; name: string; location_id: string | null };
+  onDone(id: string): void;
+  onCancel(): void;
+}) {
   const qc = useQueryClient();
   const opts = useOptions();
   const f = useForm({
     name: str(item?.name),
     category: str(item?.category),
-    location_id: str(item?.location_id),
+    location_id: str(item?.location_id ?? parent?.location_id),
+    component_role: str(item?.component_role ?? (parent ? "spare_part" : "")),
+    part_number: str(item?.part_number),
+    quantity: str(item?.quantity ?? 1),
+    stock_status: str(item?.stock_status ?? (parent ? "in_stock" : "")),
     brand: str(item?.brand),
     model: str(item?.model),
     serial_number: str(item?.serial_number),
@@ -63,8 +78,16 @@ export function ItemForm({ item, onDone, onCancel }: { item: Record<string, unkn
     mutationFn: async () => {
       const price = parseKr(f.v.price!);
       if (price === undefined) throw new Error("Skriv prisen som fx 1.299,95");
-      const { price: _p, ...rest } = f.v;
-      const body = { ...rest, purchase_price_minor: price };
+      const { price: _p, quantity, component_role, part_number, stock_status, ...rest } = f.v;
+      const qty = Number(quantity || "1");
+      if (!Number.isInteger(qty) || qty < 0) throw new Error("Antal skal være et helt tal");
+      const isComponent = Boolean(parent || item?.parent_item_id);
+      const body = {
+        ...rest,
+        purchase_price_minor: price,
+        ...(isComponent ? { component_role: component_role || null, part_number, quantity: qty, stock_status: stock_status || null } : {}),
+        ...(parent ? { parent_item_id: parent.id } : {}),
+      };
       return item ? api<{ id: string }>(`/api/items/${String(item.id)}`, { method: "PATCH", body }) : api<{ id: string }>("/api/items", { body });
     },
     onSuccess: async (r) => {
@@ -78,11 +101,40 @@ export function ItemForm({ item, onDone, onCancel }: { item: Record<string, unkn
   };
   return (
     <>
-      <Header title={item ? "Ret genstand" : "Ny genstand"} onBack={onCancel} backLabel="Annullér" />
+      <Header title={item ? "Ret genstand" : parent ? `Ny komponent` : "Ny genstand"} onBack={onCancel} backLabel="Annullér" />
       <form className="card form" onSubmit={submit}>
+        {parent && <p className="small muted">Til {parent.name}</p>}
         <Field label="Navn">
-          <input {...f.bind("name")} required autoFocus={!item} placeholder="Fx Opvaskemaskine" />
+          <input {...f.bind("name")} required autoFocus={!item} placeholder={parent ? "Fx Termistor" : "Fx Opvaskemaskine"} />
         </Field>
+        {(parent || Boolean(item?.parent_item_id)) && (
+          <>
+            <Field label="Rolle">
+              <select {...f.bind("component_role")}>
+                <option value="part">Indbygget del</option>
+                <option value="accessory">Tilbehør</option>
+                <option value="consumable">Forbrugsstof</option>
+                <option value="spare_part">Reservedel</option>
+              </select>
+            </Field>
+            <div className="two">
+              <Field label="Antal">
+                <input {...f.bind("quantity")} inputMode="numeric" />
+              </Field>
+              <Field label="Lager">
+                <select {...f.bind("stock_status")}>
+                  <option value="">–</option>
+                  <option value="in_stock">På lager</option>
+                  <option value="used">Brugt</option>
+                  <option value="to_buy">Skal købes</option>
+                </select>
+              </Field>
+            </div>
+            <Field label="Varenummer">
+              <input {...f.bind("part_number")} autoCapitalize="characters" autoCorrect="off" spellCheck={false} />
+            </Field>
+          </>
+        )}
         <Field label="Kategori">
           <input {...f.bind("category")} list="item-categories" placeholder="Vælg eller skriv" />
           <datalist id="item-categories">

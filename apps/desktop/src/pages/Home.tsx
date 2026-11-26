@@ -10,6 +10,7 @@ import { EntityForm } from "../components/EntityForm";
 import { DocumentsTab, HistoryTab, TasksTab } from "../components/DetailTabs";
 import { Empty, includesText, Modal, rowProps, SearchBox, Tabs } from "../components/ui";
 import { formatDate, formatMoney } from "../lib/format";
+import { COMPONENT_FIELDS, fieldsFor } from "../lib/entityFields";
 import { annualAmount } from "@ppm/core";
 import { useToast } from "../layout/Shell";
 import { ArchiveButton } from "../components/ArchiveButton";
@@ -18,6 +19,7 @@ import { attachPending, PendingAttachments, PhotoStrip, type PendingFile } from 
 import { ReceiptSuggestionBanner } from "../components/ReceiptSuggest";
 import { ItemLending, LendingTab } from "../components/Lending";
 import { GiftsTab } from "../components/Gifts";
+import { ComponentPath, ComponentsTab, ItemTree } from "../components/Components";
 
 export function Home() {
   const [params, setParams] = useSearchParams();
@@ -56,6 +58,22 @@ function Items() {
   const [loc, setLoc] = useState("");
   const [owner, setOwner] = useState("");
   const [creating, setCreating] = useState(false);
+  const [view, setView] = useState<"list" | "tree">(() => {
+    try {
+      return localStorage.getItem("ppm.items.view") === "tree" ? "tree" : "list";
+    } catch {
+      return "list";
+    }
+  });
+  const [showComponents, setShowComponents] = useState(false);
+  const chooseView = (v: "list" | "tree") => {
+    setView(v);
+    try {
+      localStorage.setItem("ppm.items.view", v);
+    } catch {
+      // Not remembered in private mode.
+    }
+  };
   const items = useQuery({ queryKey: ["item", "list"], queryFn: () => listEntities(archive.db, "item", { orderBy: "name" }) });
   const persons = useQuery({ queryKey: ["person", "list"], queryFn: () => listEntities(archive.db, "person", { orderBy: "name" }) });
   const owners = useQuery({ queryKey: ["person_link", "item"], queryFn: () => personLinks(archive.db, "item") });
@@ -64,8 +82,13 @@ function Items() {
   const receipts = useQuery({ queryKey: ["documents", "itemReceipts"], queryFn: () => itemsWithReceipt(archive.db) });
   const hasReceipt = receipts.data ?? new Set<string>();
   const thumbs = useThumbnails("item");
+  const componentCount = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const i of items.data ?? []) if (i.parent_item_id) m.set(String(i.parent_item_id), (m.get(String(i.parent_item_id)) ?? 0) + 1);
+    return m;
+  }, [items.data]);
   const rows = (items.data ?? []).filter(
-    (i) => (!loc || i.location_id === loc) && (!owner || (owners.data?.get(String(i.id)) ?? []).some((p) => p.id === owner)) && includesText(i, ["name", "brand", "model", "serial_number", "category"], q),
+    (i) => (showComponents || q || !i.parent_item_id) && (!loc || i.location_id === loc) && (!owner || (owners.data?.get(String(i.id)) ?? []).some((p) => p.id === owner)) && includesText(i, ["name", "brand", "model", "serial_number", "category"], q),
   );
   const selectedId = params.get("id");
   const selected = items.data?.find((i) => i.id === selectedId) ?? null;
@@ -74,6 +97,15 @@ function Items() {
     <>
       <div className="row filters">
         <SearchBox value={q} onChange={setQ} placeholder="Søg i genstande" />
+        <div className="segmented-control" role="group" aria-label="Visning">
+          <button aria-pressed={view === "list"} onClick={() => chooseView("list")}>
+            Liste
+          </button>
+          <button aria-pressed={view === "tree"} onClick={() => chooseView("tree")}>
+            Træ
+          </button>
+        </div>
+        {view === "list" && (
         <select aria-label="Placering" value={loc} onChange={(e) => setLoc(e.target.value)}>
           <option value="">Alle placeringer</option>
           {(locations.data ?? []).map((l) => (
@@ -82,7 +114,8 @@ function Items() {
             </option>
           ))}
         </select>
-        {(persons.data ?? []).length > 0 && (
+        )}
+        {view === "list" && (persons.data ?? []).length > 0 && (
           <select aria-label="Ejer" value={owner} onChange={(e) => setOwner(e.target.value)}>
             <option value="">Alle personer</option>
             {(persons.data ?? []).map((p) => (
@@ -92,11 +125,19 @@ function Items() {
             ))}
           </select>
         )}
+        {view === "list" && componentCount.size > 0 && (
+          <label className="inline small">
+            <input type="checkbox" checked={showComponents} onChange={(e) => setShowComponents(e.target.checked)} /> Vis også komponenter
+          </label>
+        )}
         <button className="primary" onClick={() => setCreating(true)} disabled={archive.readOnly}>
           Ny genstand
         </button>
       </div>
       <div className="split">
+        {view === "tree" ? (
+          <ItemTree q={q} selectedId={selectedId} onSelect={(id) => setParams({ id })} />
+        ) : (
         <table className="list">
           <thead>
             <tr>
@@ -114,6 +155,7 @@ function Items() {
                   <span className="with-thumb">
                     <RowThumb doc={thumbs?.get(String(i.id))} icon={Package} />
                     <span className="text">{String(i.name)}</span>
+                    {componentCount.get(String(i.id)) ? <span className="small muted">{componentCount.get(String(i.id))} dele</span> : null}
                     {(owners.data?.get(String(i.id)) ?? []).length > 0 && (
                       <span className="avatars">
                         {(owners.data?.get(String(i.id)) ?? []).map((p) => (
@@ -138,6 +180,7 @@ function Items() {
             )}
           </tbody>
         </table>
+        )}
         {selected && <ItemDetail key={String(selected.id)} item={selected} onArchived={() => setParams({})} />}
       </div>
       {creating && <NewItem onClose={() => setCreating(false)} onCreated={(id) => setParams({ id })} />}
@@ -196,6 +239,7 @@ function complaintSuggestion(key: string, values: Record<string, string>, set: (
 }
 
 function ItemDetail({ item, onArchived }: { item: Row; onArchived(): void }) {
+  const [params] = useSearchParams();
   const id = String(item.id);
   return (
     <aside className="detail wide-detail" aria-label="Genstand">
@@ -203,72 +247,23 @@ function ItemDetail({ item, onArchived }: { item: Row; onArchived(): void }) {
         <h2>{String(item.name)}</h2>
         <ArchiveButton type="item" id={id} label="Genstanden" onDone={onArchived} />
       </div>
+      <ComponentPath itemId={id} />
       <PhotoStrip targetType="item" targetId={id} />
       <ItemOwners itemId={id} />
       <ItemLending itemId={id} />
       <ReceiptSuggestionBanner itemId={id} />
       <Tabs
+        initial={params.get("tab") === "components" ? "components" : undefined}
         tabs={[
-          { id: "info", label: "Oplysninger", content: () => <EntityForm key={String(item.updated_at ?? "")} type="item" row={item} renderAfter={complaintSuggestion} /> },
+          { id: "info", label: "Oplysninger", content: () => <EntityForm key={String(item.updated_at ?? "")} type="item" row={item} fields={item.parent_item_id ? [...fieldsFor("item").filter((f) => !["parent_item_id", "component_role"].includes(f.key)), ...COMPONENT_FIELDS.filter((f) => ["component_role", "part_number", "quantity", "stock_status"].includes(f.key)), ...fieldsFor("item").filter((f) => f.key === "parent_item_id")] : undefined} renderAfter={complaintSuggestion} /> },
           { id: "docs", label: "Bilag", content: () => <DocumentsTab targetType="item" targetId={id} /> },
-          { id: "parts", label: "Reservedele", content: () => <Parts itemId={id} /> },
+          { id: "components", label: "Komponenter", content: () => <ComponentsTab item={item} /> },
           { id: "ins", label: "Forsikring", content: () => <ItemPolicies itemId={id} /> },
           { id: "hist", label: "Historik", content: () => <HistoryTab targetType="item" targetId={id} /> },
           { id: "tasks", label: "Opgaver", content: () => <TasksTab targetType="item" targetId={id} module="Bolig og inventar" /> },
         ]}
       />
     </aside>
-  );
-}
-
-function Parts({ itemId }: { itemId: string }) {
-  const session = useSession();
-  const qc = useQueryClient();
-  const toast = useToast();
-  const parts = useQuery({ queryKey: ["item_part", itemId], queryFn: () => listEntities(session.archive.db, "item_part", { where: { item_id: itemId }, orderBy: "name" }) });
-  const [key, setKey] = useState(0);
-  const [open, setOpen] = useState<string | null>(null);
-  const [pending, setPending] = useState<PendingFile[]>([]);
-  return (
-    <div>
-      {parts.data?.length === 0 && <Empty>Ingen reservedele registreret.</Empty>}
-      <ul className="plain">
-        {(parts.data ?? []).map((p) => {
-          const id = String(p.id);
-          const isOpen = open === id;
-          return (
-            <li key={id} className="part-row">
-              <button className="part-head" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : id)}>
-                <span>{String(p.name)}</span>
-                <span className="muted">{String(p.part_number ?? "")}</span>
-                <span className="muted">{String(p.vendor ?? "")}</span>
-              </button>
-              {isOpen && (
-                <div className="part-body">
-                  <PhotoStrip targetType="item_part" targetId={id} />
-                  <EntityForm type="item_part" row={p} fixed={{ item_id: itemId }} invalidate={[["item_part", itemId]]} />
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      <EntityForm
-        key={key}
-        type="item_part"
-        fixed={{ item_id: itemId }}
-        title="Tilføj reservedel"
-        submitLabel="Tilføj"
-        renderAfter={(k) => (k === "notes" ? <PendingAttachments value={pending} onChange={setPending} receipt={false} /> : null)}
-        onSaved={async (r) => {
-          const res = await attachPending(session, "item_part", String(r.id), pending);
-          for (const e of res.errors) toast(e, "error");
-          await qc.invalidateQueries({ queryKey: ["documents"] });
-          setPending([]);
-          setKey((k) => k + 1);
-        }}
-      />
-    </div>
   );
 }
 

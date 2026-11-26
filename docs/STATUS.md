@@ -94,6 +94,16 @@ PPM kan bruges fra iPhone som en app på hjemmeskærmen, når telefonen er på s
 - **Privatliv:** helbred vises ikke på telefonen (kalender, opgaver, søgning), og dokumenter koblet til helbredsdata kan ikke hentes.
 - **Tests:** `mobile.test.ts` i core (parring, nøgler, LAN-adresser), `mobile.test.ts` i mcp-server (rigtig HTTPS mod demoarkivet: certifikatets egenskaber, parring, overblik, udført, kalender, indkøb, madplan, søgning, upload, helbredsspærring, HTTP-porten), `rendered.test.tsx` (Indstillinger → Mobil). E2E: `e2e/mobile.ts` (iPhone-visning i Chromium mod rigtig server, 9/9) og `e2e/mobile-desktop.mjs` (den rigtige app starter og stopper serveren, 6/6). Selve iPhone (Safari, certifikatinstallation, hjemmeskærm) er **ikke** afprøvet; det kræver en rigtig iPhone.
 
+## Ønske 26.11.2026: komponenter og trævisning (migration 0012)
+
+- **Migration 0012** (foreslået som `docs/spec/schema-0012.sql`): en genstand kan høre til en anden (`parent_item_id`) som indbygget del, tilbehør, forbrugsstof eller reservedel (`component_role`), med varenummer, antal og lagerstatus (på lager, brugt, skal købes). En brugt del peger på arbejdsordren og datoen. Reservedele fra `item_part` er flyttet til `item` med samme id, og deres bilag følger med; `item_part` står tom.
+- **Core** (`repo/components.ts`): kredsløb afvises (også fra telefonen og AI), `componentsOf`, `ancestorsOf`, `consumeComponent` (bruger en del af lageret og deler rækken, så resten står "På lager"), `componentsInStockFor` (hele træet under en genstand) og `itemTree`.
+- **Trævisning:** Bolig og inventar → Genstande har *Liste* og *Træ*. Træet grupperes efter placering (bolig › rum › underrum › genstand › komponenter), ejer eller kategori og foldes ud med pilene, *Fold alt ud* og *Fold alt sammen*. En genstand med flere ejere står under hver ejer; komponenter arver ejer fra genstanden. En komponent med egen placering står både under sin genstand og i sit eget rum, mærket "del af …". En søgning viser træfferne med vejen til dem.
+- **Genstand:** fanen *Komponenter* (erstatter *Reservedele*) grupperet efter rolle, med *Tilføj komponent* og *Brug …* (antal, arbejdsordre og dato). Øverst står "Del af 3D-printer › Hotend" med links. Listen viser kun hovedgenstande og "3 dele"; *Vis også komponenter* viser resten.
+- **Arbejdsordre:** fanen *Reservedele* viser, hvad der er brugt, og *Brug fra lager* vælger blandt reservedele og forbrugsstoffer under genstanden.
+- **Telefonen:** genstande viser komponenter og "Del af …", og *Tilføj komponent* opretter en reservedel eller andet med antal og lager.
+- **Tests:** `components.test.ts` (migration med bilag, kredsløb, sti, brug af lager, træ efter placering, ejer og kategori, søgning), `rendered.test.tsx` "components", `mobile.test.ts`.
+
 ## Gennemgang 26.11.2026: top 10 rettet
 
 | Fund | Rettelse | Test |

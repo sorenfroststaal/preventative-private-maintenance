@@ -558,3 +558,7 @@ li.row:last-child {
 .empty .pill {
   margin-top: 12px;
 }
+.text-btn.inline {
+  display: inline;
+  padding: 0;
+}

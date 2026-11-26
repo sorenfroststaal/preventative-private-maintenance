@@ -145,6 +145,14 @@ export const fields = {
     warranty_until: opt(zDate),
     complaint_until: opt(zDate),
     notes: opt(z.string()),
+    // Components (schemaVersion 12)
+    parent_item_id: opt(zId),
+    component_role: opt(z.enum(["part", "accessory", "consumable", "spare_part"])),
+    part_number: opt(z.string()),
+    quantity: z.number().int().min(0, { message: "Antallet kan ikke være negativt" }).default(1),
+    stock_status: opt(z.enum(["in_stock", "used", "to_buy"])),
+    used_work_order_id: opt(zId),
+    used_date: opt(zDate),
   },
   item_part: {
     item_id: zId,
