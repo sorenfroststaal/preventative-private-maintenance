@@ -21,7 +21,8 @@ import { formatDate, formatMoney } from "../lib/format";
 import { useToast } from "../layout/Shell";
 import { ArchiveButton } from "../components/ArchiveButton";
 import { Avatar, EmptyState, initials, PageTitle } from "../components/visual";
-import { Car, House, Package, PawPrint } from "lucide-react";
+import { Car, House, Package, PawPrint, ShieldCheck } from "lucide-react";
+import { RowThumb, useThumbnails } from "../components/RowThumb";
 
 const TARGET_ICON = { property: House, item: Package, vehicle: Car, pet: PawPrint } as const;
 
@@ -50,6 +51,7 @@ export function Insurance() {
   const [report, setReport] = useState(false);
   const list = useQuery({ queryKey: ["policy", "list"], queryFn: () => listEntities(archive.db, "policy", { orderBy: "title" }) });
   const coverages = useQuery({ queryKey: ["policy_coverage", "all"], queryFn: () => policyCoverages(archive.db) });
+  const thumbs = useThumbnails("policy");
   const coverBy = new Map<string, CoveredTarget[]>();
   for (const c of coverages.data ?? []) coverBy.set(c.policy_id, [...(coverBy.get(c.policy_id) ?? []), c]);
   const total = (list.data ?? []).reduce((a, p) => a + (annualAmount(p.premium_minor as number, p.premium_period as string) ?? 0), 0);
@@ -81,7 +83,12 @@ export function Insurance() {
           <tbody>
             {(list.data ?? []).map((p) => (
               <tr key={String(p.id)} {...rowProps(p.id === selectedId, () => setParams({ id: String(p.id) }))}>
-                <td>{String(p.title)}</td>
+                <td>
+                  <span className="with-thumb">
+                    <RowThumb doc={thumbs?.get(String(p.id))} icon={ShieldCheck} />
+                    <span className="text">{String(p.title)}</span>
+                  </span>
+                </td>
                 <td>{optionLabel(POLICY_KIND, p.kind)}</td>
                 <td>
                   <CoveredAvatars targets={coverBy.get(String(p.id)) ?? []} />

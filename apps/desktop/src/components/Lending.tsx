@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { RowThumb, useThumbnails } from "./RowThumb";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { HandHelping } from "lucide-react";
@@ -31,6 +32,7 @@ export function LendingTab() {
     onError: (e) => toast(errorText(e), "error"),
   });
   const selectedId = params.get("udlaan");
+  const thumbs = useThumbnails("item");
   const all = [...(active.data ?? []), ...(returned.data ?? [])];
   const selected = all.find((l) => l.id === selectedId) ?? null;
   const ro = session.archive.readOnly;
@@ -61,7 +63,12 @@ export function LendingTab() {
             <tbody>
               {(active.data ?? []).map((l) => (
                 <tr key={l.id} {...rowProps(l.id === selectedId, () => setParams({ tab: "lending", udlaan: l.id }))}>
-                  <td>{l.thing}</td>
+                  <td>
+                    <span className="with-thumb">
+                      <RowThumb doc={l.item_id ? thumbs?.get(String(l.item_id)) : null} icon={HandHelping} />
+                      <span className="text">{l.thing}</span>
+                    </span>
+                  </td>
                   <td>{l.borrower}</td>
                   <td>{formatDate(l.lent_date)}</td>
                   <td>{formatDate(l.due_date)}</td>

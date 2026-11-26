@@ -291,7 +291,7 @@ describe("phase 2b.9 – rendered components", () => {
     await createEntity(ctx, "policy_coverage", { policy_id: String(pol.id), target_type: "person", target_id: String(bo.id) });
     const { container } = renderAt(`/forsikring?id=${String(pol.id)}`);
     await settle("Forsikring");
-    const row = (await screen.findByText("Ulykkesforsikring", { selector: "td" })).closest("tr")!;
+    const row = (await screen.findByText("Ulykkesforsikring", { selector: ".text" })).closest("tr")!;
     expect(within(row).getByRole("img", { name: "Bo Testesen" }).textContent).toBe("BT");
     const group = await screen.findByRole("group", { name: "Dækkede personer" });
     expect(within(group).getByRole("button", { name: /Bo Testesen/ })).toHaveAttribute("aria-pressed", "true");
@@ -491,13 +491,13 @@ describe("phase 2b.9 – rendered components", () => {
     fireEvent.change(within(dialog).getByLabelText(/^Eller lånerens navn/), { target: { value: "Naboen" } });
     fireEvent.change(within(dialog).getByLabelText("Afleveres senest"), { target: { value: addDays(TODAY, 7) } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Registrér udlån" }));
-    const row = (await screen.findByText("Stige 4 m", { selector: "td" })).closest("tr")!;
+    const row = (await screen.findByText("Stige 4 m", { selector: ".text" })).closest("tr")!;
     expect(within(row).getByText("Naboen")).toBeInTheDocument();
     checkButtons(container, "Udlån");
     const ev = await timelineEvents(archive.db, { from: TODAY, to: addDays(TODAY, 30), kinds: ["lending"], today: TODAY, userId: user.id });
     expect(ev.map((e) => e.title)).toContain("Stige 4 m lånt ud til Naboen");
     fireEvent.click(within(row).getByRole("button", { name: "Markér Stige 4 m som afleveret" }));
-    await waitFor(() => expect(screen.queryByText("Stige 4 m", { selector: "td" })).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Stige 4 m", { selector: ".text" })).toBeNull());
   });
 
   it("'+ Ny kontakt…' on an item's vendor creates and selects the contact without saving the item form", async () => {
@@ -533,6 +533,23 @@ describe("phase 2b.9 – rendered components", () => {
     fireEvent.change(within(dialog).getByLabelText(/^Fødselsår/), { target: { value: "2016" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Opret" }));
     await waitFor(async () => expect(await archive.db.select("SELECT relation, birth_year FROM person WHERE name = 'Noah Eksempel'")).toEqual([{ relation: "barn", birth_year: 2016 }]));
+  });
+
+  it("documents: images get a preview and the Koblinger column names the linked records", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const item = await createEntity(ctx, "item", { name: "Koblingstest-lampe" });
+    const png = join(mkdtempSync(join(tmpdir(), "ppm-ui-dl-")), "lampe.png");
+    writeFileSync(png, Buffer.concat([Buffer.from(photoPngBase64, "base64"), Buffer.from("dl")]));
+    const { document } = await importDocument(env, archive, ctx, png, { source: "drop" });
+    await linkDocument(ctx, { document_id: String(document.id), target_type: "item", target_id: String(item.id), role: "photo" });
+    const { container } = renderAt("/dokumenter");
+    await settle("Dokumenter");
+    const chip = await screen.findByRole("button", { name: /Genstand: Koblingstest-lampe/ });
+    const row = chip.closest("tr")!;
+    expect(row.querySelector(".row-thumb")).not.toBeNull();
+    checkButtons(container, "Dokumenter");
+    fireEvent.click(chip);
+    await screen.findByRole("heading", { level: 1, name: "Bolig og inventar" });
   });
 });
 

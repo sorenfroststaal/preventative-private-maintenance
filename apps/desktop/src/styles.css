@@ -1477,3 +1477,57 @@ fieldset.yesno legend {
 .tl-list {
   margin-top: 0.5rem;
 }
+.row-thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  overflow: hidden;
+  flex: none;
+  vertical-align: middle;
+}
+.row-thumb.has-img {
+  border-color: transparent;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 18%);
+}
+.row-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.with-thumb {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.with-thumb > .text {
+  min-width: 0;
+}
+.link-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+.link-chip {
+  font-size: 0.8rem;
+  padding: 0.12rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.link-chip:hover {
+  border-color: var(--accent);
+}

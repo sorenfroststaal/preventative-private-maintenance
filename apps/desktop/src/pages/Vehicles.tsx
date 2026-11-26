@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { RowThumb, useThumbnails } from "../components/RowThumb";
+import { Car } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { latestOdometer, listEntities, loanSummary, recurringSummary, vehicleCostsByYear, type Row } from "@ppm/core";
@@ -31,6 +33,7 @@ export function Vehicles() {
   });
   const selectedId = params.get("id");
   const selected = list.data?.find((v) => v.id === selectedId);
+  const thumbs = useThumbnails("vehicle");
   return (
     <section>
       <div className="page-header">
@@ -51,7 +54,12 @@ export function Vehicles() {
           <tbody>
             {(list.data ?? []).map((v) => (
               <tr key={String(v.id)} {...rowProps(v.id === selectedId, () => setParams({ id: String(v.id) }))}>
-                <td>{String(v.name)}</td>
+                <td>
+                  <span className="with-thumb">
+                    <RowThumb doc={thumbs?.get(String(v.id))} icon={Car} />
+                    <span className="text">{String(v.name)}</span>
+                  </span>
+                </td>
                 <td>{String(v.registration ?? "–")}</td>
                 <td>{v.km ? Number(v.km).toLocaleString("da-DK") : "–"}</td>
               </tr>

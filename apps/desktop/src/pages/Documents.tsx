@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { routeFor } from "../lib/routes";
+import { RowThumb } from "../components/RowThumb";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
-import { linkDocument, listDocuments, MIME_BY_EXT, type Row } from "@ppm/core";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { documentLinkSummaries, linkDocument, listDocuments, MIME_BY_EXT, type LinkSummary, type Row } from "@ppm/core";
 import { errorText, useSession } from "../app/session";
 import { pickFiles } from "../platform/tauri";
 import { formatBytes, formatDateTime } from "../lib/format";
@@ -39,6 +41,8 @@ export function Documents({ onImport }: { onImport(paths: string[]): Promise<voi
   const [role, setRole] = useState("");
   const [q, setQ] = useState("");
   const docs = useQuery({ queryKey: ["documents", "list", unlinkedOnly], queryFn: () => listDocuments(archive.db, { unlinkedOnly }) });
+  const links = useQuery({ queryKey: ["documents", "link-summaries"], queryFn: () => documentLinkSummaries(archive.db) });
+  const navigate = useNavigate();
   const roles = useQuery({
     queryKey: ["documents", "roles"],
     queryFn: () => archive.db.select<{ document_id: string; role: string }>("SELECT document_id, role FROM document_link"),
@@ -112,13 +116,26 @@ export function Documents({ onImport }: { onImport(paths: string[]): Promise<voi
             {rows.map((d) => (
               <tr key={String(d.id)} {...rowProps(d.id === selectedId, () => setParams({ id: String(d.id), ...(unlinkedOnly ? { queue: "1" } : {}) }))}>
                 <td>
-                  <FileTypeIcon ext={String(d.ext)} /> {String(d.title ?? d.filename)}
-                  <div className="small muted">{String(d.filename)}</div>
+                  <span className="with-thumb">
+                    {["jpg", "jpeg", "png"].includes(String(d.ext)) ? (
+                      <RowThumb doc={{ id: String(d.id), sha256: String(d.sha256), ext: String(d.ext), mime: String(d.mime) }} />
+                    ) : (
+                      <span className="row-thumb" aria-hidden="true">
+                        <FileTypeIcon ext={String(d.ext)} size={20} />
+                      </span>
+                    )}
+                    <span className="text">
+                      {String(d.title ?? d.filename)}
+                      <div className="small muted">{String(d.filename)}</div>
+                    </span>
+                  </span>
                 </td>
                 <td>{formatBytes(Number(d.size_bytes))}</td>
                 <td>{SOURCE_LABEL[String(d.source)] ?? String(d.source)}</td>
                 <td>{formatDateTime(String(d.created_at))}</td>
-                <td>{Number(d.link_count) || <StatusBadge kind="missing">Ingen</StatusBadge>}</td>
+                <td>
+                  <LinkChips links={links.data?.get(String(d.id)) ?? []} onOpen={(l) => navigate(routeFor(l.type, l.id))} />
+                </td>
               </tr>
             ))}
             {rows.length === 0 && (
@@ -201,5 +218,43 @@ function LinkPanel({ doc, roles }: { doc: Row; roles: string[] }) {
         </button>
       </div>
     </fieldset>
+  );
+}
+
+const TYPE_LABEL: Record<string, string> = {
+  ...Object.fromEntries(LINK_TARGETS.map(([k, l]) => [k, l])),
+  location: "Rum",
+  item_part: "Reservedel",
+  bank_transaction: "Postering",
+  task_occurrence: "Opgave",
+  recipe: "Opskrift",
+};
+
+/** What a document is linked to: up to two chips that open the record, then "+n". */
+function LinkChips({ links, onOpen }: { links: LinkSummary[]; onOpen(l: LinkSummary): void }) {
+  if (links.length === 0) return <StatusBadge kind="missing">Ingen</StatusBadge>;
+  const shown = links.slice(0, 2);
+  return (
+    <span className="link-chips">
+      {shown.map((l) => (
+        <button
+          key={`${l.type}:${l.id}:${l.role}`}
+          type="button"
+          className="link-chip"
+          title={`${TYPE_LABEL[l.type] ?? l.type}: ${l.name} (${optionLabel(DOC_ROLES, l.role)})`}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!l.type.startsWith("health_")) onOpen(l);
+          }}
+        >
+          <span className="muted">{TYPE_LABEL[l.type] ?? (l.type.startsWith("health_") ? "Helbred" : l.type)}:</span> {l.name}
+        </button>
+      ))}
+      {links.length > 2 && (
+        <span className="small muted" title={links.slice(2).map((l) => `${TYPE_LABEL[l.type] ?? l.type}: ${l.name}`).join("\n")}>
+          +{links.length - 2}
+        </span>
+      )}
+    </span>
   );
 }

@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { RowThumb, useThumbnails } from "../components/RowThumb";
+import { Hammer, Package, PawPrint } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { addMonths, archiveEntity, listEntities, policiesForItem, type Row } from "@ppm/core";
@@ -65,6 +67,7 @@ function Items() {
       ),
   });
   const hasReceipt = new Set((photos.data ?? []).map((p) => p.target_id));
+  const thumbs = useThumbnails("item");
   const rows = (items.data ?? []).filter((i) => (!loc || i.location_id === loc) && includesText(i, ["name", "brand", "model", "serial_number", "category"], q));
   const selectedId = params.get("id");
   const selected = items.data?.find((i) => i.id === selectedId) ?? null;
@@ -99,7 +102,12 @@ function Items() {
           <tbody>
             {rows.map((i) => (
               <tr key={String(i.id)} {...rowProps(i.id === selectedId, () => setParams({ id: String(i.id) }))}>
-                <td>{String(i.name)}</td>
+                <td>
+                  <span className="with-thumb">
+                    <RowThumb doc={thumbs?.get(String(i.id))} icon={Package} />
+                    <span className="text">{String(i.name)}</span>
+                  </span>
+                </td>
                 <td>{locName.get(String(i.location_id)) ?? "–"}</td>
                 <td>{formatDate(i.purchase_date as string)}</td>
                 <td>{formatMoney(i.purchase_price_minor as number)}</td>
@@ -339,6 +347,7 @@ function BuildingParts() {
   const parts = useQuery({ queryKey: ["building_part", "list"], queryFn: () => listEntities(archive.db, "building_part", { orderBy: "name" }) });
   const selectedId = params.get("part");
   const selected = parts.data?.find((p) => p.id === selectedId);
+  const thumbs = useThumbnails("building_part");
   return (
     <div>
       <button className="primary" onClick={() => setCreating(true)} disabled={archive.readOnly}>
@@ -356,7 +365,12 @@ function BuildingParts() {
           <tbody>
             {(parts.data ?? []).map((p) => (
               <tr key={String(p.id)} {...rowProps(p.id === selectedId, () => setParams({ part: String(p.id) }))}>
-                <td>{String(p.name)}</td>
+                <td>
+                  <span className="with-thumb">
+                    <RowThumb doc={thumbs?.get(String(p.id))} icon={Hammer} />
+                    <span className="text">{String(p.name)}</span>
+                  </span>
+                </td>
                 <td>{String(p.kind ?? "–")}</td>
                 <td>{formatDate(p.installed_date as string)}</td>
               </tr>
@@ -424,6 +438,7 @@ function Pets() {
   });
   const selectedId = params.get("pet");
   const selected = pets.data?.find((p) => p.id === selectedId);
+  const thumbs = useThumbnails("pet");
   return (
     <div>
       <button className="primary" onClick={() => setCreating(true)} disabled={archive.readOnly}>
@@ -442,7 +457,12 @@ function Pets() {
           <tbody>
             {(pets.data ?? []).map((p) => (
               <tr key={String(p.id)} {...rowProps(p.id === selectedId, () => setParams({ tab: "pets", pet: String(p.id) }))}>
-                <td>{String(p.name)}</td>
+                <td>
+                  <span className="with-thumb">
+                    <RowThumb doc={thumbs?.get(String(p.id))} icon={PawPrint} />
+                    <span className="text">{String(p.name)}</span>
+                  </span>
+                </td>
                 <td>
                   {SPECIES[String(p.species)] ?? String(p.species)}
                   {p.breed ? `, ${String(p.breed)}` : ""}

@@ -204,3 +204,86 @@ export async function ocrPendingDocuments(env: Env, archive: Archive, ctx: Ctx, 
   }
   return docs.length;
 }
+
+export interface ThumbDoc {
+  id: string;
+  sha256: string;
+  ext: string;
+  mime: string;
+}
+
+const THUMB_EXTS = ["jpg", "jpeg", "png"];
+
+/**
+ * The image shown on a record's row: the first photo (role 'photo', then any other role) linked to it.
+ * A policy without its own image shows the photo of something it covers.
+ */
+export async function thumbnailsFor(db: DbAdapter, targetType: string): Promise<Map<string, ThumbDoc>> {
+  const marks = THUMB_EXTS.map(() => "?").join(",");
+  const rows = await db.select<ThumbDoc & { target_id: string }>(
+    `SELECT l.target_id, d.id, d.sha256, d.ext, d.mime FROM document_link l JOIN document d ON d.id = l.document_id
+      WHERE l.target_type = ? AND d.ext IN (${marks})
+      ORDER BY l.target_id, CASE l.role WHEN 'photo' THEN 0 WHEN 'photo_after' THEN 1 ELSE 2 END, d.created_at`,
+    [targetType, ...THUMB_EXTS],
+  );
+  const out = new Map<string, ThumbDoc>();
+  for (const r of rows) if (!out.has(r.target_id)) out.set(r.target_id, { id: r.id, sha256: r.sha256, ext: r.ext, mime: r.mime });
+  if (targetType === "policy") {
+    const covered = await db.select<ThumbDoc & { policy_id: string }>(
+      `SELECT c.policy_id, d.id, d.sha256, d.ext, d.mime FROM policy_coverage c
+         JOIN document_link l ON l.target_type = c.target_type AND l.target_id = c.target_id
+         JOIN document d ON d.id = l.document_id
+        WHERE d.ext IN (${marks}) ORDER BY c.policy_id, CASE l.role WHEN 'photo' THEN 0 ELSE 1 END, d.created_at`,
+      THUMB_EXTS,
+    );
+    for (const r of covered) if (!out.has(r.policy_id)) out.set(r.policy_id, { id: r.id, sha256: r.sha256, ext: r.ext, mime: r.mime });
+  }
+  return out;
+}
+
+export interface LinkSummary {
+  type: string;
+  id: string;
+  /** Display name of the record; health records only say "Helbred" (no details in lists). */
+  name: string;
+  role: string;
+}
+
+const LINK_NAME_SQL = `SELECT l.document_id, l.target_type AS type, l.target_id AS id, l.role,
+  COALESCE(pr.name, lo.name, it.name, ip.name, bp.name, ve.name, pe.name, wo.title, cl.description, po.title,
+           ps.name, co.name, ac.name, ln.name, re.name, bt.text, tk.title) AS name
+  FROM document_link l
+  LEFT JOIN property pr ON l.target_type = 'property' AND pr.id = l.target_id
+  LEFT JOIN location lo ON l.target_type = 'location' AND lo.id = l.target_id
+  LEFT JOIN item it ON l.target_type = 'item' AND it.id = l.target_id
+  LEFT JOIN item_part ip ON l.target_type = 'item_part' AND ip.id = l.target_id
+  LEFT JOIN building_part bp ON l.target_type = 'building_part' AND bp.id = l.target_id
+  LEFT JOIN vehicle ve ON l.target_type = 'vehicle' AND ve.id = l.target_id
+  LEFT JOIN pet pe ON l.target_type = 'pet' AND pe.id = l.target_id
+  LEFT JOIN work_order wo ON l.target_type = 'work_order' AND wo.id = l.target_id
+  LEFT JOIN claim cl ON l.target_type = 'claim' AND cl.id = l.target_id
+  LEFT JOIN policy po ON l.target_type = 'policy' AND po.id = l.target_id
+  LEFT JOIN person ps ON l.target_type = 'person' AND ps.id = l.target_id
+  LEFT JOIN contact co ON l.target_type = 'contact' AND co.id = l.target_id
+  LEFT JOIN account ac ON l.target_type = 'account' AND ac.id = l.target_id
+  LEFT JOIN loan ln ON l.target_type = 'loan' AND ln.id = l.target_id
+  LEFT JOIN recurring_expense re ON l.target_type = 'recurring_expense' AND re.id = l.target_id
+  LEFT JOIN bank_transaction bt ON l.target_type = 'bank_transaction' AND bt.id = l.target_id
+  LEFT JOIN task_occurrence tko ON l.target_type = 'task_occurrence' AND tko.id = l.target_id
+  LEFT JOIN task tk ON tk.id = tko.task_id`;
+
+/** What every document is linked to, by document id (for the Koblinger column). Recipe photos count too. */
+export async function documentLinkSummaries(db: DbAdapter): Promise<Map<string, LinkSummary[]>> {
+  const rows = await db.select<LinkSummary & { document_id: string }>(LINK_NAME_SQL);
+  const recipes = await db.select<{ document_id: string; id: string; name: string }>(
+    "SELECT photo_document_id AS document_id, id, name FROM recipe WHERE photo_document_id IS NOT NULL",
+  );
+  const out = new Map<string, LinkSummary[]>();
+  const add = (docId: string, s: LinkSummary) => out.set(docId, [...(out.get(docId) ?? []), s]);
+  for (const r of rows) {
+    const health = r.type.startsWith("health_");
+    add(r.document_id, { type: r.type, id: r.id, role: r.role, name: health ? "Helbred" : (r.name ?? "(slettet)") });
+  }
+  for (const r of recipes) add(r.document_id, { type: "recipe", id: r.id, role: "photo", name: r.name });
+  return out;
+}
