@@ -88,3 +88,24 @@ describe("gifts", () => {
     expect(ev.map((e) => [e.title, e.detail])).toEqual([["Gave til Karl Ven: Vin", "Jul"]]);
   });
 });
+
+describe("Danish messages (review D2)", () => {
+  it("validation errors and database constraint errors are in Danish", async () => {
+    const { env, archive } = await newArchive();
+    const ctx = ctxFor(env, archive);
+    const { createEntity: create, friendlyDbError } = await import("../src");
+    await expect(create(ctx, "person", {} as never)).rejects.toThrow(/name: Feltet skal udfyldes/);
+    await expect(create(ctx, "contact", { name: "X", kind: "alien" } as never)).rejects.toThrow(/kind: Ugyldig værdi\. Vælg en af: craftsman/);
+    await expect(create(ctx, "person", { name: "X", birth_year: "1980" } as never)).rejects.toThrow(/birth_year: Skal være et tal/);
+    await expect(create(ctx, "person", { name: "X", shoe: 42 } as never)).rejects.toThrow(/Ukendt felt: shoe/);
+    try {
+      await create(ctx, "person", {} as never);
+    } catch (e) {
+      expect((e as Error).message).not.toMatch(/Required|Invalid|Expected/);
+    }
+    expect(friendlyDbError("UNIQUE constraint failed: tag.name")).toMatch(/^Findes allerede/);
+    expect(friendlyDbError("FOREIGN KEY constraint failed")).toMatch(/hænger sammen/);
+    expect(friendlyDbError("CHECK constraint failed: x")).toBe("Værdien er ikke tilladt her.");
+    expect(friendlyDbError("noget andet")).toBe("noget andet");
+  });
+});

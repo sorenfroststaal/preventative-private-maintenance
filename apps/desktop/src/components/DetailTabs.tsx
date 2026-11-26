@@ -82,7 +82,7 @@ export function DocumentsTab({ targetType, targetId, roles }: { targetType: DocT
               {String(d.title ?? d.filename)}
             </button>
             <span className="muted">{optionLabel(DOC_ROLES, d.role)}</span>
-            <button className="link" onClick={() => unlink.mutate(d)} aria-label={`Fjern ${d.title ?? d.filename}`}>
+            <button className="link" onClick={() => window.confirm(`Fjern bilaget "${d.title ?? d.filename}" fra posten? Selve dokumentet bevares under Dokumenter.`) && unlink.mutate(d)} aria-label={`Fjern ${d.title ?? d.filename}`}>
               Fjern
             </button>
           </li>

@@ -231,7 +231,7 @@ function Coverage({ policyId }: { policyId: string }) {
           <li key={`${c.target_type}:${c.target_id}`} className="line">
             <span>{String(c.name ?? "?")}</span>
             <span className="muted">{COVER_TYPES.find(([k]) => k === c.target_type)?.[1]}</span>
-            <button className="link" onClick={() => remove.mutate(c)}>
+            <button className="link" onClick={() => window.confirm(`Fjern "${String(c.name ?? "?")}" fra policen?`) && remove.mutate(c)} aria-label={`Fjern ${String(c.name ?? "?")} fra policen`}>
               Fjern
             </button>
           </li>

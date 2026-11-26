@@ -686,5 +686,28 @@ describe("phase 2b.9 – rendered components", () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByText(/Egen fejl/)).toBeNull();
   });
+  it("C5: archiving an item and removing an attachment ask first; cancelling keeps them", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const item = await createEntity(ctx, "item", { name: "C5-lampe" });
+    const tmp = join(mkdtempSync(join(tmpdir(), "ppm-c5-")), "kvittering.pdf");
+    writeFileSync(tmp, "%PDF-1.4 c5");
+    const { document } = await importDocument(env, archive, ctx, tmp, { source: "drop" });
+    await linkDocument(ctx, { document_id: String(document.id), target_type: "item", target_id: String(item.id), role: "receipt" });
+    renderAt(`/bolig?id=${String(item.id)}`);
+    await settle("Bolig og inventar");
+    const detail = await screen.findByRole("complementary", { name: "Genstand" });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    fireEvent.click(within(detail).getByRole("button", { name: "Arkivér" }));
+    expect(confirm).toHaveBeenCalledWith(expect.stringMatching(/^Arkivér genstanden\?/));
+    expect(await archive.db.select("SELECT archived_at FROM item WHERE id = ?", [String(item.id)])).toEqual([{ archived_at: null }]);
+    fireEvent.click(within(detail).getByRole("tab", { name: "Bilag" }));
+    fireEvent.click(await within(detail).findByRole("button", { name: /^Fjern kvittering/ }));
+    expect(confirm).toHaveBeenLastCalledWith(expect.stringMatching(/Fjern bilaget/));
+    expect((await archive.db.select("SELECT count(*) AS n FROM document_link WHERE target_id = ?", [String(item.id)]))[0]).toEqual({ n: 1 });
+    confirm.mockReturnValue(true);
+    fireEvent.click(within(detail).getByRole("button", { name: "Arkivér" }));
+    await waitFor(async () => expect((await archive.db.select<{ archived_at: string | null }>("SELECT archived_at FROM item WHERE id = ?", [String(item.id)]))[0]!.archived_at).not.toBeNull());
+    confirm.mockRestore();
+  });
 });
 

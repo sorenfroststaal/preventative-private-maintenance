@@ -29,6 +29,7 @@ import {
   documentsFor,
   entriesBetween,
   formatShoppingItem,
+  friendlyDbError,
   groupBySection,
   importDocument,
   isLanAddress,
@@ -378,8 +379,10 @@ export async function startMobileServer(o: MobileServerOptions) {
       if (url.pathname === "/ppm-ca.cer") return send(res, 200, tls.caDer, { "content-type": "application/x-x509-ca-cert", "content-disposition": 'attachment; filename="PPM-certifikat.cer"' });
       return await serveStatic(res, url);
     } catch (e) {
-      const status = e instanceof HttpError ? e.status : e instanceof ValidationError ? 400 : 500;
-      const message = e instanceof Error ? e.message : String(e);
+      const raw = e instanceof Error ? e.message : String(e);
+      const friendly = friendlyDbError(raw);
+      const status = e instanceof HttpError ? e.status : e instanceof ValidationError || friendly !== raw ? 400 : 500;
+      const message = friendly;
       return send(res, status, { error: status === 500 ? "Der skete en fejl på computeren." : message });
     }
   };

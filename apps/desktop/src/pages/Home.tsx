@@ -3,7 +3,7 @@ import { RowThumb, useThumbnails } from "../components/RowThumb";
 import { Hammer, Package, PawPrint } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { addMonths, archiveEntity, listEntities, personLinks, policiesForItem, setPersonLinks, type Row } from "@ppm/core";
+import { addMonths, listEntities, personLinks, policiesForItem, setPersonLinks, type Row } from "@ppm/core";
 import { PersonPicker } from "../components/PersonPicker";
 import { errorText, useSession } from "../app/session";
 import { EntityForm } from "../components/EntityForm";
@@ -206,26 +206,12 @@ function complaintSuggestion(key: string, values: Record<string, string>, set: (
 }
 
 function ItemDetail({ item, onArchived }: { item: Row; onArchived(): void }) {
-  const session = useSession();
-  const qc = useQueryClient();
-  const toast = useToast();
-  const archive = useMutation({
-    mutationFn: () => archiveEntity(session.ctx(), "item", String(item.id)),
-    onSuccess: async () => {
-      await qc.invalidateQueries();
-      toast("Genstanden er arkiveret");
-      onArchived();
-    },
-    onError: (e) => toast(errorText(e), "error"),
-  });
   const id = String(item.id);
   return (
     <aside className="detail wide-detail" aria-label="Genstand">
       <div className="header-row">
         <h2>{String(item.name)}</h2>
-        <button className="link" onClick={() => archive.mutate()} disabled={session.archive.readOnly}>
-          Arkivér
-        </button>
+        <ArchiveButton type="item" id={id} label="Genstanden" onDone={onArchived} />
       </div>
       <PhotoStrip targetType="item" targetId={id} />
       <ItemOwners itemId={id} />

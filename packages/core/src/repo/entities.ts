@@ -1,3 +1,4 @@
+import { safeParseDanish } from "../domain/messages";
 import { z } from "zod";
 import type { DbAdapter, SqlValue } from "../db/adapter";
 import type { Clock } from "../env";
@@ -41,7 +42,7 @@ export class NotFoundError extends Error {
 }
 
 export function parseOrThrow<S extends z.ZodTypeAny>(schema: S, input: unknown, entityType?: string): z.output<S> {
-  const r = schema.safeParse(input);
+  const r = safeParseDanish(schema, input);
   if (!r.success) throw ValidationError.fromZod(r.error, entityType);
   return r.data;
 }

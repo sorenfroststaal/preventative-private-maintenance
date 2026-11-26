@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import { makeCtx, type Archive, type Ctx, type Env, type PublicUser } from "@ppm/core";
+import { friendlyDbError, makeCtx, type Archive, type Ctx, type Env, type PublicUser } from "@ppm/core";
 import type { AppInfo } from "../platform/tauri";
 
 export interface Session {
@@ -30,7 +30,7 @@ export function buildCtx(env: Env, archive: Archive, user: PublicUser): Ctx {
 
 /** Friendly message for any error thrown by core. */
 export function errorText(e: unknown): string {
-  if (e instanceof Error) return e.message;
+  if (e instanceof Error) return friendlyDbError(e.message);
   if (typeof e === "string") return e;
   return "Der skete en ukendt fejl.";
 }
