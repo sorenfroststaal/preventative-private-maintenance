@@ -3,7 +3,7 @@ import { RowThumb, useThumbnails } from "../components/RowThumb";
 import { Car } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
-import { latestOdometer, listEntities, loanSummary, recurringSummary, vehicleCostsByYear, type Row } from "@ppm/core";
+import { latestOdometer, listEntities, loanSummary, recurringLoanOverlaps, recurringSummary, vehicleCostsByYear, type Row } from "@ppm/core";
 import { useSession } from "../app/session";
 import { EntityForm } from "../components/EntityForm";
 import { DocumentsTab, HistoryTab, TasksTab } from "../components/DetailTabs";
@@ -178,7 +178,11 @@ function Costs({ vehicleId }: { vehicleId: string }) {
   const q = useQuery({ queryKey: ["work_order", "costs", vehicleId], queryFn: () => vehicleCostsByYear(archive.db, vehicleId) });
   const rec = useQuery({ queryKey: ["recurring_expense", "vehicle", vehicleId], queryFn: () => recurringSummary(archive.db, { vehicleId, today: env.clock.today() }) });
   const loans = useQuery({ queryKey: ["loan", "vehicle", vehicleId], queryFn: () => loanSummary(archive.db, { vehicleId }) });
+  const overlaps = useQuery({ queryKey: ["recurring_expense", "loan-overlap", vehicleId], queryFn: () => recurringLoanOverlaps(archive.db, { vehicleId, today: env.clock.today() }) });
+  const doubled = new Map((overlaps.data ?? []).map((o) => [o.recurring_id, o.loan_name]));
   const fixed = (rec.data?.items ?? []).filter((r) => !r.ended);
+  // A recurring expense that is the loan's payment is only counted once (review B2).
+  const fixedTotal = fixed.filter((r) => !doubled.has(String(r.id))).reduce((a, r) => a + r.monthly_minor, 0);
   return (
     <div>
       {(fixed.length > 0 || (loans.data?.items.length ?? 0) > 0) && (
@@ -187,7 +191,10 @@ function Costs({ vehicleId }: { vehicleId: string }) {
           <ul className="plain">
             {fixed.map((r) => (
               <li key={String(r.id)} className="line">
-                <span>{String(r.name)}</span>
+                <span>
+                  {String(r.name)}
+                  {doubled.has(String(r.id)) && <span className="small muted"> (samme som lånet {doubled.get(String(r.id))}; tælles kun én gang)</span>}
+                </span>
                 <span className="num">
                   {r.amount_variable ? "ca. " : ""}
                   {formatMoney(r.monthly_minor)} pr. måned
@@ -202,7 +209,7 @@ function Costs({ vehicleId }: { vehicleId: string }) {
             ))}
           </ul>
           <p className="small">
-            I alt pr. måned: <strong>{formatMoney((rec.data?.monthly_total_minor ?? 0) + (loans.data?.monthly_payment_total_minor ?? 0))}</strong>
+            I alt pr. måned: <strong>{formatMoney(fixedTotal + (loans.data?.monthly_payment_total_minor ?? 0))}</strong>
           </p>
         </div>
       )}

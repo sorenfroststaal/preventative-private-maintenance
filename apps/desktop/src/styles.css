@@ -1593,3 +1593,6 @@ fieldset.yesno legend {
   margin-bottom: 6px;
   text-decoration: none;
 }
+.warning-text {
+  color: var(--warning-text, var(--danger));
+}

@@ -109,3 +109,25 @@ describe("Danish messages (review D2)", () => {
     expect(friendlyDbError("noget andet")).toBe("noget andet");
   });
 });
+
+describe("recurring expenses that duplicate a loan (review B2)", () => {
+  it("finds a recurring expense with the loan's monthly payment or name on the same vehicle", async () => {
+    const { env, archive } = await newArchive();
+    const ctx = ctxFor(env, archive);
+    const { recurringLoanOverlaps } = await import("../src");
+    const car = await createEntity(ctx, "vehicle", { name: "Familiebil" });
+    const other = await createEntity(ctx, "vehicle", { name: "Anden bil" });
+    await createEntity(ctx, "loan", { name: "Billån", kind: "car", payment_minor: 250000, vehicle_id: String(car.id) });
+    await createEntity(ctx, "recurring_expense", { name: "Afdrag bil", amount_minor: 250050, period: "month", vehicle_id: String(car.id) });
+    await createEntity(ctx, "recurring_expense", { name: "Forsikring", amount_minor: 60000, period: "month", vehicle_id: String(car.id) });
+    await createEntity(ctx, "recurring_expense", { name: "Afdrag", amount_minor: 250000, period: "month", vehicle_id: String(other.id) });
+    await createEntity(ctx, "loan", { name: "Boliglån Eksempel", kind: "mortgage", payment_minor: 900000 });
+    await createEntity(ctx, "recurring_expense", { name: "Boliglån Eksempel", amount_minor: 12345, period: "month" });
+    const all = await recurringLoanOverlaps(archive.db, { today: "2026-11-24" });
+    expect(all.map((o) => [o.recurring_name, o.loan_name]).sort()).toEqual([
+      ["Afdrag bil", "Billån"],
+      ["Boliglån Eksempel", "Boliglån Eksempel"],
+    ]);
+    expect((await recurringLoanOverlaps(archive.db, { vehicleId: String(car.id) })).map((o) => o.recurring_name)).toEqual(["Afdrag bil"]);
+  });
+});

@@ -622,6 +622,38 @@ export async function loanSummary(db: DbAdapter, opts: { propertyId?: string; ve
   };
 }
 
+export interface LoanOverlap {
+  recurring_id: string;
+  recurring_name: string;
+  loan_id: string;
+  loan_name: string;
+}
+
+/**
+ * Recurring expenses that look like a loan's payment (review B2): same vehicle or property (or neither),
+ * and the same monthly amount within 1 kr, or one name contains the other. Such a pair would be
+ * counted twice when recurring expenses and loan payments are added together.
+ */
+export async function recurringLoanOverlaps(db: DbAdapter, opts: { today?: string; vehicleId?: string; propertyId?: string } = {}): Promise<LoanOverlap[]> {
+  const rec = (await recurringSummary(db, { today: opts.today, vehicleId: opts.vehicleId, propertyId: opts.propertyId })).items.filter((r) => !r.ended);
+  const loans = (await loanSummary(db, { vehicleId: opts.vehicleId, propertyId: opts.propertyId })).items;
+  const norm = (v: unknown) => String(v ?? "").trim().toLocaleLowerCase("da");
+  const out: LoanOverlap[] = [];
+  for (const r of rec) {
+    for (const l of loans) {
+      const sameTarget = (r.vehicle_id ?? null) === (l.vehicle_id ?? null) && (r.property_id ?? null) === (l.property_id ?? null);
+      const linkedEither = (r.vehicle_id && r.vehicle_id === l.vehicle_id) || (r.property_id && r.property_id === l.property_id);
+      if (!sameTarget && !linkedEither) continue;
+      const amount = l.monthly_payment_minor > 0 && Math.abs(r.monthly_minor - l.monthly_payment_minor) <= 100;
+      const rn = norm(r.name);
+      const ln = norm(l.name);
+      const named = rn.length > 2 && ln.length > 2 && (rn.includes(ln) || ln.includes(rn));
+      if (amount || named) out.push({ recurring_id: String(r.id), recurring_name: String(r.name), loan_id: String(l.id), loan_name: String(l.name) });
+    }
+  }
+  return out;
+}
+
 // ---------- Generic profiles stored in settings ----------
 
 export const PROFILES_KEY = "import.profiles";

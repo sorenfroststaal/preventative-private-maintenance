@@ -37,6 +37,7 @@ import {
   parseSparkron,
   previewBankImport,
   PROFILES_KEY,
+  recurringLoanOverlaps,
   recurringSummary,
   setSetting,
   setTransactionCategory,
@@ -685,6 +686,8 @@ function Recurring() {
   const [personFilter, setPersonFilter] = useState("");
   const today = session.env.clock.today();
   const q = useQuery({ queryKey: ["recurring_expense", "summary", today], queryFn: () => recurringSummary(archive.db, { today }) });
+  const overlaps = useQuery({ queryKey: ["recurring_expense", "loan-overlap", today], queryFn: () => recurringLoanOverlaps(archive.db, { today }) });
+  const looksLikeLoan = new Map((overlaps.data ?? []).map((o) => [o.recurring_id, o.loan_name]));
   const archiveRow = useMutation({
     mutationFn: (r: Row) => archiveEntity(session.ctx(), "recurring_expense", String(r.id)),
     onSuccess: async (_, r) => {
@@ -746,6 +749,9 @@ function Recurring() {
                 {r.person_name || r.property_name || r.vehicle_name ? (
                   <div className="small muted">{[r.person_name, r.property_name, r.vehicle_name].filter(Boolean).map(String).join(" · ")}</div>
                 ) : null}
+                {looksLikeLoan.has(String(r.id)) && (
+                  <div className="small warning-text">Ligner ydelsen på lånet {looksLikeLoan.get(String(r.id))}. Registrér den kun ét sted, så den ikke tælles to gange.</div>
+                )}
               </td>
               <td>{String(r.category_name ?? "–")}</td>
               <td>{r.priority != null ? <PriorityDots value={Number(r.priority)} label={priorityLabel(r.priority)} /> : <span className="muted small">Ikke vurderet</span>}</td>
