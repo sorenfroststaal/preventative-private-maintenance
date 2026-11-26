@@ -3,31 +3,7 @@ import { useState, type FormEvent } from "react";
 import { MobilePanel } from "../components/MobilePanel";
 import { OnboardingDialog } from "../components/Onboarding";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  createBackup,
-  exportAllJson,
-  exportIcs,
-  exportableTables,
-  exportTableCsv,
-  exportTableJson,
-  updateEntity,
-  createUser,
-  detectCloudFolder,
-  isTempFolder,
-  getSetting,
-  listEntities,
-  listUsers,
-  setPin,
-  setSetting,
-  foodSettings,
-  MEAL_LABELS,
-  MEALS,
-  type Meal,
-  AI_MODULES,
-  AI_MODULE_LABELS,
-  readAiAccess,
-  type AiModule,
-} from "@ppm/core";
+import { AI_MODULE_LABELS, AI_MODULES, aiAccessLog, categoryRulesWithNames, createBackup, createUser, detectCloudFolder, exportableTables, exportAllJson, exportIcs, exportTableCsv, exportTableJson, foodSettings, getSetting, isTempFolder, listEntities, listUsers, MEAL_LABELS, MEALS, readAiAccess, setPin, setSetting, updateEntity, type AiModule, type Meal } from "@ppm/core";
 import { claudeDesktopAdd, mcpInfo, mcpSelftest, openMcpBundle } from "../platform/tauri";
 import { errorText, useSession } from "../app/session";
 import { pickDirectory, pickFiles } from "../platform/tauri";
@@ -360,10 +336,7 @@ function CategoriesPanel() {
   const [ruleKey, setRuleKey] = useState(0);
   const rules = useQuery({
     queryKey: ["category_rule", "list"],
-    queryFn: () =>
-      session.archive.db.select<Record<string, unknown>>(
-        "SELECT r.*, c.name AS category_name FROM category_rule r JOIN category c ON c.id = r.category_id ORDER BY r.priority, r.rowid",
-      ),
+    queryFn: () => categoryRulesWithNames(session.archive.db),
   });
   const cats = useQuery({ queryKey: ["category", "list"], queryFn: () => listEntities(session.archive.db, "category", { orderBy: "name" }) });
   const MATCH: Record<string, string> = { contains: "indeholder", starts_with: "starter med", regex: "regex" };
@@ -484,10 +457,7 @@ function AiAccessPanel() {
   const info = useQuery({ queryKey: ["mcp-info"], queryFn: () => mcpInfo().catch(() => ({ binaryPath: null, bundlePath: null })) });
   const log = useQuery({
     queryKey: ["ai_access_log"],
-    queryFn: () =>
-      session.archive.db.select<{ id: string; at: string; client_name: string | null; tool: string; denied_reason: string | null; returned_refs: string }>(
-        "SELECT id, at, client_name, tool, denied_reason, returned_refs FROM ai_access_log ORDER BY at DESC LIMIT 30",
-      ),
+    queryFn: () => aiAccessLog(session.archive.db),
   });
   const save = async (key: string, value: unknown) => {
     try {

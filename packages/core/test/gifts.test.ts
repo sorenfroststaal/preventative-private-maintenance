@@ -131,3 +131,20 @@ describe("recurring expenses that duplicate a loan (review B2)", () => {
     expect((await recurringLoanOverlaps(archive.db, { vehicleId: String(car.id) })).map((o) => o.recurring_name)).toEqual(["Afdrag bil"]);
   });
 });
+
+describe("read models for the UI (review A1)", () => {
+  it("serve the lists the desktop app used to query with its own SQL", async () => {
+    const { env, archive } = await newArchive();
+    const ctx = ctxFor(env, archive);
+    const v = await import("../src");
+    const lamp = await createEntity(ctx, "item", { name: "Lampe" });
+    expect([...(await v.itemsWithReceipt(archive.db))]).toEqual([]);
+    expect((await v.masterListRows(archive.db, "person")).length).toBe(0);
+    await createOutsidePerson(ctx, "Karl Ven");
+    expect((await v.masterListRows(archive.db, "person")).map((r) => r.name)).toEqual(["Karl Ven"]);
+    expect(() => v.masterListRows(archive.db, "app_user")).toThrow(/Ukendt liste/);
+    expect(await v.recipeCount(archive.db)).toBeGreaterThanOrEqual(0);
+    expect(await v.tasksForTarget(archive.db, "item", String(lamp.id))).toEqual([]);
+    expect(await v.aiAccessLog(archive.db, 5)).toEqual([]);
+  });
+});

@@ -3,7 +3,7 @@ import { RowThumb, useThumbnails } from "../components/RowThumb";
 import { Car } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
-import { latestOdometer, listEntities, loanSummary, recurringLoanOverlaps, recurringSummary, vehicleCostsByYear, type Row } from "@ppm/core";
+import { latestOdometer, listEntities, loanSummary, recurringLoanOverlaps, recurringSummary, vehicleCostsByYear, vehiclesWithKm, type Row } from "@ppm/core";
 import { useSession } from "../app/session";
 import { EntityForm } from "../components/EntityForm";
 import { DocumentsTab, HistoryTab, TasksTab } from "../components/DetailTabs";
@@ -25,11 +25,7 @@ export function Vehicles() {
   const [creating, setCreating] = useState(false);
   const list = useQuery({
     queryKey: ["vehicle", "list"],
-    queryFn: () =>
-      archive.db.select<Row>(
-        `SELECT v.*, (SELECT km FROM odometer_reading r WHERE r.vehicle_id = v.id ORDER BY reading_date DESC, km DESC LIMIT 1) AS km
-           FROM vehicle v WHERE v.archived_at IS NULL ORDER BY v.name`,
-      ),
+    queryFn: () => vehiclesWithKm(archive.db),
   });
   const selectedId = params.get("id");
   const selected = list.data?.find((v) => v.id === selectedId);

@@ -2,16 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import {
-  addTextListValue,
-  removeTextListValue,
-  renameTextListValue,
-  TEXT_LISTS,
-  fields,
-  textListValues,
-  type EntityType,
-  type Row,
-} from "@ppm/core";
+import { addTextListValue, fields, masterListRows, removeTextListValue, renameTextListValue, TEXT_LISTS, textListValues, type EntityType, type Row } from "@ppm/core";
 import { errorText, useSession } from "../app/session";
 import { useToast } from "../layout/Shell";
 import { EntityForm, newLabel, TYPE_SINGULAR } from "../components/EntityForm";
@@ -34,7 +25,6 @@ interface EntityList {
   id: string;
   label: string;
   type: EntityType;
-  sql: string;
   columns: Column[];
   search: string[];
 }
@@ -45,8 +35,6 @@ const ENTITY_LISTS: EntityList[] = [
     id: "location",
     label: "Rum og placeringer",
     type: "location",
-    sql: `SELECT l.*, p.name AS property_name, pl.name AS parent_name FROM location l JOIN property p ON p.id = l.property_id
-            LEFT JOIN location pl ON pl.id = l.parent_id WHERE l.archived_at IS NULL ORDER BY p.name, l.name`,
     columns: [
       { key: "name", label: "Navn" },
       { key: "property_name", label: "Bolig" },
@@ -54,12 +42,11 @@ const ENTITY_LISTS: EntityList[] = [
     ],
     search: ["name", "property_name"],
   },
-  { id: "property", label: "Boliger", type: "property", sql: "SELECT * FROM property WHERE archived_at IS NULL ORDER BY name", columns: [{ key: "name", label: "Navn" }, { key: "address", label: "Adresse" }], search: ["name", "address"] },
+  { id: "property", label: "Boliger", type: "property", columns: [{ key: "name", label: "Navn" }, { key: "address", label: "Adresse" }], search: ["name", "address"] },
   {
     id: "contact",
     label: "Kontakter",
     type: "contact",
-    sql: "SELECT * FROM contact WHERE archived_at IS NULL ORDER BY name",
     columns: [
       { key: "name", label: "Navn" },
       { key: "kind", label: "Type", render: (r) => optionLabel(CONTACT_KINDS, r.kind) },
@@ -67,13 +54,12 @@ const ENTITY_LISTS: EntityList[] = [
     ],
     search: ["name", "phone", "email"],
   },
-  { id: "person", label: "Personer", type: "person", sql: "SELECT * FROM person WHERE archived_at IS NULL ORDER BY household DESC, name", columns: [{ key: "name", label: "Navn" }, { key: "relation", label: "Relation" }, { key: "household", label: "Hører til", render: (r) => (Number(r.household) === 1 ? "Husstanden" : "Uden for husstanden") }], search: ["name", "relation"] },
-  { id: "account", label: "Konti", type: "account", sql: "SELECT * FROM account WHERE archived_at IS NULL ORDER BY name", columns: [{ key: "name", label: "Navn" }, { key: "bank", label: "Bank" }], search: ["name", "bank"] },
+  { id: "person", label: "Personer", type: "person", columns: [{ key: "name", label: "Navn" }, { key: "relation", label: "Relation" }, { key: "household", label: "Hører til", render: (r) => (Number(r.household) === 1 ? "Husstanden" : "Uden for husstanden") }], search: ["name", "relation"] },
+  { id: "account", label: "Konti", type: "account", columns: [{ key: "name", label: "Navn" }, { key: "bank", label: "Bank" }], search: ["name", "bank"] },
   {
     id: "category",
     label: "Økonomikategorier",
     type: "category",
-    sql: `SELECT c.*, p.name AS parent_name FROM category c LEFT JOIN category p ON p.id = c.parent_id WHERE c.archived_at IS NULL ORDER BY COALESCE(p.name, c.name), c.parent_id IS NOT NULL, c.name`,
     columns: [
       { key: "name", label: "Navn" },
       { key: "parent_name", label: "Under" },
@@ -108,7 +94,7 @@ function EntityListTab({ list }: { list: EntityList }) {
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const rows = useQuery({ queryKey: [list.type, "lists", list.id], queryFn: () => archive.db.select<Row>(list.sql) });
+  const rows = useQuery({ queryKey: [list.type, "lists", list.id], queryFn: () => masterListRows(archive.db, list.id) });
   const shown = (rows.data ?? []).filter((r) => includesText(r, list.search, q));
   const sel = shown.find((r) => r.id === selected) ?? null;
   const singular = TYPE_SINGULAR[list.type] ?? list.type;

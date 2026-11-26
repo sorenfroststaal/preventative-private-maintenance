@@ -23,6 +23,7 @@ export * from "./repo/bankPresets";
 export * from "./repo/receipt";
 export * from "./repo/lending";
 export * from "./repo/gifts";
+export * from "./repo/views";
 export { danishErrorMap, friendlyDbError, safeParseDanish } from "./domain/messages";
 export * from "./repo/personLinks";
 export * from "./repo/timeline";

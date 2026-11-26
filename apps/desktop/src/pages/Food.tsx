@@ -2,54 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { CalendarDays, ChevronLeft, ChevronRight, Copy, Download, Plus, ShoppingCart, Trash2, Upload } from "lucide-react";
-import {
-  addDays,
-  addShoppingItem,
-  addStarterCatalog,
-  allergenLabel,
-  ALLERGENS,
-  allRecipeTags,
-  copyLastWeek,
-  createRecipe,
-  dismissStarterCatalog,
-  exportOpenPlanner,
-  formatShoppingItem,
-  generateShoppingList,
-  getEntity,
-  groupBySection,
-  importDocument,
-  importOpenPlanner,
-  isoWeek,
-  listForWeek,
-  listRecipes,
-  MEAL_LABELS,
-  moveMeal,
-  parseIngredientLine,
-  parseOpenPlanner,
-  planMeal,
-  previewOpenPlanner,
-  recipeAllergens,
-  recipeIngredients,
-  removeMeal,
-  removeShoppingItem,
-  setItemCategory,
-  setItemChecked,
-  SHOP_CATEGORIES,
-  shoppingItems,
-  shoppingListText,
-  shouldOfferCatalog,
-  updateRecipe,
-  weekPlan,
-  weekRecipeIds,
-  weekStart,
-  type AllergenKey,
-  type Meal,
-  type OpenPlannerDatabase,
-  type OpenPlannerPreview,
-  type PlannedDish,
-  type RecipeSummary,
-  type Row,
-} from "@ppm/core";
+import { addDays, addShoppingItem, addStarterCatalog, allergenLabel, ALLERGENS, allRecipeTags, copyLastWeek, createRecipe, dismissStarterCatalog, exportOpenPlanner, foodSettings, formatShoppingItem, generateShoppingList, getEntity, groupBySection, importDocument, importOpenPlanner, isoWeek, listForWeek, listRecipes, MEAL_LABELS, moveMeal, parseIngredientLine, parseOpenPlanner, planMeal, previewOpenPlanner, recipeAllergens, recipeCount as countRecipes, recipeIngredients, removeMeal, removeShoppingItem, setItemCategory, setItemChecked, SHOP_CATEGORIES, shoppingItems, shoppingListText, shouldOfferCatalog, updateRecipe, weekPlan, weekRecipeIds, weekStart, type AllergenKey, type Meal, type OpenPlannerDatabase, type OpenPlannerPreview, type PlannedDish, type RecipeSummary, type Row } from "@ppm/core";
 import { errorText, useSession } from "../app/session";
 import { useToast } from "../layout/Shell";
 import { EntityForm } from "../components/EntityForm";
@@ -79,7 +32,7 @@ export function Food() {
   const offer = useQuery({ queryKey: ["recipe", "catalog-offer"], queryFn: () => shouldOfferCatalog(session.archive.db) });
   const recipeCount = useQuery({
     queryKey: ["recipe", "count"],
-    queryFn: async () => (await session.archive.db.select<{ n: number }>("SELECT count(*) AS n FROM recipe WHERE archived_at IS NULL"))[0]?.n ?? 0,
+    queryFn: () => countRecipes(session.archive.db),
   });
   const catalog = useMutation({
     mutationFn: (add: boolean) => (add ? addStarterCatalog(session.ctx()) : dismissStarterCatalog(session.ctx()).then(() => 0)),
@@ -336,7 +289,7 @@ function PlanDialog({ date, meal, recipeId, onClose }: { date: string; meal: Mea
   const recipes = useQuery({ queryKey: ["recipe", "list", q], queryFn: () => listRecipes(session.archive.db, { q }) });
   const settings = useQuery({
     queryKey: ["setting", "food.default_servings"],
-    queryFn: async () => (await session.archive.db.select<{ value_json: string }>("SELECT value_json FROM setting WHERE key = 'food.default_servings'"))[0]?.value_json ?? "4",
+    queryFn: async () => String((await foodSettings(session.archive.db)).defaultServings),
   });
   const save = useMutation({
     mutationFn: () =>

@@ -3,7 +3,7 @@ import { routeFor } from "../lib/routes";
 import { RowThumb } from "../components/RowThumb";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { documentLinkSummaries, linkDocument, listDocuments, MIME_BY_EXT, type LinkSummary, type Row } from "@ppm/core";
+import { documentLinkSummaries, documentRoles, linkDocument, linksOfDocument, listDocuments, MIME_BY_EXT, type LinkSummary, type Row } from "@ppm/core";
 import { errorText, useSession } from "../app/session";
 import { pickFiles } from "../platform/tauri";
 import { formatBytes, formatDateTime } from "../lib/format";
@@ -45,7 +45,7 @@ export function Documents({ onImport }: { onImport(paths: string[]): Promise<voi
   const navigate = useNavigate();
   const roles = useQuery({
     queryKey: ["documents", "roles"],
-    queryFn: () => archive.db.select<{ document_id: string; role: string }>("SELECT document_id, role FROM document_link"),
+    queryFn: () => documentRoles(archive.db),
   });
   const rolesByDoc = new Map<string, Set<string>>();
   for (const r of roles.data ?? []) rolesByDoc.set(r.document_id, new Set([...(rolesByDoc.get(r.document_id) ?? []), r.role]));
@@ -169,8 +169,7 @@ function LinkPanel({ doc, roles }: { doc: Row; roles: string[] }) {
   const labelCol = LINK_TARGETS.find(([k]) => k === type)![2];
   const links = useQuery({
     queryKey: ["documents", "links", doc.id],
-    queryFn: () =>
-      session.archive.db.select<Row>("SELECT target_type, target_id, role FROM document_link WHERE document_id = ?", [String(doc.id)]),
+    queryFn: () => linksOfDocument(session.archive.db, String(doc.id)),
   });
   return (
     <fieldset disabled={session.archive.readOnly}>

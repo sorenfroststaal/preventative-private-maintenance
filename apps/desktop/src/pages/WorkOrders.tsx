@@ -1,16 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import {
-  addWorkOrderNote,
-  changeWorkOrderStatus,
-  createEntity,
-  listEntities,
-  updateEntity,
-  workOrderEvents,
-  type Row,
-  type WorkOrderStatus,
-} from "@ppm/core";
+import { addWorkOrderNote, changeWorkOrderStatus, createEntity, listEntities, updateEntity, workOrderEvents, workOrdersWithNames, type Row, type WorkOrderStatus } from "@ppm/core";
 import { errorText, useSession } from "../app/session";
 import { EntityForm, RefSelect } from "../components/EntityForm";
 import { DocumentsTab } from "../components/DetailTabs";
@@ -35,17 +26,7 @@ export function WorkOrders() {
   const [creating, setCreating] = useState(false);
   const list = useQuery({
     queryKey: ["work_order", "list"],
-    queryFn: () =>
-      archive.db.select<Row>(
-        `SELECT w.*, COALESCE(p.name, b.name, i.name, v.name) AS target_name, c.name AS contact_name
-           FROM work_order w
-           LEFT JOIN property p ON w.target_type = 'property' AND p.id = w.target_id
-           LEFT JOIN building_part b ON w.target_type = 'building_part' AND b.id = w.target_id
-           LEFT JOIN item i ON w.target_type = 'item' AND i.id = w.target_id
-           LEFT JOIN vehicle v ON w.target_type = 'vehicle' AND v.id = w.target_id
-           LEFT JOIN contact c ON c.id = w.contact_id
-          ORDER BY w.reported_date DESC`,
-      ),
+    queryFn: () => workOrdersWithNames(archive.db),
   });
   const years = [...new Set((list.data ?? []).map((w) => String(w.reported_date).slice(0, 4)))];
   const rows = (list.data ?? []).filter(

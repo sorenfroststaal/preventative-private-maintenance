@@ -3,7 +3,7 @@ import { RowThumb, useThumbnails } from "../components/RowThumb";
 import { Hammer, Package, PawPrint } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { addMonths, listEntities, personLinks, policiesForItem, setPersonLinks, type Row } from "@ppm/core";
+import { addMonths, itemsWithReceipt, listEntities, locationsWithProperty, personLinks, petsWithNames, policiesForItem, policiesForPet, setPersonLinks, type Row } from "@ppm/core";
 import { PersonPicker } from "../components/PersonPicker";
 import { errorText, useSession } from "../app/session";
 import { EntityForm } from "../components/EntityForm";
@@ -45,11 +45,7 @@ function useLocations() {
   const { archive } = useSession();
   return useQuery({
     queryKey: ["location", "withProperty"],
-    queryFn: () =>
-      archive.db.select<{ id: string; name: string; property_id: string; property_name: string }>(
-        `SELECT l.id, l.name, l.property_id, p.name AS property_name FROM location l JOIN property p ON p.id = l.property_id
-          WHERE l.archived_at IS NULL ORDER BY p.name, l.name`,
-      ),
+    queryFn: () => locationsWithProperty(archive.db),
   });
 }
 
@@ -65,14 +61,8 @@ function Items() {
   const owners = useQuery({ queryKey: ["person_link", "item"], queryFn: () => personLinks(archive.db, "item") });
   const locations = useLocations();
   const locName = useMemo(() => new Map((locations.data ?? []).map((l) => [l.id, `${l.name}`])), [locations.data]);
-  const photos = useQuery({
-    queryKey: ["documents", "itemPhotos"],
-    queryFn: () =>
-      archive.db.select<{ target_id: string; n: number }>(
-        "SELECT target_id, count(*) AS n FROM document_link WHERE target_type = 'item' AND role IN ('receipt', 'invoice') GROUP BY target_id",
-      ),
-  });
-  const hasReceipt = new Set((photos.data ?? []).map((p) => p.target_id));
+  const receipts = useQuery({ queryKey: ["documents", "itemReceipts"], queryFn: () => itemsWithReceipt(archive.db) });
+  const hasReceipt = receipts.data ?? new Set<string>();
   const thumbs = useThumbnails("item");
   const rows = (items.data ?? []).filter(
     (i) => (!loc || i.location_id === loc) && (!owner || (owners.data?.get(String(i.id)) ?? []).some((p) => p.id === owner)) && includesText(i, ["name", "brand", "model", "serial_number", "category"], q),
@@ -451,11 +441,7 @@ function Pets() {
   const [pending, setPending] = useState<PendingFile[]>([]);
   const pets = useQuery({
     queryKey: ["pet", "list"],
-    queryFn: () =>
-      archive.db.select<Row>(
-        `SELECT p.*, o.name AS owner_name, c.name AS vet_name FROM pet p LEFT JOIN person o ON o.id = p.owner_person_id
-           LEFT JOIN contact c ON c.id = p.vet_contact_id WHERE p.archived_at IS NULL ORDER BY p.name`,
-      ),
+    queryFn: () => petsWithNames(archive.db),
   });
   const selectedId = params.get("pet");
   const selected = pets.data?.find((p) => p.id === selectedId);
@@ -543,11 +529,7 @@ function PetPolicies({ petId }: { petId: string }) {
   const { archive } = useSession();
   const q = useQuery({
     queryKey: ["policy", "forPet", petId],
-    queryFn: () =>
-      archive.db.select<Row>(
-        "SELECT p.* FROM policy p JOIN policy_coverage c ON c.policy_id = p.id WHERE c.target_type = 'pet' AND c.target_id = ? AND p.archived_at IS NULL ORDER BY p.title",
-        [petId],
-      ),
+    queryFn: () => policiesForPet(archive.db, petId),
   });
   if (q.data?.length === 0) return <Empty>Ingen police dækker husdyret. Tilføj dækning under Forsikring.</Empty>;
   return (

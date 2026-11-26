@@ -1,17 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import {
-  createTask,
-  deleteLink,
-  documentsFor,
-  getHistory,
-  importDocument,
-  linkDocument,
-  listDocuments,
-  MIME_BY_EXT,
-  type Row,
-} from "@ppm/core";
+import { createTask, deleteLink, documentsFor, getHistory, importDocument, linkDocument, listDocuments, MIME_BY_EXT, tasksForTarget, type Row } from "@ppm/core";
 import { errorText, useSession } from "../app/session";
 import { pickFiles } from "../platform/tauri";
 import { DOC_ROLES, optionLabel } from "../lib/entityFields";
@@ -161,13 +151,7 @@ export function TasksTab({ targetType, targetId, module }: { targetType: Templat
   const toast = useToast();
   const tasks = useQuery({
     queryKey: ["tasks", "for", targetType, targetId],
-    queryFn: () =>
-      session.archive.db.select<Row>(
-        `SELECT t.*, o.id AS occurrence_id, o.due_date FROM task t
-           LEFT JOIN task_occurrence o ON o.task_id = t.id AND o.status = 'open'
-          WHERE t.target_type = ? AND t.target_id = ? AND t.status != 'archived' ORDER BY o.due_date IS NULL, o.due_date`,
-        [targetType, targetId],
-      ),
+    queryFn: () => tasksForTarget(session.archive.db, targetType, targetId),
   });
   const templates = TEMPLATES.filter((t) => t.applies_to === targetType);
   const existing = new Set((tasks.data ?? []).map((t) => t.template_id));
