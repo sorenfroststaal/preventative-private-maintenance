@@ -29,7 +29,10 @@ try {
   await js("const s = document.evaluate(arguments[0], document, null, 9, null).singleNodeValue; const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; setter.call(s, '__new__'); s.dispatchEvent(new Event('change', { bubbles: true }));", sel);
   await find("//div[@role='dialog']");
   await type("//div[@role='dialog']//label[starts-with(normalize-space(.), 'Navn')]/following-sibling::input", "Bryggers E2E");
-  // Bolig: choose the first property.
+  // Bolig: choose the first property (wait until the dialog's dropdown has its options).
+  const boligSel = "//div[@role='dialog']//label[starts-with(normalize-space(.), 'Bolig')]/following-sibling::select";
+  await find(boligSel);
+  for (let i = 0; i < 40 && !(await js("const s = document.evaluate(arguments[0], document, null, 9, null).singleNodeValue; return !!s && s.options.length > 1", boligSel)); i++) await sleep(200);
   await js("const s = document.evaluate(\"//div[@role='dialog']//label[starts-with(normalize-space(.), 'Bolig')]/following-sibling::select\", document, null, 9, null).singleNodeValue; const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; setter.call(s, s.options[1].value); s.dispatchEvent(new Event('change', { bubbles: true }));");
   await shot("rum-dialog");
   await click("//div[@role='dialog']//button[@type='submit']");

@@ -16,7 +16,9 @@ try {
   step("Login", await waitText("Overblik"));
   await click("//nav//a[contains(., 'Bolig og inventar')]");
   await waitText("Genstande");
-  step("Listen viser antal dele", await waitText("1 del"));
+  await waitText("1 del");
+  const counts = String(await js("return [...document.querySelectorAll('td .small.muted')].map((e) => e.textContent).join('|')"));
+  step("Listen viser antal dele (ental: 1 del)", counts.split("|").includes("1 del") && !counts.includes("1 dele"), counts);
   await click("//button[normalize-space()='Træ']");
   await sleep(600);
   await click("//button[normalize-space()='Fold alt ud']");
