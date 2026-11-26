@@ -77,7 +77,7 @@ function findDate(text: string): string | null {
   return candidates[0]?.iso ?? null;
 }
 
-const NOT_VENDOR = /kvittering|faktura|bon\b|dato|tlf|telefon|cvr|www\.|@|velkommen|kopi/i;
+const NOT_VENDOR = /kvittering|faktura|bon\b|dato|tlf|telefon|cvr|www\.|@|velkommen|kopi|ordre/i;
 
 function findVendor(lines: string[]): string | null {
   for (const raw of lines.slice(0, 6)) {
@@ -121,13 +121,20 @@ export interface ItemReceiptSuggestion {
 /** Suggestion for an item from a linked receipt or invoice with text, or null if nothing was found. */
 export async function receiptSuggestionForItem(db: DbAdapter, itemId: string, documentId: string): Promise<ItemReceiptSuggestion | null> {
   const [doc] = await db.select<{ extracted_text: string | null }>("SELECT extracted_text FROM document WHERE id = ?", [documentId]);
-  const [item] = await db.select<Row>("SELECT purchase_price_minor, purchase_date, vendor_name FROM item WHERE id = ?", [itemId]);
+  const [item] = await db.select<Row>("SELECT name, purchase_price_minor, purchase_date, vendor_name FROM item WHERE id = ?", [itemId]);
   if (!doc?.extracted_text || !item) return null;
   const s = parseReceipt(doc.extracted_text);
   const fields: ItemReceiptSuggestion["fields"] = [];
   if (s.total_minor !== null) fields.push({ key: "purchase_price_minor", suggested: s.total_minor, current: item.purchase_price_minor ?? null });
   if (s.date) fields.push({ key: "purchase_date", suggested: s.date, current: item.purchase_date ?? null });
-  if (s.vendor) fields.push({ key: "vendor_name", suggested: s.vendor, current: item.vendor_name ?? null });
+  // A "vendor" that is really the product name (first line of an order confirmation) is not suggested.
+  const words = (t: string) => t.toLowerCase().match(/\p{L}{2,}/gu) ?? [];
+  const sameAsItem = (v: string) => {
+    const vw = words(v);
+    const iw = new Set(words(String(item.name ?? "")));
+    return vw.length > 0 && vw.filter((w) => iw.has(w)).length * 2 >= vw.length;
+  };
+  if (s.vendor && !sameAsItem(s.vendor)) fields.push({ key: "vendor_name", suggested: s.vendor, current: item.vendor_name ?? null });
   return fields.length ? { document_id: documentId, fields } : null;
 }
 

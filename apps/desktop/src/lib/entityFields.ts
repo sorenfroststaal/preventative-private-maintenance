@@ -133,6 +133,7 @@ export const FIELDS: Partial<Record<EntityType, FieldDef[]>> = {
     t("name", "Navn", { required: true }),
     { key: "category", label: "Kategori", type: "list", list: "item_category" },
     r("location_id", "Placering", "location"),
+    r("owner_person_id", "Ejer (person)", "person"),
     t("brand", "Mærke"),
     t("model", "Model"),
     t("serial_number", "Serienummer"),

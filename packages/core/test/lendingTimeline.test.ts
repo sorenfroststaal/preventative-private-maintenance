@@ -110,7 +110,7 @@ describe("migration 0008 – recurring expenses per person", () => {
     const db = await env.openDb(join(tempDir(), "v7.sqlite"));
     await migrate(db, () => env.clock.nowIso(), migrations.filter((m) => m.version <= 7));
     await db.execute("INSERT INTO recurring_expense (id, name, amount_minor, period) VALUES ('00000000-0000-4000-8000-0000000000a1', 'Avis', 9900, 'month')");
-    await migrate(db, () => env.clock.nowIso());
+    await migrate(db, () => env.clock.nowIso(), migrations.filter((m) => m.version <= 8));
     expect(await getSchemaVersion(db)).toBe(8);
     expect(await db.select("SELECT name, person_id FROM recurring_expense")).toEqual([{ name: "Avis", person_id: null }]);
 
@@ -122,6 +122,23 @@ describe("migration 0008 – recurring expenses per person", () => {
     const only = await recurringSummary(archive.db, { personId: String(noah.id) });
     expect(only.items.map((i) => [i.name, i.person_name])).toEqual([["Fodboldkontingent", "Noah Testesen"]]);
     expect(only.monthly_total_minor).toBe(10000);
+  });
+});
+
+describe("migration 0009 – item owner", () => {
+  it("adds owner_person_id to items and keeps existing items", async () => {
+    const env = testEnv();
+    const db = await env.openDb(join(tempDir(), "v8.sqlite"));
+    await migrate(db, () => env.clock.nowIso(), migrations.filter((m) => m.version <= 8));
+    await db.execute("INSERT INTO item (id, name, created_at, updated_at) VALUES ('00000000-0000-4000-8000-0000000000b1', 'Høretelefoner', 'x', 'x')");
+    await migrate(db, () => env.clock.nowIso());
+    expect(await getSchemaVersion(db)).toBe(9);
+    expect(await db.select("SELECT name, owner_person_id FROM item")).toEqual([{ name: "Høretelefoner", owner_person_id: null }]);
+    const { env: e2, archive } = await newArchive();
+    const ctx = ctxFor(e2, archive);
+    const noah = await createEntity(ctx, "person", { name: "Noah" });
+    const it = await createEntity(ctx, "item", { name: "Cykel", owner_person_id: String(noah.id) });
+    expect(it.owner_person_id).toBe(noah.id);
   });
 });
 

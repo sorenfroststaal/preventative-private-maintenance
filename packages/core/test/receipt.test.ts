@@ -95,4 +95,16 @@ describe("phase 4.4 – suggestions from receipts", () => {
     await dismissReceiptSuggestion(ctx, String(item.id), String(document.id));
     expect((await itemReceiptStatus(archive.db, String(item.id))).suggestion).toBeNull();
   });
+
+  it("a vendor that is just the item's name (order confirmation) is not suggested", async () => {
+    const { env: base, archive } = await newArchive();
+    const env = { ...base, pdfText: async () => "AirPods Pro\nOrdre 12345\n20.10.2026\nI alt 1.199,00" };
+    const ctx = ctxFor(env, archive);
+    const item = await createEntity(ctx, "item", { name: "AirPods Pro 2, hvid" });
+    const { document } = await importDocument(env, archive, ctx, await writeTempFile("ordre.pdf", "%PDF-1.4 ordre"), { source: "drop" });
+    await linkDocument(ctx, { document_id: String(document.id), target_type: "item", target_id: String(item.id), role: "receipt" });
+    const s = (await receiptSuggestionForItem(archive.db, String(item.id), String(document.id)))!;
+    expect(s.fields.map((f) => f.key)).toEqual(["purchase_price_minor", "purchase_date"]);
+  });
 });
+

@@ -40,5 +40,10 @@ export const migrations: Migration[] = [
     "version": 8,
     "name": "0008_recurring_person.sql",
     "sql": "-- Preventative Private Maintenance: normativ migration 0008 (schemaVersion 8) – faste udgifter pr. person.\n-- Implementeringer kopierer denne fil uændret til packages/core/migrations/0008_recurring_person.sql.\n-- En fast udgift kan høre til en person i husstanden (fx kontingent, fagforening, mobilabonnement).\n\nALTER TABLE recurring_expense ADD COLUMN person_id TEXT REFERENCES person(id);\n"
+  },
+  {
+    "version": 9,
+    "name": "0009_item_owner.sql",
+    "sql": "-- Preventative Private Maintenance: normativ migration 0009 (schemaVersion 9) – ejer af en genstand.\n-- Implementeringer kopierer denne fil uændret til packages/core/migrations/0009_item_owner.sql.\n-- En genstand kan høre til en person i husstanden (fx høretelefoner, cykel, legetøj).\n\nALTER TABLE item ADD COLUMN owner_person_id TEXT REFERENCES person(id);\nCREATE INDEX idx_item_owner ON item(owner_person_id);\n"
   }
 ];

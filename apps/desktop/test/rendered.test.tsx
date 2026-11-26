@@ -571,5 +571,22 @@ describe("phase 2b.9 – rendered components", () => {
     await waitFor(async () => expect(await archive.db.select("SELECT l.name, p.name AS parent FROM location l JOIN location p ON p.id = l.parent_id WHERE l.name = 'Rumtest-skab'")).toEqual([{ name: "Rumtest-skab", parent: "Rumtest-køkken" }]));
     for (const p of props) await archive.db.execute("UPDATE property SET archived_at = NULL WHERE id = ?", [p.id]);
   });
+
+  it("items: an owner (person) can be chosen; the list can be filtered by person and shows the owner's initials", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const owner = await createEntity(ctx, "person", { name: "Ejer Testesen" });
+    await createEntity(ctx, "item", { name: "Ejertest-cykel", owner_person_id: String(owner.id) });
+    renderAt("/bolig");
+    await settle("Bolig og inventar");
+    const filter = (await screen.findByLabelText("Ejer")) as HTMLSelectElement;
+    await waitFor(() => expect([...filter.options].map((o) => o.textContent)).toContain("Ejer Testesen"));
+    fireEvent.change(filter, { target: { value: String(owner.id) } });
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(rows).toHaveLength(1);
+    expect(within(rows[0]!).getByRole("img", { name: "Ejer Testesen" }).textContent).toBe("ET");
+    fireEvent.click(within(rows[0]!).getByText("Ejertest-cykel"));
+    const detail = await screen.findByRole("complementary", { name: "Genstand" });
+    await waitFor(() => expect((within(detail).getByLabelText("Ejer (person)") as HTMLSelectElement).value).toBe(String(owner.id)));
+  });
 });
 

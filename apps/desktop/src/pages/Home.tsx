@@ -12,7 +12,7 @@ import { formatDate, formatMoney } from "../lib/format";
 import { annualAmount } from "@ppm/core";
 import { useToast } from "../layout/Shell";
 import { ArchiveButton } from "../components/ArchiveButton";
-import { EmptyState, PageHeader } from "../components/visual";
+import { Avatar, EmptyState, PageHeader } from "../components/visual";
 import { attachPending, PendingAttachments, PhotoStrip, type PendingFile } from "../components/Attachments";
 import { ReceiptSuggestionBanner } from "../components/ReceiptSuggest";
 import { ItemLending, LendingTab } from "../components/Lending";
@@ -55,8 +55,11 @@ function Items() {
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState("");
   const [loc, setLoc] = useState("");
+  const [owner, setOwner] = useState("");
   const [creating, setCreating] = useState(false);
   const items = useQuery({ queryKey: ["item", "list"], queryFn: () => listEntities(archive.db, "item", { orderBy: "name" }) });
+  const persons = useQuery({ queryKey: ["person", "list"], queryFn: () => listEntities(archive.db, "person", { orderBy: "name" }) });
+  const personName = new Map((persons.data ?? []).map((p) => [String(p.id), String(p.name)]));
   const locations = useLocations();
   const locName = useMemo(() => new Map((locations.data ?? []).map((l) => [l.id, `${l.name}`])), [locations.data]);
   const photos = useQuery({
@@ -68,7 +71,9 @@ function Items() {
   });
   const hasReceipt = new Set((photos.data ?? []).map((p) => p.target_id));
   const thumbs = useThumbnails("item");
-  const rows = (items.data ?? []).filter((i) => (!loc || i.location_id === loc) && includesText(i, ["name", "brand", "model", "serial_number", "category"], q));
+  const rows = (items.data ?? []).filter(
+    (i) => (!loc || i.location_id === loc) && (!owner || i.owner_person_id === owner) && includesText(i, ["name", "brand", "model", "serial_number", "category"], q),
+  );
   const selectedId = params.get("id");
   const selected = items.data?.find((i) => i.id === selectedId) ?? null;
 
@@ -84,6 +89,16 @@ function Items() {
             </option>
           ))}
         </select>
+        {(persons.data ?? []).length > 0 && (
+          <select aria-label="Ejer" value={owner} onChange={(e) => setOwner(e.target.value)}>
+            <option value="">Alle personer</option>
+            {(persons.data ?? []).map((p) => (
+              <option key={String(p.id)} value={String(p.id)}>
+                {String(p.name)}
+              </option>
+            ))}
+          </select>
+        )}
         <button className="primary" onClick={() => setCreating(true)} disabled={archive.readOnly}>
           Ny genstand
         </button>
@@ -106,6 +121,7 @@ function Items() {
                   <span className="with-thumb">
                     <RowThumb doc={thumbs?.get(String(i.id))} icon={Package} />
                     <span className="text">{String(i.name)}</span>
+                    {i.owner_person_id && personName.get(String(i.owner_person_id)) ? <Avatar name={personName.get(String(i.owner_person_id))!} /> : null}
                   </span>
                 </td>
                 <td>{locName.get(String(i.location_id)) ?? "–"}</td>

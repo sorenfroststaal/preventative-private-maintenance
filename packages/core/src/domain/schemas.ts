@@ -136,6 +136,7 @@ export const fields = {
     brand: opt(z.string()),
     model: opt(z.string()),
     serial_number: opt(z.string()),
+    owner_person_id: opt(zId),
     purchase_date: opt(zDate),
     purchase_price_minor: opt(zMoney),
     currency: zCurrency.default("DKK"),
