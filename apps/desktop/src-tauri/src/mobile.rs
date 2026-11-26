@@ -107,8 +107,8 @@ impl MobileServer {
     }
 }
 
-/// Runs `ppm-mcp addresses` and returns the private IPv4 addresses it reports.
-pub fn addresses(binary: &Path) -> Result<Vec<String>, String> {
+/// Runs `ppm-mcp addresses`: the private IPv4 addresses and the current network key (router MAC).
+pub fn network(binary: &Path) -> Result<Json, String> {
     let mut cmd = Command::new(binary);
     cmd.arg("addresses")
         .stdin(Stdio::null())
@@ -121,37 +121,32 @@ pub fn addresses(binary: &Path) -> Result<Vec<String>, String> {
     }
     let out = cmd
         .output()
-        .map_err(|e| format!("Netværksadresserne kunne ikke læses: {e}"))?;
-    parse_addresses(&String::from_utf8_lossy(&out.stdout))
+        .map_err(|e| format!("Netværket kunne ikke læses: {e}"))?;
+    parse_network(&String::from_utf8_lossy(&out.stdout))
 }
 
-fn parse_addresses(text: &str) -> Result<Vec<String>, String> {
+fn parse_network(text: &str) -> Result<Json, String> {
     let v: Json =
         serde_json::from_str(text.trim()).map_err(|e| format!("Uventet svar fra ppm-mcp: {e}"))?;
-    Ok(v.get("addresses")
-        .and_then(|a| a.as_array())
-        .map(|a| {
-            a.iter()
-                .filter_map(|x| x.as_str().map(String::from))
-                .collect()
-        })
-        .unwrap_or_default())
+    if !v.is_object() {
+        return Err("Uventet svar fra ppm-mcp.".into());
+    }
+    Ok(v)
 }
 
 #[cfg(test)]
-mod address_tests {
-    use super::parse_addresses;
+mod network_tests {
+    use super::parse_network;
 
     #[test]
-    fn parses_the_address_list() {
-        assert_eq!(
-            parse_addresses("{\"addresses\":[\"192.168.1.23\",\"10.0.0.4\"]}\n").unwrap(),
-            vec!["192.168.1.23".to_string(), "10.0.0.4".to_string()]
-        );
-        assert_eq!(
-            parse_addresses("{\"addresses\":[]}").unwrap(),
-            Vec::<String>::new()
-        );
-        assert!(parse_addresses("ikke json").is_err());
+    fn parses_the_network_answer() {
+        let v = parse_network(
+            "{\"addresses\":[\"192.168.1.23\"],\"network\":\"router:aa:bb:cc:dd:ee:ff\"}\n",
+        )
+        .unwrap();
+        assert_eq!(v["network"], "router:aa:bb:cc:dd:ee:ff");
+        assert_eq!(v["addresses"][0], "192.168.1.23");
+        assert!(parse_network("ikke json").is_err());
+        assert!(parse_network("[1]").is_err());
     }
 }

@@ -48,7 +48,8 @@ jobs:
 
   e2e-linux:
     # Clicks through the real app (release build) with tauri-driver + WebKitWebDriver (review F1).
-    runs-on: ubuntu-latest
+    # Pinned: webkit2gtk-driver is not available under that name on newer Ubuntu images.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -165,8 +166,13 @@ jobs:
         shell: pwsh
         run: |
           cargo install tauri-driver --locked
-          $edge = Join-Path $env:EDGEWEBDRIVER "msedgedriver.exe"
-          if (-not (Test-Path $edge)) { throw "msedgedriver.exe findes ikke i $env:EDGEWEBDRIVER" }
+          # msedgedriver must match the WebView2 runtime's version, not the Edge browser's.
+          cargo install --git https://github.com/chippers/msedgedriver-tool
+          New-Item -ItemType Directory -Force -Path local-data/driver | Out-Null
+          Push-Location local-data/driver
+          & "$env:USERPROFILE\.cargo\bin\msedgedriver-tool.exe"
+          Pop-Location
+          $edge = (Resolve-Path local-data/driver/msedgedriver.exe).Path
           $driver = Start-Process -FilePath tauri-driver -ArgumentList "--native-driver", $edge -PassThru -WindowStyle Hidden
           Start-Sleep -Seconds 3
           node apps/desktop/e2e/run-all.mjs --skip phase3,mobile-desktop --out ./local-data/e2e-win

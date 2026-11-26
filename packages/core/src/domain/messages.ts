@@ -14,7 +14,7 @@ export const danishErrorMap: ZodErrorMap = (issue, ctx) => {
       if (issue.expected === "string") return { message: "Skal være tekst" };
       return { message: "Forkert type af værdi" };
     case ZodIssueCode.invalid_enum_value:
-      return { message: `Ugyldig værdi. Vælg en af: ${list(issue.options)}` };
+      return { message: "Ugyldig værdi. Vælg en af mulighederne på listen" };
     case ZodIssueCode.invalid_literal:
     case ZodIssueCode.invalid_union:
     case ZodIssueCode.invalid_union_discriminator:

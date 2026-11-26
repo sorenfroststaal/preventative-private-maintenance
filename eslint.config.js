@@ -29,6 +29,10 @@ export default tseslint.config(
           selector: "CallExpression[callee.property.name=/^(select|execute|executeScript)$/][callee.object.property.name='db']",
           message: "Brugerfladen skriver ikke SQL selv. Læg forespørgslen som en funktion i packages/core.",
         },
+        {
+          selector: "CallExpression[callee.property.name=/^(select|execute|executeScript)$/][callee.object.name='db']",
+          message: "Brugerfladen skriver ikke SQL selv. Læg forespørgslen som en funktion i packages/core.",
+        },
       ],
     },
   },

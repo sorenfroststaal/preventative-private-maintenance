@@ -175,7 +175,9 @@ function Costs({ vehicleId }: { vehicleId: string }) {
   const rec = useQuery({ queryKey: ["recurring_expense", "vehicle", vehicleId], queryFn: () => recurringSummary(archive.db, { vehicleId, today: env.clock.today() }) });
   const loans = useQuery({ queryKey: ["loan", "vehicle", vehicleId], queryFn: () => loanSummary(archive.db, { vehicleId }) });
   const overlaps = useQuery({ queryKey: ["recurring_expense", "loan-overlap", vehicleId], queryFn: () => recurringLoanOverlaps(archive.db, { vehicleId, today: env.clock.today() }) });
-  const doubled = new Map((overlaps.data ?? []).map((o) => [o.recurring_id, o.loan_name]));
+  // Only a recurring expense with the loan's monthly amount is the same payment and counted once (review B2).
+  const doubled = new Map((overlaps.data ?? []).filter((o) => o.match === "amount").map((o) => [o.recurring_id, o.loan_name]));
+  const similar = new Map((overlaps.data ?? []).filter((o) => o.match === "name").map((o) => [o.recurring_id, o.loan_name]));
   const fixed = (rec.data?.items ?? []).filter((r) => !r.ended);
   // A recurring expense that is the loan's payment is only counted once (review B2).
   const fixedTotal = fixed.filter((r) => !doubled.has(String(r.id))).reduce((a, r) => a + r.monthly_minor, 0);
@@ -189,7 +191,8 @@ function Costs({ vehicleId }: { vehicleId: string }) {
               <li key={String(r.id)} className="line">
                 <span>
                   {String(r.name)}
-                  {doubled.has(String(r.id)) && <span className="small muted"> (samme som lånet {doubled.get(String(r.id))}; tælles kun én gang)</span>}
+                  {doubled.has(String(r.id)) && <span className="small muted"> (samme beløb som lånet {doubled.get(String(r.id))}; tælles kun én gang)</span>}
+                  {similar.has(String(r.id)) && <span className="small warning-text"> (ligner lånet {similar.get(String(r.id))}; tjek, at den ikke er registreret to gange)</span>}
                 </span>
                 <span className="num">
                   {r.amount_variable ? "ca. " : ""}

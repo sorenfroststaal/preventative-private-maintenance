@@ -59,6 +59,14 @@ export function Shell() {
   }, []);
   // Failed loads and unhandled failed saves from anywhere in the app (review D1).
   useEffect(() => onReportedError((text) => toast(text, "error")), [toast]);
+  // While any load has failed, a banner stays on the page so an empty list is not taken for "nothing there".
+  const [failedLoads, setFailedLoads] = useState(0);
+  useEffect(() => {
+    const cache = qc.getQueryCache();
+    const count = () => setFailedLoads(cache.getAll().filter((q) => q.state.status === "error" && q.getObserversCount() > 0).length);
+    count();
+    return cache.subscribe(count);
+  }, [qc]);
 
   /** Imports files dropped anywhere in the window (spec 04 "træk og slip overalt"). */
   const importFiles = useCallback(
@@ -202,6 +210,14 @@ export function Shell() {
             </div>
           </nav>
           <main className="content">
+            {failedLoads > 0 && (
+              <div className="warning load-error" role="alert">
+                Noget kunne ikke hentes, så det, du ser, kan være ufuldstændigt.{" "}
+                <button className="link" onClick={() => qc.refetchQueries({ predicate: (q) => q.state.status === "error" })}>
+                  Prøv igen
+                </button>
+              </div>
+            )}
             {session.archive.readOnly && (
               <div className="warning" role="alert">
                 Arkivet er lavet med en nyere version af programmet og er åbnet skrivebeskyttet.

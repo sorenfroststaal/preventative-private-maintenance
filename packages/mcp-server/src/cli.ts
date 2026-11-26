@@ -55,8 +55,8 @@ async function main() {
   }
   if (argv[0] === "addresses") {
     // The desktop app asks which local networks the computer is on before it autostarts mobile access.
-    const { lanAddresses } = await import("./mobile/server");
-    process.stdout.write(`${JSON.stringify({ addresses: lanAddresses() })}\n`);
+    const { lanAddresses, networkKey } = await import("./mobile/network");
+    process.stdout.write(`${JSON.stringify({ addresses: lanAddresses(), network: networkKey() })}\n`);
     return;
   }
   const serve = argv[0] === "serve";
@@ -85,7 +85,7 @@ async function main() {
     const staticDir = opt("--static") ?? join(dirname(process.execPath), "..", "mobile");
     const tlsDir = opt("--tls-dir") ?? join(dirname(appConfigPath()), "mobile");
     const s = await startMobileServer({ env, archive, staticDir, tlsDir, port }).catch((e: Error) => fail(`Mobilserveren kunne ikke starte: ${e.message}`));
-    process.stdout.write(`${JSON.stringify({ ready: true, addresses: s.addresses, httpsPort: s.httpsPort, httpPort: s.httpPort, caFingerprint: s.caFingerprint, caRenewed: s.caRenewed })}\n`);
+    process.stdout.write(`${JSON.stringify({ ready: true, addresses: s.addresses, httpsPort: s.httpsPort, httpPort: s.httpPort, caFingerprint: s.caFingerprint, caRenewed: s.caRenewed, network: s.network })}\n`);
     const stop = async () => {
       await s.close().catch(() => undefined);
       await archive.close().catch(() => undefined);

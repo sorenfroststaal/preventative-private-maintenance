@@ -41,13 +41,15 @@ describe("mobile access – pairing and device tokens", () => {
 });
 
 describe("autostart only on a remembered network (review E2)", () => {
-  it("keys networks by /24 and starts only where the user turned mobile access on", async () => {
-    const { networkKeys, mayAutostartMobile } = await import("../src");
-    expect(networkKeys(["192.168.1.23", "192.168.1.40", "10.0.0.5", "127.0.0.1", "8.8.8.8", "fe80::1"])).toEqual(["192.168.1", "10.0.0"]);
-    expect(mayAutostartMobile(["192.168.1"], ["192.168.1.99"])).toBe(true);
-    expect(mayAutostartMobile(["192.168.1"], ["192.168.2.99"])).toBe(false);
-    expect(mayAutostartMobile(null, ["192.168.1.99"])).toBe(false);
-    expect(mayAutostartMobile([], ["192.168.1.99"])).toBe(false);
-    expect(mayAutostartMobile(["192.168.1"], [])).toBe(false);
+  it("starts only when the current router is one where the user turned mobile access on", async () => {
+    const { mayAutostartMobile } = await import("../src");
+    const home = "router:aa:bb:cc:dd:ee:ff";
+    expect(mayAutostartMobile([home], home)).toBe(true);
+    // A café with the same 192.168.1.x range has another router.
+    expect(mayAutostartMobile([home], "router:11:22:33:44:55:66")).toBe(false);
+    expect(mayAutostartMobile([home], null)).toBe(false);
+    expect(mayAutostartMobile(null, home)).toBe(false);
+    // Keys from the earlier /24 rule never match.
+    expect(mayAutostartMobile(["192.168.1"], "192.168.1")).toBe(false);
   });
 });

@@ -99,13 +99,13 @@ PPM kan bruges fra iPhone som en app på hjemmeskærmen, når telefonen er på s
 | Fund | Rettelse | Test |
 | --- | --- | --- |
 | E1 | Mobil-CA'en har en kritisk navnebegrænsning (private IPv4-intervaller, `localhost`, `.local`), lever 3 år og fornyes 60 dage før udløb. En ældre CA uden begrænsning udskiftes, og panelet beder om at installere certifikatet igen. CA-nøglen krypteres med DPAPI på Windows. | `tls.test.ts` (openssl: begrænsning, afvisning af et falsk certifikat for www.example.com, fornyelse, nøglelager); CI kører den på Windows mod rigtig DPAPI |
-| D1 | Fælles `QueryCache`/`MutationCache` viser en fejlbesked, når en hentning fejler, eller når en gemning uden egen fejlhåndtering fejler. | `rendered.test.tsx` "errors" |
+| D1 | Fælles `QueryCache`/`MutationCache` viser en fejlbesked, når en hentning fejler, eller når en gemning uden egen fejlhåndtering fejler. Så længe en hentning på siden er fejlet, står et banner med *Prøv igen*, så en tom liste ikke ligner "ingenting". | `rendered.test.tsx` "errors" |
 | F1 | Fælles WebDriver-modul (`e2e/lib.mjs`) og `e2e/run-all.mjs`; CI-jobbet `e2e-linux` kører alle 10 scripts i den rigtige app. `build-windows` kører dem mod WebView2 med msedgedriver (undtagen phase3 og mobile-desktop, som bruger Linux-stier). | CI |
 | C1 | Indstillinger opretter ikke længere personer og kategorier selv; de linker til Lister. Konti og Boliger og rum bruger samme `EntityForm` som Lister. | `rendered.test.tsx` "C1" |
 | C5 | Arkivering af genstande, fjernelse af bilag og fjernelse af dækning spørger først. | `rendered.test.tsx` "C5" |
-| E2 | Mobiladgang husker de netværk (/24), hvor den blev slået til, og starter kun selv dér. Ellers forklarer panelet hvorfor. Menuen viser, når den kører. | `mobile.test.ts` (core), `rendered.test.tsx` "E2", Rust `parses_the_address_list` |
+| E2 | Mobiladgang husker de netværk, hvor den blev slået til, genkendt på routerens MAC-adresse (standard-gateway via ARP), og starter kun selv dér; virtuelle netkort (Hyper-V/WSL, VirtualBox, Docker, VPN) og link-local ignoreres, også i QR-koderne. Ellers forklarer panelet hvorfor. Menuen viser, når den kører. | `network.test.ts`, `mobile.test.ts` (core), `rendered.test.tsx` "E2", Rust `parses_the_network_answer` |
 | D2 | Danske Zod-beskeder i core og danske tekster for SQLite-fejl (desktop og mobilserveren). | `gifts.test.ts` "Danish messages" |
-| B2 | Faste udgifter, der ligner et låns ydelse, får en advarsel og tælles kun én gang i bilens omkostninger. | `gifts.test.ts` "duplicate a loan" |
+| B2 | En fast udgift med samme månedsbeløb som et lån (og ikke på en anden bil/bolig) tælles kun én gang i bilens omkostninger; et navnematch giver kun en advarsel. | `gifts.test.ts` "duplicate a loan" |
 | A1 | Brugerfladen skriver ingen SQL; 14 forespørgsler er flyttet til `repo/views.ts`, og en ESLint-regel afviser nye. | `gifts.test.ts` "read models", ESLint |
 | G1 | Afventer brugerens accept af en PR fra spec-branchen til `main`. | – |
 

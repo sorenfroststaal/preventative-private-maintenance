@@ -119,16 +119,11 @@ export function isLanAddress(address: string | undefined | null): boolean {
   return a === "::1" || a.startsWith("fe80:") || a.startsWith("fc") || a.startsWith("fd");
 }
 
-/** The /24 network of each private IPv4 address, e.g. "192.168.1" (used to recognise the home network). */
-export function networkKeys(addresses: string[]): string[] {
-  return [...new Set(addresses.filter((a) => isLanAddress(a) && /^\d+\.\d+\.\d+\.\d+$/.test(a) && !a.startsWith("127.")).map((a) => a.split(".").slice(0, 3).join(".")))];
-}
-
 /**
- * Whether mobile access may start by itself (review E2): only on a network where the user turned it on.
- * With no remembered network (turned on before this rule, or without a network) it does not start.
+ * Whether mobile access may start by itself (review E2): only on a network where the user turned it on,
+ * recognised by its router (`router:<MAC>`). Without a remembered network, or when the current network
+ * cannot be told, it does not start.
  */
-export function mayAutostartMobile(rememberedNetworks: string[] | null | undefined, currentAddresses: string[]): boolean {
-  const now = networkKeys(currentAddresses);
-  return Boolean(rememberedNetworks?.length) && now.some((n) => rememberedNetworks!.includes(n));
+export function mayAutostartMobile(rememberedNetworks: string[] | null | undefined, currentNetwork: string | null | undefined): boolean {
+  return Boolean(currentNetwork && currentNetwork.startsWith("router:") && rememberedNetworks?.includes(currentNetwork));
 }

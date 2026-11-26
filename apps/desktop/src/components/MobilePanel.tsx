@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Smartphone } from "lucide-react";
-import { createPairingCode, getSetting, listMobileDevices, mayAutostartMobile, networkKeys, revokeMobileDevice, setSetting } from "@ppm/core";
+import { createPairingCode, getSetting, listMobileDevices, mayAutostartMobile, revokeMobileDevice, setSetting } from "@ppm/core";
 import { errorText, useSession } from "../app/session";
 import { useToast } from "../layout/Shell";
-import { mobileAddresses, mobileStart, mobileStatus, mobileStop } from "../platform/tauri";
+import { mobileNetwork, mobileStart, mobileStatus, mobileStop } from "../platform/tauri";
 import { QrCode } from "./QrCode";
 import { formatDateTime } from "../lib/format";
 
@@ -14,7 +14,7 @@ export function MobilePanel() {
   const qc = useQueryClient();
   const toast = useToast();
   const status = useQuery({ queryKey: ["mobile", "status"], queryFn: mobileStatus, refetchInterval: 10_000 });
-  const skipped = useQuery<{ networks: string[] } | null>({ queryKey: ["mobile", "skipped"], queryFn: () => null, staleTime: Infinity, enabled: false });
+  const skipped = useQuery<{ network: string | null } | null>({ queryKey: ["mobile", "skipped"], queryFn: () => null, staleTime: Infinity, enabled: false });
   const devices = useQuery({ queryKey: ["mobile", "devices"], queryFn: () => listMobileDevices(session.archive.db), refetchInterval: 10_000 });
   const [pairing, setPairing] = useState<{ code: string; expiresAt: string } | null>(null);
   const [left, setLeft] = useState(0);
@@ -29,11 +29,10 @@ export function MobilePanel() {
     mutationFn: async () => {
       const s = await mobileStart();
       await setSetting(session.ctx(), "mobile.enabled", true);
-      // Remember this network: mobile access only starts by itself here (review E2).
-      const nets = networkKeys(s.addresses ?? []);
-      if (nets.length) {
+      // Remember this network (its router): mobile access only starts by itself here (review E2).
+      if (s.network) {
         const known = (await getSetting<string[]>(session.archive.db, "mobile.networks")) ?? [];
-        await setSetting(session.ctx(), "mobile.networks", [...new Set([...known, ...nets])]);
+        await setSetting(session.ctx(), "mobile.networks", [...new Set([...known.filter((k) => k.startsWith("router:")), s.network])]);
       }
       return s;
     },
@@ -68,7 +67,7 @@ export function MobilePanel() {
       </p>
       {!s && skipped.data && (
         <p className="warning" role="status">
-          Mobiladgang blev ikke startet automatisk, fordi computeren er på et andet netværk end der, hvor du slog den til. Slå den til her, hvis du stoler på netværket.
+          Mobiladgang blev ikke startet automatisk, fordi computeren ikke er på et netværk (en router), hvor du har slået den til. Slå den til her, hvis du stoler på netværket.
         </p>
       )}
       {!s ? (
@@ -178,9 +177,9 @@ export function useMobileAutostart() {
     void (async () => {
       if (!(await getSetting<boolean>(session.archive.db, "mobile.enabled"))) return;
       const remembered = await getSetting<string[]>(session.archive.db, "mobile.networks");
-      const now = await mobileAddresses().catch(() => [] as string[]);
-      if (!mayAutostartMobile(remembered, now)) {
-        qc.setQueryData(["mobile", "skipped"], { networks: networkKeys(now) });
+      const now = await mobileNetwork().catch(() => ({ addresses: [] as string[], network: null }));
+      if (!mayAutostartMobile(remembered, now.network)) {
+        qc.setQueryData(["mobile", "skipped"], { network: now.network });
         return;
       }
       await mobileStart().catch(() => undefined);

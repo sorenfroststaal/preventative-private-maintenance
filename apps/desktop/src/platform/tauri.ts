@@ -183,9 +183,11 @@ export interface MobileStatus {
   caFingerprint: string;
   /** The certificate authority was replaced at this start; phones must install it again. */
   caRenewed?: boolean;
+  /** The network (router) the server was started on. */
+  network?: string | null;
 }
 export const mobileStart = (port?: number) => invoke<MobileStatus>("mobile_start", { port: port ?? null });
 export const mobileStop = () => invoke<void>("mobile_stop");
 export const mobileStatus = () => invoke<MobileStatus | null>("mobile_status");
-/** The computer's private IPv4 addresses (checked before mobile access starts by itself). */
-export const mobileAddresses = () => invoke<string[]>("mobile_addresses");
+/** The current network (router key) and addresses, checked before mobile access starts by itself. */
+export const mobileNetwork = () => invoke<{ addresses: string[]; network: string | null }>("mobile_network");

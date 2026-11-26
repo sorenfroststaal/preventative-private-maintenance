@@ -29,9 +29,19 @@ export function writeKey(base: string, pem: string): void {
   } else writeFileSync(base, pem, { mode: 0o600 });
 }
 
-/** Reads the key, or null when there is none. A plain key found on Windows is encrypted in place. */
+/**
+ * Reads the key, or null when there is none or it cannot be decrypted (another Windows user, a restored
+ * profile); the caller then makes a new CA. A plain key found on Windows is encrypted in place.
+ */
 export function readKey(base: string): string | null {
-  if (dpapiAvailable() && existsSync(`${base}.dpapi`)) return unprotectWithDpapi(readFileSync(`${base}.dpapi`, "utf8"));
+  if (dpapiAvailable() && existsSync(`${base}.dpapi`)) {
+    try {
+      const pem = unprotectWithDpapi(readFileSync(`${base}.dpapi`, "utf8"));
+      return pem.includes("PRIVATE KEY") ? pem : null;
+    } catch {
+      return null;
+    }
+  }
   if (!existsSync(base)) return null;
   const pem = readFileSync(base, "utf8");
   if (dpapiAvailable()) writeKey(base, pem);

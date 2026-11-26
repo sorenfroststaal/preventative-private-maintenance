@@ -1,4 +1,5 @@
 /** Import from and export to Open Planner databases (spec 05 "Import fra/Eksport til Open Planner"). */
+import { safeParseDanish } from "../domain/messages";
 import { z } from "zod";
 import type { Archive } from "../archive/archive";
 import type { DbAdapter } from "../db/adapter";
@@ -54,7 +55,7 @@ export function parseOpenPlanner(input: string | Uint8Array): OpenPlannerDatabas
   } catch {
     throw new OpenPlannerError("Filen er ikke gyldig JSON.");
   }
-  const r = zDatabase.safeParse(json);
+  const r = safeParseDanish(zDatabase, json);
   if (!r.success) {
     const i = r.error.issues[0];
     throw new OpenPlannerError(`Filen er ikke en Open Planner-database (version 1 eller 2): ${i?.path.join(".") || ""} ${i?.message ?? ""}`.trim());

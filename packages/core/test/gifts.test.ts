@@ -95,7 +95,7 @@ describe("Danish messages (review D2)", () => {
     const ctx = ctxFor(env, archive);
     const { createEntity: create, friendlyDbError } = await import("../src");
     await expect(create(ctx, "person", {} as never)).rejects.toThrow(/name: Feltet skal udfyldes/);
-    await expect(create(ctx, "contact", { name: "X", kind: "alien" } as never)).rejects.toThrow(/kind: Ugyldig værdi\. Vælg en af: craftsman/);
+    await expect(create(ctx, "contact", { name: "X", kind: "alien" } as never)).rejects.toThrow(/kind: Ugyldig værdi\. Vælg en af mulighederne/);
     await expect(create(ctx, "person", { name: "X", birth_year: "1980" } as never)).rejects.toThrow(/birth_year: Skal være et tal/);
     await expect(create(ctx, "person", { name: "X", shoe: 42 } as never)).rejects.toThrow(/Ukendt felt: shoe/);
     try {
@@ -128,7 +128,17 @@ describe("recurring expenses that duplicate a loan (review B2)", () => {
       ["Afdrag bil", "Billån"],
       ["Boliglån Eksempel", "Boliglån Eksempel"],
     ]);
-    expect((await recurringLoanOverlaps(archive.db, { vehicleId: String(car.id) })).map((o) => o.recurring_name)).toEqual(["Afdrag bil"]);
+    expect((await recurringLoanOverlaps(archive.db, { vehicleId: String(car.id) })).map((o) => [o.recurring_name, o.match])).toEqual([["Afdrag bil", "amount"]]);
+    // A name match alone is only a warning, not the same payment.
+    expect(all.find((o) => o.recurring_name === "Boliglån Eksempel")?.match).toBe("name");
+    // A recurring expense without a vehicle/property matches a loan on one (the common case).
+    const house = await createEntity(ctx, "property", { name: "Hus", kind: "house" });
+    await createEntity(ctx, "loan", { name: "Realkredit", kind: "mortgage", payment_minor: 700000, property_id: String(house.id) });
+    await createEntity(ctx, "recurring_expense", { name: "Realkredit ydelse", amount_minor: 700000, period: "month" });
+    expect((await recurringLoanOverlaps(archive.db)).find((o) => o.loan_name === "Realkredit")).toMatchObject({ recurring_name: "Realkredit ydelse", match: "amount" });
+    // A loan on a car does not match a recurring expense on the house.
+    await createEntity(ctx, "recurring_expense", { name: "Husforsikring", amount_minor: 250000, period: "month", property_id: String(house.id) });
+    expect((await recurringLoanOverlaps(archive.db)).some((o) => o.recurring_name === "Husforsikring")).toBe(false);
   });
 });
 

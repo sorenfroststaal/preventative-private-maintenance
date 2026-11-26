@@ -6,7 +6,7 @@
 import { createServer as createHttpServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
 import { existsSync, promises as fsp, readFileSync, statSync } from "node:fs";
-import { networkInterfaces, hostname as osHostname, tmpdir } from "node:os";
+import { hostname as osHostname, tmpdir } from "node:os";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import {
   activeLendingForItem,
@@ -55,6 +55,7 @@ import {
   type TimelineKind,
 } from "@ppm/core";
 import { ensureTls } from "./tls";
+import { lanAddresses, networkKey } from "./network";
 
 export interface MobileServerOptions {
   env: Env;
@@ -86,14 +87,7 @@ const ITEM_FIELDS = ["name", "category", "location_id", "brand", "model", "seria
 const GIFT_FIELDS = ["direction", "person_id", "title", "occasion", "gift_date", "amount_minor", "notes"] as const;
 const pick = (b: Record<string, unknown>, keys: readonly string[]) => Object.fromEntries(keys.filter((k) => k in b).map((k) => [k, b[k] === "" ? null : b[k]]));
 
-/** Private IPv4 addresses of this computer (what the phone connects to). */
-export function lanAddresses(): string[] {
-  const out: string[] = [];
-  for (const list of Object.values(networkInterfaces())) {
-    for (const i of list ?? []) if (i.family === "IPv4" && !i.internal && isLanAddress(i.address)) out.push(i.address);
-  }
-  return [...new Set(out)];
-}
+export { lanAddresses } from "./network";
 
 class HttpError extends Error {
   constructor(
@@ -381,7 +375,8 @@ export async function startMobileServer(o: MobileServerOptions) {
     } catch (e) {
       const raw = e instanceof Error ? e.message : String(e);
       const friendly = friendlyDbError(raw);
-      const status = e instanceof HttpError ? e.status : e instanceof ValidationError || friendly !== raw ? 400 : 500;
+      const busy = /database is locked|SQLITE_BUSY/i.test(raw);
+      const status = e instanceof HttpError ? e.status : busy ? 503 : e instanceof ValidationError || friendly !== raw ? 400 : 500;
       const message = friendly;
       return send(res, status, { error: status === 500 ? "Der skete en fejl på computeren." : message });
     }
@@ -404,6 +399,8 @@ export async function startMobileServer(o: MobileServerOptions) {
     httpsPort: o.port,
     httpPort: o.port + 1,
     caFingerprint: tls.caFingerprint,
+    /** The network (router) this server was started on, remembered for autostart. */
+    network: o.host ? null : networkKey(),
     /** The CA was replaced at this start; phones must install the new certificate. */
     caRenewed: tls.caRenewed,
     caCert: tls.caCert,

@@ -627,12 +627,15 @@ export interface LoanOverlap {
   recurring_name: string;
   loan_id: string;
   loan_name: string;
+  /** "amount": the same monthly amount (counted once in totals); "name": only the names match (a warning). */
+  match: "amount" | "name";
 }
 
 /**
- * Recurring expenses that look like a loan's payment (review B2): same vehicle or property (or neither),
- * and the same monthly amount within 1 kr, or one name contains the other. Such a pair would be
- * counted twice when recurring expenses and loan payments are added together.
+ * Recurring expenses that look like a loan's payment (review B2). They must not point at different
+ * vehicles or properties (a recurring expense without one may match a loan with one). A match on the
+ * monthly amount (within 1 kr) means the same payment and is counted once in totals; a match on the
+ * name alone (one contains the other) is only shown as a warning.
  */
 export async function recurringLoanOverlaps(db: DbAdapter, opts: { today?: string; vehicleId?: string; propertyId?: string } = {}): Promise<LoanOverlap[]> {
   const rec = (await recurringSummary(db, { today: opts.today, vehicleId: opts.vehicleId, propertyId: opts.propertyId })).items.filter((r) => !r.ended);
@@ -641,14 +644,15 @@ export async function recurringLoanOverlaps(db: DbAdapter, opts: { today?: strin
   const out: LoanOverlap[] = [];
   for (const r of rec) {
     for (const l of loans) {
-      const sameTarget = (r.vehicle_id ?? null) === (l.vehicle_id ?? null) && (r.property_id ?? null) === (l.property_id ?? null);
-      const linkedEither = (r.vehicle_id && r.vehicle_id === l.vehicle_id) || (r.property_id && r.property_id === l.property_id);
-      if (!sameTarget && !linkedEither) continue;
+      const conflict = (a: unknown, b: unknown) => a != null && b != null && a !== b;
+      if (conflict(r.vehicle_id, l.vehicle_id) || conflict(r.property_id, l.property_id)) continue;
+      // A loan on another vehicle/property than the recurring expense's is not the same payment.
+      if ((r.vehicle_id && !l.vehicle_id && l.property_id) || (r.property_id && !l.property_id && l.vehicle_id)) continue;
       const amount = l.monthly_payment_minor > 0 && Math.abs(r.monthly_minor - l.monthly_payment_minor) <= 100;
       const rn = norm(r.name);
       const ln = norm(l.name);
       const named = rn.length > 2 && ln.length > 2 && (rn.includes(ln) || ln.includes(rn));
-      if (amount || named) out.push({ recurring_id: String(r.id), recurring_name: String(r.name), loan_id: String(l.id), loan_name: String(l.name) });
+      if (amount || named) out.push({ recurring_id: String(r.id), recurring_name: String(r.name), loan_id: String(l.id), loan_name: String(l.name), match: amount ? "amount" : "name" });
     }
   }
   return out;

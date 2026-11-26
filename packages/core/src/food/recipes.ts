@@ -1,4 +1,5 @@
 /** Recipes with ingredient lists (spec 03 "Madplan", 04 "Opskrifter"). */
+import { safeParseDanish } from "../domain/messages";
 import { z } from "zod";
 import type { DbAdapter } from "../db/adapter";
 import type { Row } from "../domain/registry";
@@ -48,7 +49,7 @@ export function toIngredientRows(input: IngredientsInput): IngredientInput[] {
 
 function validateIngredients(rows: IngredientInput[]): IngredientInput[] {
   return rows.map((r, i) => {
-    const res = zIngredient.safeParse({ ...r, name: r.name === undefined ? r.name : normalizeName(r.name) });
+    const res = safeParseDanish(zIngredient, { ...r, name: r.name === undefined ? r.name : normalizeName(r.name) });
     if (!res.success) {
       throw new ValidationError(
         res.error.issues.map((x) => ({ path: `ingredients.${i}.${x.path.join(".")}`, message: x.message })),

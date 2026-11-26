@@ -43,13 +43,13 @@ import { localDate } from "@ppm/core";
 import { nodeEnv } from "@ppm/core/node";
 
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => undefined }));
-const picked = vi.hoisted(() => ({ files: [] as string[], mobile: null as null | Record<string, unknown>, addresses: [] as string[], calls: [] as string[] }));
+const picked = vi.hoisted(() => ({ files: [] as string[], mobile: null as null | Record<string, unknown>, network: null as null | string, calls: [] as string[] }));
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: async (cmd: string) => {
     picked.calls.push(cmd);
     if (cmd === "pick_files") return picked.files.splice(0);
     if (cmd === "mobile_status") return picked.mobile;
-    if (cmd === "mobile_addresses") return picked.addresses;
+    if (cmd === "mobile_network") return { addresses: [], network: picked.network };
     return [];
   },
 }));
@@ -685,6 +685,12 @@ describe("phase 2b.9 – rendered components", () => {
     await settle("Bolig og inventar");
     await lastQueryClient.fetchQuery({ queryKey: ["d1-test"], queryFn: () => Promise.reject(new Error("Databasen er låst")) }).catch(() => undefined);
     expect(await screen.findByText("Kunne ikke hente data: Databasen er låst")).toBeTruthy();
+    // A failed list on the page leaves a banner (not only a toast that disappears).
+    const items = lastQueryClient.getQueryCache().find({ queryKey: ["item", "list"] })!;
+    items.setState({ status: "error", error: new Error("x"), data: undefined });
+    expect(await screen.findByText(/Noget kunne ikke hentes/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Prøv igen" }));
+    await waitFor(() => expect(screen.queryByText(/Noget kunne ikke hentes/)).toBeNull());
     const m = lastQueryClient.getMutationCache().build(lastQueryClient, { mutationFn: () => Promise.reject(new Error("Disken er fuld")) });
     await m.execute(undefined).catch(() => undefined);
     expect(await screen.findByText("Kunne ikke gemme: Disken er fuld")).toBeTruthy();
@@ -715,6 +721,17 @@ describe("phase 2b.9 – rendered components", () => {
     confirm.mockReturnValue(true);
     fireEvent.click(within(detail).getByRole("button", { name: "Arkivér" }));
     await waitFor(async () => expect((await archive.db.select<{ archived_at: string | null }>("SELECT archived_at FROM item WHERE id = ?", [String(item.id)]))[0]!.archived_at).not.toBeNull());
+    cleanup();
+    // Removing what a policy covers asks first too.
+    const policy = await createEntity(ctx, "policy", { title: "C5-police", kind: "home_contents", premium_period: "year" });
+    const bike = await createEntity(ctx, "item", { name: "C5-cykel" });
+    await createEntity(ctx, "policy_coverage", { policy_id: String(policy.id), target_type: "item", target_id: String(bike.id) });
+    renderAt(`/forsikring?id=${String(policy.id)}`);
+    await settle("Forsikring");
+    confirm.mockReturnValue(false);
+    fireEvent.click(await screen.findByRole("button", { name: "Fjern C5-cykel fra policen" }));
+    expect(confirm).toHaveBeenLastCalledWith('Fjern "C5-cykel" fra policen?');
+    expect((await archive.db.select("SELECT count(*) AS n FROM policy_coverage WHERE policy_id = ?", [String(policy.id)]))[0]).toEqual({ n: 1 });
     confirm.mockRestore();
   });
   it("C1: persons and finance categories are created in one place (Lister); Settings links there", async () => {
@@ -728,23 +745,36 @@ describe("phase 2b.9 – rendered components", () => {
   it("E2: mobile access does not start by itself on another network and the panel says why", async () => {
     const ctx = makeCtx(env, archive.db, user.id, "ui");
     await setSetting(ctx, "mobile.enabled", true);
-    await setSetting(ctx, "mobile.networks", ["192.168.1"]);
-    picked.addresses = ["10.20.30.40"];
+    await setSetting(ctx, "mobile.networks", ["router:aa:bb:cc:dd:ee:ff"]);
+    picked.network = "router:11:22:33:44:55:66";
     picked.calls.length = 0;
     renderAt("/indstillinger");
     await settle("Indstillinger");
     expect(await screen.findByText(/blev ikke startet automatisk/)).toBeInTheDocument();
-    expect(picked.calls).toContain("mobile_addresses");
+    expect(picked.calls).toContain("mobile_network");
     expect(picked.calls).not.toContain("mobile_start");
     cleanup();
     // On the remembered network it starts.
-    picked.addresses = ["192.168.1.77"];
+    picked.network = "router:aa:bb:cc:dd:ee:ff";
     picked.calls.length = 0;
     renderAt("/indstillinger");
     await settle("Indstillinger");
     await waitFor(() => expect(picked.calls).toContain("mobile_start"));
     await setSetting(ctx, "mobile.enabled", false);
-    picked.addresses = [];
+    picked.network = null;
+  });
+  it("B2: the vehicle's monthly total counts a recurring expense with the loan's amount once and keeps one that only shares the name", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const car = await createEntity(ctx, "vehicle", { name: "B2-bil" });
+    await createEntity(ctx, "loan", { name: "B2-bil", kind: "car", payment_minor: 250000, vehicle_id: String(car.id) });
+    await createEntity(ctx, "recurring_expense", { name: "Afdrag", amount_minor: 250000, period: "month", vehicle_id: String(car.id) });
+    await createEntity(ctx, "recurring_expense", { name: "B2-bil forsikring", amount_minor: 60000, period: "month", vehicle_id: String(car.id) });
+    renderAt(`/bil?id=${String(car.id)}&tab=cost`);
+    await settle("Bil");
+    const total = await screen.findByText(/I alt pr. måned/);
+    await waitFor(() => expect(total.textContent?.replace(/\s/g, " ")).toMatch(/3\.100,00/));
+    expect(screen.getByText(/samme beløb som lånet B2-bil; tælles kun én gang/)).toBeInTheDocument();
+    expect(screen.getByText(/ligner lånet B2-bil/)).toBeInTheDocument();
   });
 });
 
