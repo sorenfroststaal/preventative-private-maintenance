@@ -70,6 +70,8 @@ Den åbne forekomst har feltets dato som `due_date`. Bliver feltet tomt, eller a
 
 Når `purchase_date` udfyldes, og `complaint_until` er tom, SKAL UI foreslå (men ikke gemme uden visning) `purchase_date + 24 måneder`. Teksten ved feltet: *"Forslag ud fra 2 års reklamationsret ved forbrugerkøb. Kontrollér dine egne vilkår."*
 
+Når `complaint_until` eller `warranty_until` er passeret, afsluttes den automatiske opgaves åbne forekomst af sig selv: `status = 'skipped'`, `completed_date` = udløbsdatoen og `note = 'Udløbet'`, auditeret med `via = 'system'`. Det sker, når appen åbnes, og jævnligt mens den kører. Lister og komponentoversigter viser "Reklamationsret udløbet" og "Garanti udløbet".
+
 ## Personer og brugere
 
 - `app_user` er den, der logger ind i appen. `person` er et familiemedlem. En bruger er normalt koblet til sin egen person.
