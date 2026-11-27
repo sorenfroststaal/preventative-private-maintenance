@@ -117,7 +117,7 @@ PPM kan bruges fra iPhone som en app på hjemmeskærmen, når telefonen er på s
 | D2 | Danske Zod-beskeder i core og danske tekster for SQLite-fejl (desktop og mobilserveren). | `gifts.test.ts` "Danish messages" |
 | B2 | En fast udgift med samme månedsbeløb som et lån (og ikke på en anden bil/bolig) tælles kun én gang i bilens omkostninger; et navnematch giver kun en advarsel. | `gifts.test.ts` "duplicate a loan" |
 | A1 | Brugerfladen skriver ingen SQL; 14 forespørgsler er flyttet til `repo/views.ts`, og en ESLint-regel afviser nye. | `gifts.test.ts` "read models", ESLint |
-| G1 | Afventer brugerens accept af en PR fra spec-branchen til `main`. | – |
+| G1 | Spec-branchen er merget til `main` (PR #4, merget af brugeren) og flettet ind i `claude/app`. `gen:check` er nu streng: hver migration skal have sin spec-fil i `docs/spec/` og være byte-identisk med den. | `pnpm lint` (gen:check) |
 
 ## Ønsker 26.11.2026: mere på telefonen, personer uden for husstanden og gaver (migration 0011)
 

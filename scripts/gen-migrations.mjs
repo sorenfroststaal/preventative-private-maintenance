@@ -29,27 +29,16 @@ if (process.argv.includes("--check")) {
     console.error("migrations.generated.ts is out of date. Run: pnpm gen:migrations");
     process.exit(1);
   }
-  // Normative migrations must be byte-identical copies of the specification (AGENTS.md).
-  const normative = [
-    ["0001_init.sql", "docs/spec/schema.sql"],
-    ["0002_meal_plan.sql", "docs/spec/schema-0002.sql"],
-    ["0003_item_part_documents.sql", "docs/spec/schema-0003.sql"],
-    ["0004_pets.sql", "docs/spec/schema-0004.sql"],
-    ["0005_recurring_priority.sql", "docs/spec/schema-0005.sql"],
-    ["0006_loans_and_documents.sql", "docs/spec/schema-0006.sql"],
-    ["0007_lending_and_serials.sql", "docs/spec/schema-0007.sql"],
-    ["0008_recurring_person.sql", "docs/spec/schema-0008.sql"],
-    ["0009_item_owner.sql", "docs/spec/schema-0009.sql"],
-    ["0010_person_links.sql", "docs/spec/schema-0010.sql"],
-    ["0011_people_and_gifts.sql", "docs/spec/schema-0011.sql"],
-    ["0012_components.sql", "docs/spec/schema-0012.sql"],
-  ];
-  for (const [name, specPath] of normative) {
-    // 0003 is proposed on a spec branch; compare once it exists in docs/spec on this branch.
-    if (!existsSync(join(root, specPath))) continue;
-    const spec = readFileSync(join(root, specPath), "utf8");
-    if (entries.find((e) => e.name === name)?.sql !== spec) {
-      console.error(`${name} must be identical to ${specPath}`);
+  // Every migration is normative and must be a byte-identical copy of the specification (AGENTS.md):
+  // 0001 = docs/spec/schema.sql, NNNN = docs/spec/schema-NNNN.sql. A missing spec file is an error.
+  for (const e of entries) {
+    const specPath = e.version === 1 ? "docs/spec/schema.sql" : `docs/spec/schema-${String(e.version).padStart(4, "0")}.sql`;
+    if (!existsSync(join(root, specPath))) {
+      console.error(`${e.name} has no specification: ${specPath} is missing (add it to docs/spec on main first)`);
+      process.exit(1);
+    }
+    if (readFileSync(join(root, specPath), "utf8") !== e.sql) {
+      console.error(`${e.name} must be identical to ${specPath}`);
       process.exit(1);
     }
   }
