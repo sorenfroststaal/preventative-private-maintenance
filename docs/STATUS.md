@@ -96,7 +96,7 @@ PPM kan bruges fra iPhone som en app på hjemmeskærmen, når telefonen er på s
 
 ## Ønske 27.11.2026: udløbet reklamationsret
 
-- Når reklamationsretten (eller garantien) er udløbet, afsluttes den automatiske opgave af sig selv: forekomsten får status "sprunget over" på udløbsdatoen med noten "Udløbet" og auditeres som `via = 'system'` (`closeExpiredDeadlines` i core). Det sker, når appen åbner, hver time mens den kører, og når mobilserveren starter.
+- Når reklamationsretten (eller garantien) er udløbet, afsluttes den automatiske opgave af sig selv: forekomsten får status "sprunget over" på udløbsdatoen med noten "Udløbet" og auditeres som `via = 'system'` (`closeExpiredDeadlines` i core). Det sker, når appen åbner, og hver time mens den kører (mobilserveren startes af appen og gør det ikke selv).
 - Genstandslisten, fanen *Komponenter* og trævisningen viser "Reklamationsret udløbet" og "Garanti udløbet"; telefonen viser "(udløbet)" ved datoen.
 - Tests: `components.test.ts` "expired complaint period and warranty", `rendered.test.tsx` "expired complaint period".
 - **Garanti som reklamationsret:** under *Garanti til* på genstandskortet sætter knapperne 1, 2, 3, 5 og 10 år garantien fra købsdatoen. Genstanden viser øverst "Reklamationsret til … (N dage tilbage)" og "Garanti til … (ca. N år tilbage)", markeret gult de sidste 60 dage, og *Meld fejl …*, så længe en af fristerne løber. Den opretter en arbejdsordre (reparation) på genstanden med fristerne og forhandleren i beskrivelsen, så man reklamerer i tide. Den automatiske opgave minder 60 dage før.

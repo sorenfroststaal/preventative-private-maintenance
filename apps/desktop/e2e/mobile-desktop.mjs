@@ -27,8 +27,15 @@ try {
   await click("//nav//a[contains(., 'Indstillinger')]");
   await js("document.getElementById('mobil').scrollIntoView()");
   await click("//button[normalize-space()='Slå mobiladgang til']");
-  const started = await waitText("Mobiladgang er slået til", 40000);
-  step("Mobilserveren startet af appen", started, started ? "" : String(await js("return [...document.querySelectorAll('.toast')].map((t) => t.textContent).join(' | ')")));
+  // Collect every message shown while waiting, so a failed start says why (toasts disappear after 8 s).
+  const seen = new Set();
+  let started = false;
+  for (let i = 0; i < 40 && !started; i++) {
+    for (const t of String(await js("return [...document.querySelectorAll('.toast')].map((t) => t.textContent).join('\\n')")).split("\n")) if (t) seen.add(t);
+    started = await has("Mobiladgang er slået til");
+    if (!started) await sleep(1000);
+  }
+  step("Mobilserveren startet af appen", started, started ? "" : [...seen].join(" | ") || "ingen besked");
   await sleep(500);
   await js("document.getElementById('mobil').scrollIntoView()");
   await shot("mobil-indstillinger");
