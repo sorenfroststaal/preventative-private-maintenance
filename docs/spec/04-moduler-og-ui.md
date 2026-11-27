@@ -8,7 +8,7 @@
 
 ## Navigation
 
-En venstremenu med disse punkter i denne rækkefølge, hvert med sit ikon (se "Visuel stil"): **Overblik, Opgaver, Bolig og inventar, Arbejdsordrer, Bil, Økonomi, Madplan, Forsikring, Helbred, Dokumenter, AI-indbakke (med antal), Indstillinger.**
+En venstremenu med disse punkter i denne rækkefølge, hvert med sit ikon (se "Visuel stil"): **Overblik, Opgaver, Kalender, Bolig og inventar, Arbejdsordrer, Bil, Økonomi, Madplan, Forsikring, Helbred, Dokumenter, AI-indbakke (med antal), Lister, Indstillinger.**
 
 Global søgning åbnes med `Ctrl+K`. Den søger i `search_index` og viser resultater grupperet pr. modul. Hele appen SKAL kunne betjenes med tastatur og have synlig fokus.
 
@@ -20,7 +20,7 @@ Rækkefølgen er fast:
 
 1. **Forfaldne:** åbne forekomster med `due_date < i dag`.
 2. **Næste 30 dage:** åbne forekomster inden for `dashboard.horizon_days`.
-3. **Udløber snart:** de automatiske opgaver (garanti, reklamationsret, police, binding og recept) inden for 60 dage, uanset `reminder_days`.
+3. **Udløber snart:** de automatiske opgaver (garanti, reklamationsret, police, binding og recept) fra 30 dage tilbage til 60 dage frem, uanset `reminder_days`. Automatiske opgaver vises kun her og ikke også i sektion 1–2. Ældre udløbne frister skjules.
 4. **Mangler oplysninger:**
    - genstande med pris, men uden kvittering
    - aktive opgaver, hvor den åbne forekomst mangler `due_date`
@@ -97,11 +97,15 @@ Opgavelisten kan filtreres på modul, ansvarlig, status og periode. Den kan ogs�
 - **Konti:** opret en konto, og importér CSV (se 05).
 - **Transaktioner:** liste med kategori, som kan ændres direkte i listen. Når brugeren kategoriserer manuelt, tilbydes *"Brug altid for tekster der indeholder …"*, og der oprettes en `category_rule` med `created_from='learned'`.
 - **Budget:** et årsbudget med linjer pr. kategori. Visningen sammenligner budget og faktisk forbrug pr. måned og hele året.
-- **Faste udgifter:** liste med den beregnede månedlige gennemsnitsudgift og summen pr. måned.
+- **Overblik:** indtægter og udgifter pr. måned (6, 12 eller 24 måneder) som kurve med gennemsnit. Overførsler tælles ikke med; posteringer uden kategori tælles efter fortegn. **Madbudget:** forbruget i "Mad og dagligvarer" med underkategorier pr. måned mod budgettet; madbudgettet sættes i ét trin og gemmes som en budgetlinje uden måned i årets budget. **Historik pr. kategori:** alle kategorier med posteringer i perioden med minikurve og gennemsnit; valgt kategori vises som kurve.
+- **Budget** forklarer, at "faktisk" kommer fra kategoriserede posteringer, viser antal posteringer i året og hvor mange der mangler kategori, og kan hente månedlige linjer fra de faste udgifter (kun kategorier uden linje).
+- **Faste udgifter:** liste med den beregnede månedlige gennemsnitsudgift og summen pr. måned. Hver udgift har en valgfri prioritet 1–5 (5 obligatorisk, 4 vigtig, 3 nyttig, 2 rart at have, 1 kan undværes), listen kan sorteres efter den, og summen af prioritet 1–2 vises pr. måned og år. En udgift arkiveres fra listen (opsagt). En udgift kan kobles til en person, en bolig eller en bil (listen kan filtreres pr. person med sum), have en slutdato (derefter vises den som ophørt og tælles ikke med) og markeres som variabel, så beløbet vises som et skøn ("ca.").
+- **Lån:** liste med type, långiver, restgæld pr. dato, rente, ydelse omregnet til pr. måned og sidste ydelse, med summer for restgæld og ydelse. Detaljen har bilag. Appen beregner ikke afdrag; brugeren retter restgælden ud fra årsopgørelsen. Bilens driftsomkostninger viser bilens faste udgifter og lån.
 - Standardkategorier (seed): Bolig, Forsyning, Mad og dagligvarer, Transport, Forsikring, Børn, Sundhed, Fritid, Abonnementer, Opsparing, Indtægt, Overførsel, Andet.
 
 ## Forsikring
 
+- Policelisten viser i kolonnen *Dækker* dækkede personer som runde initialer og andre dækninger som ikoner. Personer til- og fravælges med ét klik på fanen *Dækning*.
 - Liste over policer med årlig præmie (normaliseret fra perioden), fornyelse og selvrisiko.
 - Detaljevisning med dækning (genstande, biler, personer og bolig), skadesager og policedokumenter.
 - Knappen *Forsikringsrapport* (se 05).
@@ -138,8 +142,8 @@ Modulet har fanerne **Uge, Opskrifter og Indkøbsliste**.
 - En plads udfyldes med en opskrift (søgbar vælger) eller en fri tekst, fx "Rester". Antal portioner er som standard husstandens størrelse (`food.default_servings`, standard 4).
 - En ret kan flyttes til en anden dag. Knappen *Kopiér sidste uge* kopierer alle pladser 7 dage frem.
 - Ugekortet viser:
-  - **Anslået pris** for ugen: summen af `estimated_cost_minor × portioner / servings` for de retter, der har en pris. Antal retter uden pris vises separat.
-  - **Budget:** månedens budget for kategorien "Mad og dagligvarer" (og underkategorier) delt med antal dage i måneden og ganget med 7. Desuden det faktiske forbrug i ugen fra posteringer i samme kategorier.
+  - **Anslået pris** for ugen: summen af `estimated_cost_minor × portioner / servings` for de retter, der har en pris. Antal retter uden pris vises separat. Det er planlagte opskrifter uden pris. Frie titler som "Rester" tælles ikke. Portioner er pladsens `servings` og ellers opskriftens.
+  - **Budget:** månedens budget for kategorien "Mad og dagligvarer" (og underkategorier) delt med antal dage i måneden og ganget med 7. Beregningen sker pr. dag, så en uge over et månedsskifte bruger begge måneders budget. Desuden det faktiske forbrug i ugen fra posteringer i samme kategorier.
   - **Allergi-advarsler** (se nedenfor) ved hver ret.
 
 ### Opskrifter
@@ -153,6 +157,7 @@ Modulet har fanerne **Uge, Opskrifter og Indkøbsliste**.
 
 - En ret får en advarsel, hvis et af dens allergener (markeret eller udledt) matcher en registrering i `health_allergy` for en person i husstanden. Advarslen viser stoffet og personen.
 - Er personens helbredsdata private for en anden bruger (`health_private_user_id`), vises kun "Allergi hos et husstandsmedlem (privat)" uden navn og stof.
+- Allergener udledes kun af ingrediensnavnene, ikke af rettens navn. Nøgleord matches som delstreng (fx giver "kokosmælk" Mælk). Det giver hellere en advarsel for meget end en for lidt.
 - Matching sker uden forskel på store og små bogstaver og med denne nøgleordsliste (core SKAL indeholde den, og den KAN udvides):
 
 | Nøgle | Visningsnavn | Nøgleord i ingrediens eller allergi |
@@ -175,10 +180,50 @@ En allergi-registrering matcher en nøgle, hvis `substance` indeholder visningsn
 
 - *Lav indkøbsliste for ugen* opretter eller opdaterer listen for ugen (`week_start` = mandag):
   - Ingredienser fra ugens retter skaleres med `portioner / servings` og lægges sammen efter normaliseret varenavn og enhed. g og kg lægges sammen i g (vises som kg fra 1000 g). ml, dl og l lægges sammen i ml (vises som l fra 1000 ml). Andre enheder lægges kun sammen med samme enhed.
-  - Varer uden mængde vises én gang med antallet af retter, de indgår i, fx "salt (3 retter)".
+  - Varer uden mængde vises én gang med antallet af retter, de indgår i, fx "salt (3 retter)". De gemmes med `amount` = antal retter og `unit = 'retter'`, så navn og enhed er stabile, når listen genereres igen.
   - Når listen genereres igen, erstattes de genererede varer (`source = 'plan'`). Manuelle varer bevares. Afkrydsning bevares for varer med samme navn og enhed.
 - Varer grupperes efter butiksafdeling (`category`), og afdelingen gættes ud fra varenavnet med en simpel liste: Frugt og grønt, Kød og fisk, Mejeri, Brød, Kolonial, Frost, Andet. Brugeren kan ændre den.
-- Varer kan afkrydses, tilføjes manuelt, slettes og kopieres som tekst (én vare pr. linje), fx til en besked.
+- Varer kan afkrydses, tilføjes manuelt, slettes og kopieres som tekst (én vare pr. linje, grupperet efter afdeling), fx til en besked. Afkrydsede varer kommer kun med, hvis brugeren vælger det.
+
+## Husdyr
+
+Under **Bolig og inventar** har fanen **Husdyr** en liste (navn, art og race, chipnummer, dyrlæge) og en detaljevisning med fotos, oplysninger, bilag og de policer, der dækker dyret. Felterne er navn, art (hund, kat, hest, kanin, fugl, andet), race, køn, fødselsdato, chipnummer, ejer (person), dyrlæge (kontakt) og noter. Under Forsikring kan dækning tilføjes for et husdyr.
+
+- Faste udgifter og genstande kan høre til flere personer (personknapper med initialer). Listerne viser personerne og kan filtreres pr. person.
+- Detaljepanelet ved siden af en liste bliver i synsfeltet, når listen scrolles, og har sin egen scroll.
+
+## Billeder og koblinger i lister
+
+- Lister over genstande, bygningsdele, husdyr, biler, forsikringer og udlån viser postens første foto som et lille kvadratisk billede til venstre på rækken (en police uden eget billede viser billedet af noget, den dækker). Uden foto vises modulets ikon. Dokumenter viser et preview af billeder.
+- Kolonnen *Koblinger* under Dokumenter viser, hvad dokumentet er koblet til (type og navn), som knapper, der åbner posten. Koblinger til helbredsdata vises kun som "Helbred".
+
+## Kalender og tidslinje
+
+- Menupunktet **Kalender** (ikon `calendar-days`, farvetoken `--c-calendar`) har fanerne *Månedsvisning* og *Tidslinje*. Begge viser de samme begivenheder, og brugeren vælger, hvilke typer der vises: opgaver, arbejdsordrer, køb, garanti og reklamationsret, udlån, forsikringer, faste udgifter og bindinger, lån, madplan, helbred og dokumenter. Valget huskes pr. bruger. Helbredsbegivenheder for personer med private helbredsdata vises kun for den valgte bruger.
+- **Månedsvisning:** mandag først, ugenumre, i dag fremhævet, op til tre begivenheder pr. dag og et dagspanel med alle dagens begivenheder, der hver fører til posten. Perioder vises på første og sidste dag; igangværende perioder kun på første. Piletasterne flytter mellem dagene.
+- **Tidslinje:** en bane pr. type, perioder som bjælker og datoer som punkter, "I dag"-linje, zoom med rullehjul, +/− og forvalg (uge, måned, kvartal, år, 5 år), flyt ved at trække eller med piletasterne. Aksen skifter mellem dage, uger, måneder, kvartaler og år efter zoom. Forfaldne begivenheder har rød kant, udførte er nedtonede. Hver begivenhed kan nås med tastaturet og har en tekst til skærmlæsere, og *Vis som liste* viser de samme begivenheder som tekst.
+
+## Udlån
+
+- Bolig og inventar har fanen **Udlån**. En ting (genstand eller fri tekst) lånes ud til en person, en kontakt eller et frit navn med udlånsdato og eventuel afleveringsdato. En genstand kan kun være udlånt én gang ad gangen. Overskredne udlån markeres. *Markér afleveret* sætter `returned_date`; afleverede udlån kan vises som historik. Genstandens detalje viser "Udlånt til …" eller *Lån ud…*.
+
+## Komponenter og trævisning
+
+- Genstande har fanen **Komponenter** grupperet efter rolle (indbyggede dele, tilbehør, forbrugsstoffer, reservedele) med *Tilføj komponent* og *Brug …* (antal, arbejdsordre, dato). En komponent viser "Del af …" med links til genstandene over den.
+- Bolig og inventar → Genstande kan vises som **Liste** (hovedgenstande med antal dele; komponenter kan slås til) eller **Træ**, grupperet efter placering (bolig › rum › underrum › genstand › komponenter), ejer eller kategori, og foldes ud og sammen. En genstand med flere ejere står under hver ejer. En komponent med egen placering står også i sit eget rum, mærket "del af …". En søgning viser træfferne med vejen til dem.
+- Arbejdsordrer har fanen **Reservedele** med de brugte dele og *Brug fra lager*.
+
+## Gaver og personer uden for husstanden
+
+- Personer har feltet *Hører til*: husstanden (standard) eller uden for husstanden. "+ Ny person" fra udlån og gaver opretter som standard en person uden for husstanden. Valg af ejere, personer på faste udgifter, forsikringsdækning, husdyrs ejer og helbred viser kun husstanden.
+- Bolig og inventar har fanen **Gaver**: gaver givet og fået med person, anledning (værdiliste), dato, pris og noter, filtre for givet/fået, person og år, og en oversigt pr. person (antal, brugt, senest givet, fået). Gaver er en type i kalender og tidslinje (slået fra som standard) og findes i søgning.
+
+## Lister og rullelister
+
+- Menupunktet **Lister** (ikon `list-tree`, farvetoken `--c-lists`) viser de poster og værdier, som rullelisterne i formularerne henter fra, med en fane for hver: rum og placeringer, boliger, kontakter, personer, konti, økonomikategorier, genstandskategorier og bygningsdelstyper. Poster rettes med samme formular som andre steder og arkiveres i stedet for at blive slettet. Poster, der kan have bilag (boliger, rum, kontakter, personer og konti), har også fanen *Bilag*. Værdilister (03) kan få nye værdier, omdøbes og få ubrugte værdier slettet.
+- Genstandens kategori og bygningsdelens type vælges fra en rulleliste med værdilisten og muligheden **+ Tilføj ny…**.
+- Rullelister, der henviser til poster (fx placering, forhandler, bolig og kategori), har muligheden **+ Ny …**. Den åbner en lille formular for posttypen og vælger den nye post bagefter.
+- Fotos og kvittering kan vælges, når en genstand oprettes, og fotos, når en bygningsdel, bil eller reservedel oprettes. Filerne importeres og kobles, når posten er gemt. Detaljevisningen viser fotos som miniaturer øverst.
 
 ## Visuel stil
 
@@ -202,6 +247,7 @@ Ikoner, farver og små grafer skal *supplere* teksten. De må aldrig være den e
 | Helbred | `heart-pulse` | `--c-health` |
 | Dokumenter | `file-text` | `--c-documents` |
 | AI-indbakke | `sparkles` | `--c-ai` |
+| Lister | `list-tree` | `--c-lists` |
 | Indstillinger | `settings` | `--c-settings` |
 
 - Ikonerne bruges i menuen, i sidehoveder, ved poster i lister og i søgeresultater (modulets ikon) og ved dokumenter (filtypeikon: `file-text` til PDF, `image` til billeder og `mail` til mail).
