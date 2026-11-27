@@ -963,6 +963,37 @@ describe("phase 2b.9 – rendered components", () => {
       // ignore
     }
   });
+  it("multi-select: Shift-click selects from the open item to the clicked one, in the list and in the tree", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    for (const n of ["Rng-A", "Rng-B", "Rng-C", "Rng-D"]) await createEntity(ctx, "item", { name: n, category: "Rng-kategori" });
+    renderAt("/bolig");
+    await settle("Bolig og inventar");
+    fireEvent.click(screen.getByRole("button", { name: "Liste" }));
+    fireEvent.change(screen.getByPlaceholderText("Søg i genstande"), { target: { value: "Rng-" } });
+    // A plain click opens Rng-B; Shift-click on Rng-D chooses B, C and D.
+    fireEvent.click(await screen.findByText("Rng-B"));
+    await screen.findByRole("complementary", { name: "Genstand" });
+    fireEvent.click(screen.getByText("Rng-D"), { shiftKey: true });
+    let bar = await screen.findByRole("toolbar", { name: "Handlinger for valgte genstande" });
+    expect(within(bar).getByText("3 valgt")).toBeInTheDocument();
+    expect((screen.getByRole("checkbox", { name: "Vælg Rng-A" }) as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(within(bar).getByRole("button", { name: "Ryd valg" }));
+
+    // The tree: open Rng-A, Shift-click Rng-C.
+    fireEvent.click(screen.getByRole("button", { name: "Træ" }));
+    fireEvent.change(await screen.findByLabelText(/Gruppér efter/), { target: { value: "category" } });
+    const tree = await screen.findByRole("tree");
+    fireEvent.click((await within(tree).findByText("Rng-A")).closest("button")!);
+    fireEvent.click((await within(tree).findByText("Rng-C")).closest("button")!, { shiftKey: true });
+    bar = await screen.findByRole("toolbar", { name: "Handlinger for valgte genstande" });
+    expect(within(bar).getByText("3 valgt")).toBeInTheDocument();
+    expect((within(tree).getByRole("checkbox", { name: "Vælg Rng-D" }) as HTMLInputElement).checked).toBe(false);
+    try {
+      localStorage.removeItem("ppm.items.view");
+    } catch {
+      // ignore
+    }
+  });
   it("multi-select: choose several items (checkbox and Shift-click), move them to a room, set a role and undo; drag a selection in the tree", async () => {
     const ctx = makeCtx(env, archive.db, user.id, "ui");
     const house = await createEntity(ctx, "property", { name: "Multihus", kind: "house" });

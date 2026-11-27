@@ -102,6 +102,7 @@ PPM kan bruges fra iPhone som en app på hjemmeskærmen, når telefonen er på s
 - **Slet helt** er den eneste valgmulighed, der fjerner noget permanent, og kræver, at man skriver "slet". Dialogen viser, hvor mange bilag, arbejdsordrer, udlån og gaver der berøres. Koblinger og søgeindeks slettes, udlån og gaver beholder navnet, arbejdsordrer og opgaver beholdes uden genstand (opgaverne arkiveres), og selve bilagsfilerne bliver i arkivet. Komponenter slettes med eller bliver selvstændige. Sletningen auditeres med hele rækken (`deleteItemsPermanently` i core).
 - Demoarkivet har en solgt cykel og en kasseret elkedel i Arkiv.
 - Tests: `disposal.test.ts` (migration, årsager, søgning, gendan, slet med og uden komponenter), `rendered.test.tsx` "archive reasons …" og C5.
+- **Shift-klik (ønske 27.11.2026):** Shift-klik vælger alle genstande fra den åbne (eller sidst klikkede) genstand til den, der klikkes på, i den viste rækkefølge – både i listen og i træet (kun udfoldede grene, hver genstand én gang). Test: `rendered.test.tsx` "multi-select: Shift-click selects from the open item …".
 - **Venter:** CI's `gen:check` kræver `docs/spec/schema-0013.sql` på main. Indtil PR #6 er merget, fejler lint på branchen (F56).
 
 ## Ønske 27.11.2026: udløbet reklamationsret

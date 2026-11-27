@@ -428,7 +428,8 @@ export function ItemTree({
   onSelect(id: string): void;
   /** Items chosen with the checkboxes (dragging one of them moves all of them). */
   selection?: Set<string>;
-  onToggle?(id: string, e: { shiftKey: boolean }): void;
+  /** `shown`: the visible items in tree order, for Shift-click ranges. */
+  onToggle?(id: string, e: { shiftKey: boolean }, shown: string[]): void;
 }) {
   const session = useSession();
   const { archive } = session;
@@ -462,6 +463,17 @@ export function ItemTree({
     if (now) next.delete(n.key);
     else next.add(n.key);
     setOpen(next);
+  };
+  /** Items in the order they are shown (open branches only), each once. */
+  const shownItems = () => {
+    const out: string[] = [];
+    const walk = (ns: TreeNode[], d: number) =>
+      ns.forEach((x) => {
+        if (x.item && !out.includes(String(x.item.id))) out.push(String(x.item.id));
+        if (isOpen(x, d)) walk(x.children, d + 1);
+      });
+    walk(tree.data ?? [], 0);
+    return out;
   };
   /** What dropping on a node means in the current grouping (null: not a drop target). */
   const targetFor = (n: TreeNode | "root"): { target: MoveTarget; label: string } | null => {
@@ -561,12 +573,16 @@ export function ItemTree({
                   onChange={() => undefined}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onToggle(String(n.item!.id), e);
+                    onToggle(String(n.item!.id), e, shownItems());
                   }}
                 />
               )}
               {n.item ? (
-                <button className="tree-item" onClick={(e) => (onToggle && (e.ctrlKey || e.metaKey || e.shiftKey) ? onToggle(String(n.item!.id), e) : onSelect(String(n.item!.id)))}>
+                <button
+                  className="tree-item"
+                  onMouseDown={(e) => e.shiftKey && e.preventDefault()}
+                  onClick={(e) => (onToggle && (e.ctrlKey || e.metaKey || e.shiftKey) ? onToggle(String(n.item!.id), e, shownItems()) : onSelect(String(n.item!.id)))}
+                >
                   <RowThumb doc={thumbs?.get(String(n.item.id))} icon={Package} />
                   <span className="text">{n.label}</span>
                   {n.item.component_role ? <span className="chip small">{roleLabel(n.item.component_role)}</span> : null}

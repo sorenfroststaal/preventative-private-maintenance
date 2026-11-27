@@ -68,7 +68,7 @@ function Items() {
     }
   });
   const [showComponents, setShowComponents] = useState(false);
-  // Multi-select: checkboxes, Ctrl/Cmd-click toggles, Shift-click selects a range (in the list).
+  // Multi-select: checkboxes, Ctrl/Cmd-click toggles, Shift-click selects a range (list and tree).
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [anchor, setAnchor] = useState<string | null>(null);
   const chooseView = (v: "list" | "tree") => {
@@ -97,18 +97,26 @@ function Items() {
   );
   const selectedId = params.get("id");
   const selected = items.data?.find((i) => i.id === selectedId) ?? null;
-  const toggle = (id: string, e: { shiftKey: boolean }) => {
+  // Shift-click selects everything from the anchor (the last clicked or the open item) to the clicked one,
+  // in the order shown (the list, or the visible rows of the tree).
+  const toggle = (id: string, e: { shiftKey: boolean }, shown?: string[]) => {
+    const from = anchor ?? selectedId;
     setChosen((cur) => {
       const next = new Set(cur);
-      const order = rows.map((r) => String(r.id));
-      if (e.shiftKey && anchor && order.includes(anchor) && order.includes(id)) {
-        const [a, b] = [order.indexOf(anchor), order.indexOf(id)].sort((x, y) => x - y);
+      const order = shown ?? rows.map((r) => String(r.id));
+      if (e.shiftKey && from && order.includes(from) && order.includes(id)) {
+        const [a, b] = [order.indexOf(from), order.indexOf(id)].sort((x, y) => x - y);
         for (const x of order.slice(a!, b! + 1)) next.add(x);
       } else if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-    setAnchor(id);
+    if (!e.shiftKey) setAnchor(id);
+    else if (!anchor && from) setAnchor(from);
+  };
+  const open = (id: string) => {
+    setAnchor(null);
+    setParams({ id });
   };
   const chosenIds = [...chosen].filter((id) => (items.data ?? []).some((i) => i.id === id));
 
@@ -156,7 +164,7 @@ function Items() {
       {chosenIds.length > 0 && <BulkBar ids={chosenIds} onClear={() => setChosen(new Set())} />}
       <div className="split">
         {view === "tree" ? (
-          <ItemTree q={q} selectedId={selectedId} onSelect={(id) => setParams({ id })} selection={chosen} onToggle={toggle} />
+          <ItemTree q={q} selectedId={selectedId} onSelect={open} selection={chosen} onToggle={toggle} />
         ) : (
         <table className="list">
           <thead>
@@ -180,8 +188,9 @@ function Items() {
             {rows.map((i) => (
               <tr
                 key={String(i.id)}
-                {...rowProps(i.id === selectedId, () => setParams({ id: String(i.id) }))}
+                {...rowProps(i.id === selectedId, () => open(String(i.id)))}
                 className={`${i.id === selectedId ? "selected" : ""}${chosen.has(String(i.id)) ? " chosen" : ""}`}
+                onMouseDown={(e) => e.shiftKey && e.preventDefault()}
                 onClickCapture={(e) => {
                   if (e.ctrlKey || e.metaKey || e.shiftKey) {
                     e.preventDefault();
