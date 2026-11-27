@@ -788,7 +788,7 @@ describe("phase 2b.9 – rendered components", () => {
     await settle("Bolig og inventar");
     const detail = await screen.findByRole("complementary", { name: "Genstand" });
     expect(await within(detail).findByText("Komptest-hotend")).toBeInTheDocument();
-    expect(within(detail).getByRole("heading", { name: "Tilbehør" })).toBeInTheDocument();
+    expect(within(detail).getByRole("heading", { name: /^Tilbehør/ })).toBeInTheDocument();
     fireEvent.click(within(detail).getByRole("button", { name: "Tilføj komponent" }));
     const dialog = await screen.findByRole("dialog", { name: /Ny komponent til Komptest-printer/ });
     fireEvent.change(within(dialog).getByLabelText(/^Navn/), { target: { value: "Komptest-termistor" } });
@@ -845,6 +845,76 @@ describe("phase 2b.9 – rendered components", () => {
     expect(within(expired).getByText("Reklamationsret udløbet")).toBeInTheDocument();
     const fresh = within(detail).getByText("Udløbstest-dyse").closest("li")!;
     expect(within(fresh).queryByText("Reklamationsret udløbet")).toBeNull();
+  });
+  it("warranty: 5 years from the purchase date in one click; the item shows time left and 'Meld fejl' creates a work order", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const today = env.clock.today();
+    const ice = await createEntity(ctx, "item", { name: "Garantitest-ismaskine", purchase_date: today, complaint_until: addDays(today, 30) });
+    renderAt(`/bolig?id=${String(ice.id)}`);
+    await settle("Bolig og inventar");
+    const detail = await screen.findByRole("complementary", { name: "Genstand" });
+    fireEvent.click(within(detail).getByRole("button", { name: "5 år" }));
+    const warranty = within(detail).getByLabelText(/^Garanti til/) as HTMLInputElement;
+    expect(warranty.value).toBe(addDays(today, 0).replace(/^(\d{4})/, (y) => String(Number(y) + 5)));
+    fireEvent.click(within(detail).getByRole("button", { name: /^Gem/ }));
+    await waitFor(async () => expect((await archive.db.select<{ warranty_until: string }>("SELECT warranty_until FROM item WHERE id = ?", [String(ice.id)]))[0]!.warranty_until).toBe(warranty.value));
+    expect(await within(detail).findByText(/30 dage tilbage/)).toBeInTheDocument();
+    expect(within(detail).getByText(/ca\. 5 år tilbage|ca\. 4 år tilbage/)).toBeInTheDocument();
+    fireEvent.click(within(detail).getByRole("button", { name: "Meld fejl …" }));
+    const dialog = await screen.findByRole("dialog", { name: "Meld fejl på Garantitest-ismaskine" });
+    expect((within(dialog).getByLabelText(/^Titel/) as HTMLInputElement).value).toBe("Fejl på Garantitest-ismaskine");
+    expect((within(dialog).getByLabelText(/^Beskrivelse/) as HTMLTextAreaElement).value).toMatch(/Reklamationsret til .* inden fristen/);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Opret" }));
+    await waitFor(async () =>
+      expect(await archive.db.select("SELECT kind, target_type, target_id FROM work_order WHERE title = 'Fejl på Garantitest-ismaskine'")).toEqual([{ kind: "repair", target_type: "item", target_id: String(ice.id) }]),
+    );
+  });
+
+  it("tree: dragging an item onto a room moves it, onto another item makes it a component, and it can be undone; component groups collapse", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const house = await createEntity(ctx, "property", { name: "Trækhus", kind: "house" });
+    const a = await createEntity(ctx, "location", { property_id: String(house.id), name: "Træk-bryggers" });
+    const b = await createEntity(ctx, "location", { property_id: String(house.id), name: "Træk-kontor" });
+    const washer = await createEntity(ctx, "item", { name: "Træk-vaskemaskine", location_id: String(a.id) });
+    const hose = await createEntity(ctx, "item", { name: "Træk-slange", location_id: String(a.id) });
+    renderAt("/bolig");
+    await settle("Bolig og inventar");
+    fireEvent.click(screen.getByRole("button", { name: "Træ" }));
+    fireEvent.change(await screen.findByLabelText(/Gruppér efter/), { target: { value: "location" } });
+    const tree = await screen.findByRole("tree");
+    const rowOf = async (text: string) => (await within(tree).findByText(text)).closest(".tree-row")!;
+    const dt = { data: {} as Record<string, string>, setData(k: string, v: string) { this.data[k] = v; }, getData(k: string) { return this.data[k]; }, dropEffect: "", effectAllowed: "" };
+    // Hose → the office.
+    fireEvent.dragStart(await rowOf("Træk-slange"), { dataTransfer: dt });
+    await screen.findByText(/Slip her for at gøre Træk-slange til en hovedgenstand/);
+    fireEvent.dragOver(await rowOf("Træk-kontor"), { dataTransfer: dt });
+    fireEvent.drop(await rowOf("Træk-kontor"), { dataTransfer: dt });
+    await waitFor(async () => expect((await archive.db.select<{ location_id: string }>("SELECT location_id FROM item WHERE id = ?", [String(hose.id)]))[0]!.location_id).toBe(String(b.id)));
+    expect(await screen.findByText(/Træk-slange er flyttet til Træk-kontor/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Fortryd" }));
+    await waitFor(async () => expect((await archive.db.select<{ location_id: string }>("SELECT location_id FROM item WHERE id = ?", [String(hose.id)]))[0]!.location_id).toBe(String(a.id)));
+    // Hose → onto the washing machine: becomes its component.
+    await waitFor(() => expect(screen.getByRole("tree").textContent).toMatch(/Træk-bryggers 2/));
+    fireEvent.dragStart(await rowOf("Træk-slange"), { dataTransfer: dt });
+    await screen.findByText(/Slip her for at gøre Træk-slange til en hovedgenstand/);
+    fireEvent.dragOver(await rowOf("Træk-vaskemaskine"), { dataTransfer: dt });
+    fireEvent.drop(await rowOf("Træk-vaskemaskine"), { dataTransfer: dt });
+    await waitFor(async () => expect(await archive.db.select("SELECT parent_item_id, component_role FROM item WHERE id = ?", [String(hose.id)])).toEqual([{ parent_item_id: String(washer.id), component_role: "part" }]));
+    cleanup();
+    // The component groups on the item collapse.
+    renderAt(`/bolig?id=${String(washer.id)}&tab=components`);
+    await settle("Bolig og inventar");
+    const detail = await screen.findByRole("complementary", { name: "Genstand" });
+    const toggle = await within(detail).findByRole("button", { name: /Indbyggede dele/ });
+    expect(within(detail).getByText("Træk-slange")).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(within(detail).queryByText("Træk-slange")).toBeNull();
+    try {
+      localStorage.removeItem("ppm.items.view");
+    } catch {
+      // ignore
+    }
   });
 });
 

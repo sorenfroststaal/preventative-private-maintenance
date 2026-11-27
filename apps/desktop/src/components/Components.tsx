@@ -10,14 +10,19 @@ import {
   componentsUsedIn,
   deadlineState,
   itemTree,
+  moveItem,
   STOCK_STATUSES,
+  undoMove,
   consumeComponent,
   workOrdersWithNames,
   type ComponentRow,
   type Row,
   type TreeGroupBy,
   type TreeNode,
+  type MoveTarget,
+  type MoveUndo,
 } from "@ppm/core";
+import { NewWorkOrder } from "../pages/WorkOrders";
 import { errorText, useSession } from "../app/session";
 import { useToast } from "../layout/Shell";
 import { EntityForm } from "./EntityForm";
@@ -49,6 +54,61 @@ export function DeadlineBadges({ item }: { item: Row }) {
         </StatusBadge>
       )}
     </span>
+  );
+}
+
+const timeLeft = (n: number) =>
+  n < 0 ? "udløbet" : n === 0 ? "udløber i dag" : n < 60 ? `${n} dage tilbage` : n < 730 ? `ca. ${Math.round(n / 30)} måneder tilbage` : `ca. ${Math.floor(n / 365)} år tilbage`;
+
+/**
+ * On an item: how long the complaint period and the warranty last, and "Meld fejl …" while either is
+ * running, so a fault is reported (as a work order) before the deadline.
+ */
+export function DeadlinePanel({ item }: { item: Row }) {
+  const { env } = useSession();
+  const toast = useToast();
+  const [reporting, setReporting] = useState(false);
+  const today = env.clock.today();
+  const s = deadlineState(item, today);
+  if (s.complaintDaysLeft === null && s.warrantyDaysLeft === null) return null;
+  const active = (s.complaintDaysLeft ?? -1) >= 0 || (s.warrantyDaysLeft ?? -1) >= 0;
+  const soon = (n: number | null) => n !== null && n >= 0 && n <= 60;
+  const name = String(item.name);
+  const vendor = String(item.vendor_name ?? "") || null;
+  const description = [
+    `Fejl opdaget ${formatDate(today)}.`,
+    (s.complaintDaysLeft ?? -1) >= 0 ? `Reklamationsret til ${formatDate(String(item.complaint_until))}: kontakt forhandleren${vendor ? ` (${vendor})` : ""} inden fristen.` : null,
+    (s.warrantyDaysLeft ?? -1) >= 0 ? `Garanti til ${formatDate(String(item.warranty_until))}.` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return (
+    <div className={`deadline-panel small${soon(s.complaintDaysLeft) || soon(s.warrantyDaysLeft) ? " soon" : ""}`}>
+      {s.complaintDaysLeft !== null && (
+        <span>
+          Reklamationsret til <strong>{formatDate(String(item.complaint_until))}</strong> ({timeLeft(s.complaintDaysLeft)})
+        </span>
+      )}
+      {s.warrantyDaysLeft !== null && (
+        <span>
+          Garanti til <strong>{formatDate(String(item.warranty_until))}</strong> ({timeLeft(s.warrantyDaysLeft)})
+        </span>
+      )}
+      {active && (
+        <button className="link" onClick={() => setReporting(true)}>
+          Meld fejl …
+        </button>
+      )}
+      {reporting && (
+        <NewWorkOrder
+          title={`Meld fejl på ${name}`}
+          target={{ type: "item", id: String(item.id) }}
+          defaults={{ title: `Fejl på ${name}`, kind: "repair", description }}
+          onClose={() => setReporting(false)}
+          onCreated={() => toast("Fejlen er registreret som arbejdsordre. Reklamér hos forhandleren inden fristen.")}
+        />
+      )}
+    </div>
   );
 }
 
@@ -94,6 +154,7 @@ export function ComponentsTab({ item }: { item: Row }) {
   const id = String(item.id);
   const [adding, setAdding] = useState(false);
   const [using, setUsing] = useState<ComponentRow | null>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const list = useQuery({ queryKey: ["item", "components", id], queryFn: () => componentsOf(session.archive.db, id) });
   const thumbs = useThumbnails("item");
   const ro = session.archive.readOnly;
@@ -107,7 +168,17 @@ export function ComponentsTab({ item }: { item: Row }) {
       {list.data?.length === 0 && <Empty>Ingen komponenter. Tilføj fx tilbehør, forbrugsstoffer eller reservedele til genstanden.</Empty>}
       {[...groups, ...(other.length ? [{ role: "other", plural: "Andet", rows: other }] : [])].map((g) => (
         <section key={g.role} className="component-group">
-          <h3>{g.plural}</h3>
+          <h3>
+            <button
+              className="group-toggle"
+              aria-expanded={!collapsed.has(g.role)}
+              onClick={() => setCollapsed((s) => (s.has(g.role) ? new Set([...s].filter((x) => x !== g.role)) : new Set([...s, g.role])))}
+            >
+              {collapsed.has(g.role) ? <ChevronRight size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />} {g.plural}{" "}
+              <span className="small muted">{g.rows.length}</span>
+            </button>
+          </h3>
+          {!collapsed.has(g.role) && (
           <ul className="plain">
             {g.rows.map((c) => (
               <li key={c.id} className="line component-line">
@@ -133,6 +204,7 @@ export function ComponentsTab({ item }: { item: Row }) {
               </li>
             ))}
           </ul>
+          )}
         </section>
       ))}
       {adding && (
@@ -338,7 +410,15 @@ const GROUPS: [TreeGroupBy, string][] = [
 
 /** Bolig og inventar → Genstande as a tree that can be expanded with + (by location, owner or category). */
 export function ItemTree({ q, selectedId, onSelect }: { q: string; selectedId: string | null; onSelect(id: string): void }) {
-  const { archive } = useSession();
+  const session = useSession();
+  const { archive } = session;
+  const qc = useQueryClient();
+  const toast = useToast();
+  const ro = archive.readOnly;
+  // Drag and drop: drop an item on a room/category/owner to move it there, on another item to make it a component.
+  const [dragging, setDragging] = useState<{ id: string; name: string; fromKey: string } | null>(null);
+  const [over, setOver] = useState<string | null>(null);
+  const [lastMove, setLastMove] = useState<{ undo: MoveUndo; label: string } | null>(null);
   const [groupBy, setGroupBy] = useState<TreeGroupBy>(() => {
     try {
       return (localStorage.getItem("ppm.tree.groupBy") as TreeGroupBy) || "location";
@@ -363,6 +443,56 @@ export function ItemTree({ q, selectedId, onSelect }: { q: string; selectedId: s
     else next.add(n.key);
     setOpen(next);
   };
+  /** What dropping on a node means in the current grouping (null: not a drop target). */
+  const targetFor = (n: TreeNode | "root"): { target: MoveTarget; label: string } | null => {
+    if (!dragging) return null;
+    if (n === "root") return { target: { kind: "root" }, label: "hovedgenstand" };
+    if (n.kind === "item") {
+      if (!n.item || String(n.item.id) === dragging.id) return null;
+      return { target: { kind: "item", parentId: String(n.item.id) }, label: `del af ${n.label}` };
+    }
+    const k = n.key;
+    if (k.startsWith("l:")) return { target: { kind: "location", locationId: k === "l:none" ? null : k.slice(2) }, label: k === "l:none" ? "uden placering" : n.label };
+    if (k.startsWith("c:")) return { target: { kind: "category", category: k.slice(2) || null }, label: k === "c:" ? "uden kategori" : n.label };
+    if (k.startsWith("p:")) {
+      const from = dragging.fromKey.split("/")[0]!;
+      const fromPersonId = from.startsWith("p:") && from !== "p:none" ? from.slice(2) : null;
+      if (k === from) return null;
+      return { target: { kind: "owner", personId: k === "p:none" ? null : k.slice(2), fromPersonId }, label: k === "p:none" ? "uden ejer" : n.label };
+    }
+    return null;
+  };
+  const drop = async (n: TreeNode | "root") => {
+    const t = targetFor(n);
+    const d = dragging;
+    setDragging(null);
+    setOver(null);
+    if (!t || !d) return;
+    try {
+      const undo = await moveItem(session.ctx(), d.id, t.target);
+      setLastMove({ undo, label: `${d.name} er flyttet til ${t.label}.` });
+      await qc.invalidateQueries({ queryKey: ["item"] });
+      await qc.invalidateQueries({ queryKey: ["person_link"] });
+    } catch (e) {
+      toast(errorText(e), "error");
+    }
+  };
+  const dropProps = (n: TreeNode | "root", key: string) =>
+    ro || !dragging
+      ? {}
+      : {
+          onDragOver: (e: React.DragEvent) => {
+            if (!targetFor(n)) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            if (over !== key) setOver(key);
+          },
+          onDragLeave: () => setOver((o) => (o === key ? null : o)),
+          onDrop: (e: React.DragEvent) => {
+            e.preventDefault();
+            void drop(n);
+          },
+        };
   const render = (nodes: TreeNode[], depth: number) => (
     <ul className={depth === 0 ? "tree" : "tree-sub"} role={depth === 0 ? "tree" : "group"}>
       {nodes.map((n) => {
@@ -370,7 +500,24 @@ export function ItemTree({ q, selectedId, onSelect }: { q: string; selectedId: s
         const expanded = expandable && isOpen(n, depth);
         return (
           <li key={n.key} role="treeitem" aria-expanded={expandable ? expanded : undefined} aria-selected={n.item ? n.item.id === selectedId : undefined}>
-            <div className={`tree-row ${n.kind}${n.item && n.item.id === selectedId ? " selected" : ""}`} style={{ paddingLeft: `${depth * 1.25}rem` }}>
+            <div
+              className={`tree-row ${n.kind}${n.item && n.item.id === selectedId ? " selected" : ""}${over === n.key ? " drop-over" : ""}${dragging?.fromKey === n.key ? " dragging" : ""}`}
+              style={{ paddingLeft: `${depth * 1.25}rem` }}
+              draggable={Boolean(n.item) && !ro}
+              onDragStart={(e) => {
+                if (!n.item) return;
+                e.stopPropagation();
+                e.dataTransfer.setData("text/plain", String(n.item.id));
+                e.dataTransfer.effectAllowed = "move";
+                setLastMove(null);
+                setDragging({ id: String(n.item.id), name: n.label, fromKey: n.key });
+              }}
+              onDragEnd={() => {
+                setDragging(null);
+                setOver(null);
+              }}
+              {...dropProps(n, n.key)}
+            >
               {expandable ? (
                 <button className="tree-toggle" onClick={() => toggle(n, depth)} aria-label={`${expanded ? "Fold sammen" : "Fold ud"}: ${n.label}`} title={expanded ? "Fold sammen" : "Fold ud"}>
                   {expanded ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
@@ -431,6 +578,28 @@ export function ItemTree({ q, selectedId, onSelect }: { q: string; selectedId: s
           Fold alt sammen
         </button>
       </div>
+      {!ro && <p className="small muted tree-hint">Træk en linje oven på et rum, en kategori eller en ejer for at flytte den, eller oven på en anden genstand for at gøre den til en del af den.</p>}
+      {lastMove && (
+        <p className="row tree-undo" role="status">
+          <span>{lastMove.label}</span>
+          <button
+            className="link"
+            onClick={async () => {
+              await undoMove(session.ctx(), lastMove.undo);
+              setLastMove(null);
+              await qc.invalidateQueries({ queryKey: ["item"] });
+              await qc.invalidateQueries({ queryKey: ["person_link"] });
+            }}
+          >
+            Fortryd
+          </button>
+        </p>
+      )}
+      {dragging && (
+        <div className={`tree-root-drop${over === "root" ? " drop-over" : ""}`} {...dropProps("root", "root")}>
+          Slip her for at gøre {dragging.name} til en hovedgenstand
+        </div>
+      )}
       {tree.data?.length === 0 && <Empty>{q ? "Ingen genstande passer til søgningen." : "Ingen genstande endnu."}</Empty>}
       {tree.data && render(tree.data, 0)}
     </div>

@@ -119,12 +119,24 @@ export function WorkOrders() {
   );
 }
 
-export function NewWorkOrder({ onClose, onCreated, target }: { onClose(): void; onCreated(id: string): void; target?: { type: string; id: string } }) {
+export function NewWorkOrder({
+  onClose,
+  onCreated,
+  target,
+  defaults,
+  title = "Ny arbejdsordre",
+}: {
+  onClose(): void;
+  onCreated(id: string): void;
+  target?: { type: string; id: string };
+  defaults?: Record<string, unknown>;
+  title?: string;
+}) {
   const session = useSession();
   const [targetType, setTargetType] = useState(target?.type ?? "");
   const [targetId, setTargetId] = useState(target?.id ?? "");
   return (
-    <Modal title="Ny arbejdsordre" onClose={onClose} wide>
+    <Modal title={title} onClose={onClose} wide>
       {!target && (
         <div className="row">
           <label>
@@ -148,7 +160,7 @@ export function NewWorkOrder({ onClose, onCreated, target }: { onClose(): void; 
       )}
       <EntityForm
         type="work_order"
-        defaults={{ reported_date: session.env.clock.today(), status: "registered" }}
+        defaults={{ reported_date: session.env.clock.today(), status: "registered", ...defaults }}
         fields={fieldsFor("work_order")}
         fixed={{ target_type: targetType || null, target_id: targetId || null, created_by: session.user.id }}
         submitLabel="Opret"

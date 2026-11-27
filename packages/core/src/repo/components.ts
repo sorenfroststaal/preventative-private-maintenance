@@ -291,10 +291,11 @@ export async function itemTree(db: DbAdapter, opts: { groupBy: TreeGroupBy; matc
   );
   const noPlace = top.filter((i) => visible(i) && !effectiveLoc(i));
   if (noPlace.length) out.push(group("l:none", "group", "Uden placering", noPlace.map((i) => itemNode(i, "l:none"))));
-  return out.map(prune).filter((n): n is TreeNode => n !== null);
+  // Empty rooms stay visible (things can be dragged into them); a search shows only rooms with matches.
+  return q ? out.map(prune).filter((n): n is TreeNode => n !== null) : out.filter((n) => n.kind !== "group" || n.children.length);
 }
 
-/** Drops empty rooms and properties (keeps the tree to what holds items). */
+/** Drops empty rooms and properties (used when searching). */
 function prune(n: TreeNode): TreeNode | null {
   if (n.kind === "item") return n;
   const children = n.children.map(prune).filter((c): c is TreeNode => c !== null);
@@ -324,3 +325,67 @@ export const itemsForMobile = (db: DbAdapter) =>
        FROM item i LEFT JOIN location l ON l.id = i.location_id LEFT JOIN item p ON p.id = i.parent_item_id AND p.archived_at IS NULL
       WHERE i.archived_at IS NULL ORDER BY i.name`,
   );
+
+// ---------------------------------------------------------------- drag and drop in the tree
+
+/** Where an item is dropped in the tree. */
+export type MoveTarget =
+  | { kind: "location"; locationId: string | null }
+  | { kind: "category"; category: string | null }
+  | { kind: "owner"; personId: string | null; fromPersonId?: string | null }
+  | { kind: "item"; parentId: string }
+  | { kind: "root" };
+
+/** What a move changed, so it can be undone. */
+export interface MoveUndo {
+  itemId: string;
+  before: { location_id: unknown; category: unknown; parent_item_id: unknown; component_role: unknown };
+  owners: string[] | null;
+}
+
+const ownersOf = async (db: DbAdapter, itemId: string) =>
+  (await db.select<{ person_id: string }>("SELECT person_id FROM person_link WHERE target_type = 'item' AND target_id = ? ORDER BY person_id", [itemId])).map((r) => r.person_id);
+
+/**
+ * Moves an item dropped in the tree: onto a room (location), a category, an owner (replaces the owner it
+ * was dragged from), another item (becomes its component; the cycle check still applies) or the top
+ * level (no longer a component). Returns what is needed to undo it.
+ */
+export async function moveItem(ctx: Ctx, itemId: string, target: MoveTarget): Promise<MoveUndo> {
+  const item = await mustGet(ctx.db, "item", itemId);
+  const undo: MoveUndo = {
+    itemId,
+    before: { location_id: item.location_id ?? null, category: item.category ?? null, parent_item_id: item.parent_item_id ?? null, component_role: item.component_role ?? null },
+    owners: null,
+  };
+  await ctx.db.transaction(async (tx) => {
+    const c = { ...ctx, db: tx };
+    if (target.kind === "location") await updateEntity(c, "item", itemId, { location_id: target.locationId } as never);
+    else if (target.kind === "category") await updateEntity(c, "item", itemId, { category: target.category?.trim() || null } as never);
+    else if (target.kind === "item") {
+      if (target.parentId === itemId) throw new ValidationError([{ path: "parent_item_id", message: "En genstand kan ikke ligge under sig selv" }], "item");
+      await updateEntity(c, "item", itemId, { parent_item_id: target.parentId, component_role: item.component_role ?? "part" } as never);
+    } else if (target.kind === "root") await updateEntity(c, "item", itemId, { parent_item_id: null, component_role: null } as never);
+    else {
+      const now = await ownersOf(tx, itemId);
+      undo.owners = now;
+      const next = new Set(now.filter((p) => p !== target.fromPersonId));
+      if (target.personId) next.add(target.personId);
+      const { setPersonLinks } = await import("./personLinks");
+      await setPersonLinks(c, "item", itemId, [...next]);
+    }
+  });
+  return undo;
+}
+
+/** Undoes a move from moveItem. */
+export async function undoMove(ctx: Ctx, undo: MoveUndo): Promise<void> {
+  await ctx.db.transaction(async (tx) => {
+    const c = { ...ctx, db: tx };
+    await updateEntity(c, "item", undo.itemId, undo.before as never);
+    if (undo.owners) {
+      const { setPersonLinks } = await import("./personLinks");
+      await setPersonLinks(c, "item", undo.itemId, undo.owners);
+    }
+  });
+}

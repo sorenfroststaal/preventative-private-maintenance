@@ -19,7 +19,7 @@ import { attachPending, PendingAttachments, PhotoStrip, type PendingFile } from 
 import { ReceiptSuggestionBanner } from "../components/ReceiptSuggest";
 import { ItemLending, LendingTab } from "../components/Lending";
 import { GiftsTab } from "../components/Gifts";
-import { ComponentPath, ComponentsTab, DeadlineBadges, ItemTree } from "../components/Components";
+import { ComponentPath, ComponentsTab, DeadlineBadges, DeadlinePanel, ItemTree } from "../components/Components";
 
 export function Home() {
   const [params, setParams] = useSearchParams();
@@ -225,8 +225,23 @@ function NewItem({ onClose, onCreated }: { onClose(): void; onCreated(id: string
   );
 }
 
-/** Spec 03: suggest purchase_date + 24 months, never saved without being shown. */
+/**
+ * Spec 03: suggest purchase_date + 24 months for the complaint period, never saved without being shown.
+ * For the warranty, quick choices set it a number of years from the purchase date (e.g. 5 years on an ice machine).
+ */
 function complaintSuggestion(key: string, values: Record<string, string>, set: (k: string, v: string) => void) {
+  if (key === "warranty_until" && values.purchase_date) {
+    return (
+      <div className="suggestion small" role="group" aria-label="Garanti fra købsdato">
+        <span className="muted">Garanti fra købsdato:</span>{" "}
+        {[1, 2, 3, 5, 10].map((y) => (
+          <button key={y} type="button" className="link" onClick={() => set("warranty_until", addMonths(values.purchase_date!, 12 * y))}>
+            {y} år
+          </button>
+        ))}
+      </div>
+    );
+  }
   if (key !== "complaint_until" || values.complaint_until || !values.purchase_date) return null;
   const suggestion = addMonths(values.purchase_date, 24);
   return (
@@ -249,6 +264,7 @@ function ItemDetail({ item, onArchived }: { item: Row; onArchived(): void }) {
         <ArchiveButton type="item" id={id} label="Genstanden" onDone={onArchived} />
       </div>
       <ComponentPath itemId={id} />
+      <DeadlinePanel item={item} />
       <PhotoStrip targetType="item" targetId={id} />
       <ItemOwners itemId={id} />
       <ItemLending itemId={id} />

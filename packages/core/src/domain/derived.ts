@@ -164,8 +164,14 @@ export async function closeExpiredDeadlines(ctx: Ctx): Promise<number> {
   return rows.length;
 }
 
-/** Whether an item's complaint period (reklamationsret) or warranty has run out. */
-export function deadlineState(item: Row, today: string): { complaintExpired: boolean; warrantyExpired: boolean } {
-  const past = (v: unknown) => typeof v === "string" && v !== "" && v < today;
-  return { complaintExpired: past(item.complaint_until), warrantyExpired: past(item.warranty_until) };
+/** Whether an item's complaint period (reklamationsret) or warranty has run out, and days left. */
+export function deadlineState(
+  item: Row,
+  today: string,
+): { complaintExpired: boolean; warrantyExpired: boolean; complaintDaysLeft: number | null; warrantyDaysLeft: number | null } {
+  const days = (v: unknown) =>
+    typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? Math.round((Date.parse(`${v}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`)) / 86_400_000) : null;
+  const c = days(item.complaint_until);
+  const w = days(item.warranty_until);
+  return { complaintExpired: c !== null && c < 0, warrantyExpired: w !== null && w < 0, complaintDaysLeft: c, warrantyDaysLeft: w };
 }

@@ -99,6 +99,10 @@ PPM kan bruges fra iPhone som en app på hjemmeskærmen, når telefonen er på s
 - Når reklamationsretten (eller garantien) er udløbet, afsluttes den automatiske opgave af sig selv: forekomsten får status "sprunget over" på udløbsdatoen med noten "Udløbet" og auditeres som `via = 'system'` (`closeExpiredDeadlines` i core). Det sker, når appen åbner, hver time mens den kører, og når mobilserveren starter.
 - Genstandslisten, fanen *Komponenter* og trævisningen viser "Reklamationsret udløbet" og "Garanti udløbet"; telefonen viser "(udløbet)" ved datoen.
 - Tests: `components.test.ts` "expired complaint period and warranty", `rendered.test.tsx` "expired complaint period".
+- **Garanti som reklamationsret:** under *Garanti til* på genstandskortet sætter knapperne 1, 2, 3, 5 og 10 år garantien fra købsdatoen. Genstanden viser øverst "Reklamationsret til … (N dage tilbage)" og "Garanti til … (ca. N år tilbage)", markeret gult de sidste 60 dage, og *Meld fejl …*, så længe en af fristerne løber. Den opretter en arbejdsordre (reparation) på genstanden med fristerne og forhandleren i beskrivelsen, så man reklamerer i tide. Den automatiske opgave minder 60 dage før.
+- **Træk og slip i trævisningen:** en linje sluppet på et rum skifter placering, på en kategori skifter kategori, på en ejer skifter ejer (fra den ejer, den blev trukket fra), og på en anden genstand bliver den en del af den (indbygget del). Feltet "Slip her …" gør den til hovedgenstand igen, og *Fortryd* tager flytningen tilbage. Kredsløb afvises som før. Tomme rum vises nu i træet (undtagen ved søgning), så man kan trække ting ind i dem (`moveItem`/`undoMove` i core).
+- **Grupper foldes sammen:** grupperne i fanen *Komponenter* (indbyggede dele, tilbehør, forbrugsstoffer, reservedele) kan foldes sammen med antal; træet foldes som før med pilene og *Fold alt ud/sammen*.
+- Tests: `components.test.ts` "drag and drop in the tree", `rendered.test.tsx` "warranty: 5 years …" og "tree: dragging …".
 
 ## Ønske 26.11.2026: komponenter og trævisning (migration 0012)
 

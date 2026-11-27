@@ -199,8 +199,39 @@ describe("expired complaint period and warranty", () => {
     expect(await closeExpiredDeadlines(ctx)).toBe(0);
     await updateEntity(ctx, "item", String(old.id), { notes: "rettet" });
     expect((await occ())[1]!.status).toBe("skipped");
-    expect(deadlineState(old, "2026-11-24")).toEqual({ complaintExpired: true, warrantyExpired: false });
+    expect(deadlineState(old, "2026-11-24")).toMatchObject({ complaintExpired: true, warrantyExpired: false, complaintDaysLeft: -23, warrantyDaysLeft: 37 });
     // The change is audited as made by the system.
     expect((await archive.db.select<{ via: string }>("SELECT via FROM audit_log WHERE entity_type = 'task_occurrence' AND action = 'update'")).map((a) => a.via)).toEqual(["system"]);
+  });
+});
+
+describe("drag and drop in the tree", () => {
+  it("moves an item to a room, a category, an owner, under another item or to the top level, and undoes it", async () => {
+    const { env, archive } = await newArchive();
+    const ctx = ctxFor(env, archive);
+    const { moveItem, undoMove, personLinks } = await import("../src");
+    const house = await createEntity(ctx, "property", { name: "Bragesvej", kind: "house" });
+    const utility = await createEntity(ctx, "location", { property_id: String(house.id), name: "Bryggers" });
+    const kitchen = await createEntity(ctx, "location", { property_id: String(house.id), name: "Køkken" });
+    const washer = await createEntity(ctx, "item", { name: "Vaskemaskine", location_id: String(utility.id) });
+    const filter = await createEntity(ctx, "item", { name: "Filter", location_id: String(kitchen.id), category: "Køkken" });
+    const anna = await createEntity(ctx, "person", { name: "Anna" });
+    const bo = await createEntity(ctx, "person", { name: "Bo" });
+    await setPersonLinks(ctx, "item", String(filter.id), [String(anna.id)]);
+    const get = async () => (await archive.db.select("SELECT location_id, category, parent_item_id, component_role FROM item WHERE id = ?", [String(filter.id)]))[0];
+
+    const u1 = await moveItem(ctx, String(filter.id), { kind: "location", locationId: String(utility.id) });
+    expect(await get()).toMatchObject({ location_id: utility.id });
+    await moveItem(ctx, String(filter.id), { kind: "category", category: "Reservedele" });
+    expect(await get()).toMatchObject({ category: "Reservedele" });
+    await moveItem(ctx, String(filter.id), { kind: "item", parentId: String(washer.id) });
+    expect(await get()).toMatchObject({ parent_item_id: washer.id, component_role: "part" });
+    await expect(moveItem(ctx, String(washer.id), { kind: "item", parentId: String(filter.id) })).rejects.toThrow(/under sig selv/);
+    await moveItem(ctx, String(filter.id), { kind: "owner", personId: String(bo.id), fromPersonId: String(anna.id) });
+    expect((await personLinks(archive.db, "item")).get(String(filter.id))?.map((p) => p.name)).toEqual(["Bo"]);
+    await moveItem(ctx, String(filter.id), { kind: "root" });
+    expect(await get()).toMatchObject({ parent_item_id: null, component_role: null });
+    await undoMove(ctx, u1);
+    expect(await get()).toMatchObject({ location_id: kitchen.id, category: "Køkken", parent_item_id: null });
   });
 });
