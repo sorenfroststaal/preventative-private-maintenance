@@ -175,3 +175,32 @@ describe("components – review round 2", () => {
     expect((await search(archive.db, "Vaskemaskine")).length).toBe(0);
   });
 });
+
+describe("expired complaint period and warranty", () => {
+  it("closes the automatic tasks when the date has passed and reports the state", async () => {
+    const { env, archive } = await newArchive();
+    const ctx = ctxFor(env, archive);
+    const { closeExpiredDeadlines, deadlineState } = await import("../src");
+    // Today is 2026-11-24 in the test clock.
+    const old = await createEntity(ctx, "item", { name: "Gammel brødrister", complaint_until: "2026-11-01", warranty_until: "2026-12-31" });
+    await createEntity(ctx, "item", { name: "Ny kedel", complaint_until: "2028-01-01" });
+    const occ = () =>
+      archive.db.select<{ title: string; status: string; completed_date: string | null; note: string | null }>(
+        "SELECT t.title, o.status, o.completed_date, o.note FROM task_occurrence o JOIN task t ON t.id = o.task_id WHERE t.source = 'system' ORDER BY t.title",
+      );
+    expect((await occ()).map((o) => o.status)).toEqual(["open", "open", "open"]);
+    expect(await closeExpiredDeadlines(ctx)).toBe(1);
+    expect(await occ()).toEqual([
+      { title: "Garanti udløber: Gammel brødrister", status: "open", completed_date: null, note: null },
+      { title: "Reklamationsret udløber: Gammel brødrister", status: "skipped", completed_date: "2026-11-01", note: "Udløbet" },
+      { title: "Reklamationsret udløber: Ny kedel", status: "open", completed_date: null, note: null },
+    ]);
+    // Running again changes nothing, and saving the item again does not reopen the task.
+    expect(await closeExpiredDeadlines(ctx)).toBe(0);
+    await updateEntity(ctx, "item", String(old.id), { notes: "rettet" });
+    expect((await occ())[1]!.status).toBe("skipped");
+    expect(deadlineState(old, "2026-11-24")).toEqual({ complaintExpired: true, warrantyExpired: false });
+    // The change is audited as made by the system.
+    expect((await archive.db.select<{ via: string }>("SELECT via FROM audit_log WHERE entity_type = 'task_occurrence' AND action = 'update'")).map((a) => a.via)).toEqual(["system"]);
+  });
+});

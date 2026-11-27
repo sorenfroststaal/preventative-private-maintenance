@@ -19,7 +19,7 @@ import { attachPending, PendingAttachments, PhotoStrip, type PendingFile } from 
 import { ReceiptSuggestionBanner } from "../components/ReceiptSuggest";
 import { ItemLending, LendingTab } from "../components/Lending";
 import { GiftsTab } from "../components/Gifts";
-import { ComponentPath, ComponentsTab, ItemTree } from "../components/Components";
+import { ComponentPath, ComponentsTab, DeadlineBadges, ItemTree } from "../components/Components";
 
 export function Home() {
   const [params, setParams] = useSearchParams();
@@ -156,6 +156,7 @@ function Items() {
                     <RowThumb doc={thumbs?.get(String(i.id))} icon={Package} />
                     <span className="text">{String(i.name)}</span>
                     {componentCount.get(String(i.id)) ? <span className="small muted">{componentCount.get(String(i.id)) === 1 ? "1 del" : `${componentCount.get(String(i.id))} dele`}</span> : null}
+                    <DeadlineBadges item={i} />
                     {(owners.data?.get(String(i.id)) ?? []).length > 0 && (
                       <span className="avatars">
                         {(owners.data?.get(String(i.id)) ?? []).map((p) => (

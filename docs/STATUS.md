@@ -94,6 +94,12 @@ PPM kan bruges fra iPhone som en app på hjemmeskærmen, når telefonen er på s
 - **Privatliv:** helbred vises ikke på telefonen (kalender, opgaver, søgning), og dokumenter koblet til helbredsdata kan ikke hentes.
 - **Tests:** `mobile.test.ts` i core (parring, nøgler, LAN-adresser), `mobile.test.ts` i mcp-server (rigtig HTTPS mod demoarkivet: certifikatets egenskaber, parring, overblik, udført, kalender, indkøb, madplan, søgning, upload, helbredsspærring, HTTP-porten), `rendered.test.tsx` (Indstillinger → Mobil). E2E: `e2e/mobile.ts` (iPhone-visning i Chromium mod rigtig server, 9/9) og `e2e/mobile-desktop.mjs` (den rigtige app starter og stopper serveren, 6/6). Selve iPhone (Safari, certifikatinstallation, hjemmeskærm) er **ikke** afprøvet; det kræver en rigtig iPhone.
 
+## Ønske 27.11.2026: udløbet reklamationsret
+
+- Når reklamationsretten (eller garantien) er udløbet, afsluttes den automatiske opgave af sig selv: forekomsten får status "sprunget over" på udløbsdatoen med noten "Udløbet" og auditeres som `via = 'system'` (`closeExpiredDeadlines` i core). Det sker, når appen åbner, hver time mens den kører, og når mobilserveren starter.
+- Genstandslisten, fanen *Komponenter* og trævisningen viser "Reklamationsret udløbet" og "Garanti udløbet"; telefonen viser "(udløbet)" ved datoen.
+- Tests: `components.test.ts` "expired complaint period and warranty", `rendered.test.tsx` "expired complaint period".
+
 ## Ønske 26.11.2026: komponenter og trævisning (migration 0012)
 
 - **Migration 0012** (foreslået som `docs/spec/schema-0012.sql`): en genstand kan høre til en anden (`parent_item_id`) som indbygget del, tilbehør, forbrugsstof eller reservedel (`component_role`), med varenummer, antal og lagerstatus (på lager, brugt, skal købes). En brugt del peger på arbejdsordren og datoen. Reservedele fra `item_part` er flyttet til `item` med samme id, og deres bilag følger med; `item_part` står tom.

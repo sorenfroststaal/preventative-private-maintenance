@@ -13,6 +13,7 @@ import {
   ancestorsOf,
   componentsOf,
   addDays,
+  closeExpiredDeadlines,
   completeOccurrence,
   createEntity,
   createGift,
@@ -143,6 +144,8 @@ export async function startMobileServer(o: MobileServerOptions) {
   const staticRoot = resolve(o.staticDir);
   const today = () => env.clock.today();
   const ctxFor = (d: MobileDevice | null) => makeCtx(env, archive.db, d?.userId ?? null, "ui");
+  // Expired complaint-period and warranty tasks end by themselves, also when only the phone is used.
+  await closeExpiredDeadlines(makeCtx(env, archive.db, null, "system")).catch(() => undefined);
 
   async function device(req: IncomingMessage): Promise<MobileDevice> {
     const auth = req.headers.authorization ?? "";

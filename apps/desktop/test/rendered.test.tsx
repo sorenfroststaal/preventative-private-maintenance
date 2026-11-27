@@ -832,5 +832,19 @@ describe("phase 2b.9 – rendered components", () => {
       // ignore
     }
   });
+  it("expired complaint period: shown on the item in the list and among an item's components", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const today = env.clock.today();
+    const parent = await createEntity(ctx, "item", { name: "Udløbstest-printer" });
+    await createEntity(ctx, "item", { name: "Udløbstest-hotend", parent_item_id: String(parent.id), component_role: "accessory", complaint_until: addDays(today, -10) });
+    await createEntity(ctx, "item", { name: "Udløbstest-dyse", parent_item_id: String(parent.id), component_role: "accessory", complaint_until: addDays(today, 100) });
+    renderAt(`/bolig?id=${String(parent.id)}&tab=components`);
+    await settle("Bolig og inventar");
+    const detail = await screen.findByRole("complementary", { name: "Genstand" });
+    const expired = (await within(detail).findByText("Udløbstest-hotend")).closest("li")!;
+    expect(within(expired).getByText("Reklamationsret udløbet")).toBeInTheDocument();
+    const fresh = within(detail).getByText("Udløbstest-dyse").closest("li")!;
+    expect(within(fresh).queryByText("Reklamationsret udløbet")).toBeNull();
+  });
 });
 

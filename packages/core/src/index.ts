@@ -36,7 +36,7 @@ export * from "./repo/lists";
 export * from "./report/insurance";
 export * from "./food";
 export * from "./ai";
-export { DERIVED_RULES, syncSystemTask } from "./domain/derived";
+export { closeExpiredDeadlines, deadlineState, DERIVED_RULES, syncSystemTask } from "./domain/derived";
 
 import { registerDerivedRules } from "./domain/derived";
 import { registerModuleRules } from "./domain/rules";

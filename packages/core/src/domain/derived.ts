@@ -142,3 +142,30 @@ export function registerDerivedRules(): void {
     });
   }
 }
+
+/** The automatic deadline tasks that end by themselves when the date has passed. */
+const EXPIRING_REFS = ["item.complaint_until:", "item.warranty_until:"];
+
+/**
+ * Closes open occurrences of expired complaint-period and warranty tasks (the deadline has passed, so
+ * there is nothing left to do): status 'skipped' on the due date with the note "Udløbet". Run when the
+ * app opens and regularly while it runs. Returns the number closed.
+ */
+export async function closeExpiredDeadlines(ctx: Ctx): Promise<number> {
+  const today = ctx.clock.today();
+  const rows = await ctx.db.select<{ id: string; due_date: string }>(
+    `SELECT o.id, o.due_date FROM task_occurrence o JOIN task t ON t.id = o.task_id
+      WHERE o.status = 'open' AND o.due_date IS NOT NULL AND o.due_date < ? AND t.source = 'system'
+        AND (${EXPIRING_REFS.map(() => "t.system_ref LIKE ?").join(" OR ")})`,
+    [today, ...EXPIRING_REFS.map((r) => `${r}%`)],
+  );
+  const c = { ...ctx, via: "system" as const };
+  for (const r of rows) await updateEntity(c, "task_occurrence", r.id, { status: "skipped", completed_date: r.due_date, note: "Udløbet" });
+  return rows.length;
+}
+
+/** Whether an item's complaint period (reklamationsret) or warranty has run out. */
+export function deadlineState(item: Row, today: string): { complaintExpired: boolean; warrantyExpired: boolean } {
+  const past = (v: unknown) => typeof v === "string" && v !== "" && v < today;
+  return { complaintExpired: past(item.complaint_until), warrantyExpired: past(item.warranty_until) };
+}

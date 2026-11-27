@@ -543,6 +543,7 @@ function ItemDetail({
       }>(`/api/items/${id}`),
   });
   const it = q.data?.item;
+  const today = useQueryClient().getQueryData<{ today: string }>(["me"])?.today ?? new Date().toISOString().slice(0, 10);
   const photos = (q.data?.documents ?? []).filter((d) => ["jpg", "jpeg", "png"].includes(d.ext));
   const facts: [string, string | number | null | undefined][] = it
     ? [
@@ -554,8 +555,8 @@ function ItemDetail({
         ["Kategori", it.category],
         ["Forhandler", it.vendor_name],
         ["Pris", it.purchase_price_minor != null ? `${(Number(it.purchase_price_minor) / 100).toLocaleString("da-DK", { minimumFractionDigits: 2 })} kr.` : null],
-        ["Garanti til", fmtDate(it.warranty_until as string | null)],
-        ["Reklamationsret til", fmtDate(it.complaint_until as string | null)],
+        ["Garanti til", it.warranty_until ? `${fmtDate(it.warranty_until as string)}${String(it.warranty_until) < today ? " (udløbet)" : ""}` : null],
+        ["Reklamationsret til", it.complaint_until ? `${fmtDate(it.complaint_until as string)}${String(it.complaint_until) < today ? " (udløbet)" : ""}` : null],
       ]
     : [];
   return (

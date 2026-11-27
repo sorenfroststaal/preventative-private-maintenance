@@ -8,6 +8,7 @@ import {
   componentsInStockFor,
   componentsOf,
   componentsUsedIn,
+  deadlineState,
   itemTree,
   STOCK_STATUSES,
   consumeComponent,
@@ -29,6 +30,27 @@ import { formatDate } from "../lib/format";
 const roleLabel = (r: unknown) => COMPONENT_ROLES.find(([k]) => k === r)?.[1] ?? "";
 const stockLabel = (s: unknown) => STOCK_STATUSES.find(([k]) => k === s)?.[1] ?? "";
 const usable = (c: Row) => (c.component_role === "spare_part" || c.component_role === "consumable") && (c.stock_status ?? "in_stock") === "in_stock" && Number(c.quantity ?? 1) > 0;
+
+/** "Reklamationsret udløbet" / "Garanti udløbet" when the date has passed. */
+export function DeadlineBadges({ item }: { item: Row }) {
+  const { env } = useSession();
+  const s = deadlineState(item, env.clock.today());
+  if (!s.complaintExpired && !s.warrantyExpired) return null;
+  return (
+    <span className="small">
+      {s.complaintExpired && (
+        <StatusBadge kind="missing" title={`Reklamationsretten udløb ${formatDate(String(item.complaint_until))}`}>
+          Reklamationsret udløbet
+        </StatusBadge>
+      )}{" "}
+      {s.warrantyExpired && (
+        <StatusBadge kind="missing" title={`Garantien udløb ${formatDate(String(item.warranty_until))}`}>
+          Garanti udløbet
+        </StatusBadge>
+      )}
+    </span>
+  );
+}
 
 function StockInfo({ c }: { c: Row }) {
   if (c.component_role !== "spare_part" && c.component_role !== "consumable") return null;
@@ -97,7 +119,9 @@ export function ComponentsTab({ item }: { item: Row }) {
                   {c.children > 0 && <span className="small muted"> · {c.children === 1 ? "1 del" : `${c.children} dele`}</span>}
                 </span>
                 <span className="small muted">{String(c.part_number ?? "")}</span>
-                <StockInfo c={c} />
+                <span>
+                  <StockInfo c={c} /> <DeadlineBadges item={c} />
+                </span>
                 <span>
                   {usable(c) && (
                     <button className="link" onClick={() => setUsing(c)} disabled={ro}>
@@ -361,6 +385,7 @@ export function ItemTree({ q, selectedId, onSelect }: { q: string; selectedId: s
                   {n.item.component_role ? <span className="chip small">{roleLabel(n.item.component_role)}</span> : null}
                   {n.note && <span className="small muted">({n.note})</span>}
                   <StockInfo c={n.item} />
+                  <DeadlineBadges item={n.item} />
                 </button>
               ) : (
                 <span className="tree-group">

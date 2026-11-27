@@ -1,3 +1,4 @@
+import { closeExpiredDeadlines } from "@ppm/core";
 import { onReportedError } from "../app/queryClient";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useMobileAutostart } from "../components/MobilePanel";
@@ -150,6 +151,17 @@ export function Shell() {
   }, [qc, session]);
 
   useMobileAutostart();
+  // Expired complaint-period and warranty tasks end by themselves (on open and every hour).
+  useEffect(() => {
+    if (session.archive.readOnly) return;
+    const run = () =>
+      closeExpiredDeadlines(session.ctx())
+        .then((n) => (n ? qc.invalidateQueries() : undefined))
+        .catch(() => undefined);
+    void run();
+    const t = setInterval(run, 60 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [session, qc]);
   const mobileOn = useQuery({ queryKey: ["mobile", "status"], queryFn: mobileStatus, refetchInterval: 30_000 });
 
   // Ctrl+K / Cmd+K opens global search.
