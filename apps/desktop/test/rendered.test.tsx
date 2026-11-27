@@ -916,5 +916,46 @@ describe("phase 2b.9 – rendered components", () => {
       // ignore
     }
   });
+  it("multi-select: choose several items (checkbox and Shift-click), move them to a room, set a role and undo; drag a selection in the tree", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const house = await createEntity(ctx, "property", { name: "Multihus", kind: "house" });
+    const shed = await createEntity(ctx, "location", { property_id: String(house.id), name: "Multi-skur" });
+    const box = await createEntity(ctx, "item", { name: "Multi-kasse", location_id: String(shed.id) });
+    const ids: string[] = [];
+    for (const n of ["Multi-A", "Multi-B", "Multi-C"]) ids.push(String((await createEntity(ctx, "item", { name: n })).id));
+    renderAt("/bolig");
+    await settle("Bolig og inventar");
+    fireEvent.click(screen.getByRole("button", { name: "Liste" }));
+    fireEvent.change(screen.getByPlaceholderText("Søg i genstande"), { target: { value: "Multi-" } });
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Vælg Multi-A" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Vælg Multi-C" }), { shiftKey: true });
+    const bar = await screen.findByRole("toolbar", { name: "Handlinger for valgte genstande" });
+    expect(within(bar).getByText("3 valgt")).toBeInTheDocument();
+    const where = within(bar).getByLabelText("Flyt til placering") as HTMLSelectElement;
+    await waitFor(() => expect([...where.options].map((o) => o.value)).toContain(String(shed.id)));
+    fireEvent.change(where, { target: { value: String(shed.id) } });
+    const locs = async () => (await archive.db.select<{ location_id: string | null }>(`SELECT location_id FROM item WHERE id IN (?, ?, ?)`, ids)).map((r) => r.location_id);
+    await waitFor(async () => expect(await locs()).toEqual([String(shed.id), String(shed.id), String(shed.id)]));
+    fireEvent.click(await within(bar).findByRole("button", { name: "Fortryd" }));
+    await waitFor(async () => expect(await locs()).toEqual([null, null, null]));
+    fireEvent.change(within(bar).getByLabelText("Rolle"), { target: { value: "spare_part" } });
+    await waitFor(async () => expect((await archive.db.select<{ r: string }>(`SELECT component_role AS r FROM item WHERE id IN (?, ?, ?)`, ids)).map((x) => x.r)).toEqual(["spare_part", "spare_part", "spare_part"]));
+    // In the tree, dragging one of the chosen items moves all of them.
+    fireEvent.click(screen.getByRole("button", { name: "Træ" }));
+    fireEvent.change(await screen.findByLabelText(/Gruppér efter/), { target: { value: "location" } });
+    const tree = await screen.findByRole("tree");
+    const rowOf = async (t: string) => (await within(tree).findByText(t)).closest(".tree-row")!;
+    const dt = { data: {} as Record<string, string>, setData(k: string, v: string) { this.data[k] = v; }, getData(k: string) { return this.data[k]; }, dropEffect: "", effectAllowed: "" };
+    fireEvent.dragStart(await rowOf("Multi-B"), { dataTransfer: dt });
+    await screen.findByText(/Slip her for at gøre 3 genstande til en hovedgenstand/);
+    fireEvent.dragOver(await rowOf("Multi-kasse"), { dataTransfer: dt });
+    fireEvent.drop(await rowOf("Multi-kasse"), { dataTransfer: dt });
+    await waitFor(async () => expect((await archive.db.select<{ p: string }>(`SELECT parent_item_id AS p FROM item WHERE id IN (?, ?, ?)`, ids)).map((x) => x.p)).toEqual([String(box.id), String(box.id), String(box.id)]));
+    try {
+      localStorage.removeItem("ppm.items.view");
+    } catch {
+      // ignore
+    }
+  });
 });
 

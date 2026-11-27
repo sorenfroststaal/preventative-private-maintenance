@@ -1729,3 +1729,37 @@ fieldset.yesno legend {
   border-radius: 8px;
   padding: 0.45rem 0.7rem;
 }
+/* Multi-select */
+.bulk-bar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.55rem 0.8rem;
+  margin: 0 0 0.6rem;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg, #fff));
+}
+.bulk-bar select,
+.bulk-bar input {
+  max-width: 14rem;
+}
+.inline-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.check-col {
+  width: 2rem;
+}
+tr.chosen td {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+.tree-check {
+  flex: none;
+  margin: 0 0.2rem 0 0;
+}

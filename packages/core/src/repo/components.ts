@@ -389,3 +389,64 @@ export async function undoMove(ctx: Ctx, undo: MoveUndo): Promise<void> {
     }
   });
 }
+
+// ---------------------------------------------------------------- several items at once
+
+/** Moves several items to the same target in one transaction; undo with undoMoves. */
+export async function moveItems(ctx: Ctx, itemIds: string[], target: MoveTarget, fromPersonIds: Record<string, string | null> = {}): Promise<MoveUndo[]> {
+  const undos: MoveUndo[] = [];
+  await ctx.db.transaction(async (tx) => {
+    const c = { ...ctx, db: tx };
+    for (const id of itemIds) {
+      const t = target.kind === "owner" ? { ...target, fromPersonId: fromPersonIds[id] ?? target.fromPersonId ?? null } : target;
+      undos.push(await moveItem(c, id, t));
+    }
+  });
+  return undos;
+}
+
+export async function undoMoves(ctx: Ctx, undos: MoveUndo[]): Promise<void> {
+  await ctx.db.transaction(async (tx) => {
+    for (const u of [...undos].reverse()) await undoMove({ ...ctx, db: tx }, u);
+  });
+}
+
+/** Fields that can be set on several items at once. */
+export interface BatchItemEdit {
+  component_role?: ComponentRole | null;
+  stock_status?: "in_stock" | "used" | "to_buy" | null;
+  warranty_until?: string | null;
+  complaint_until?: string | null;
+  /** Adds this person as an owner (keeps other owners). */
+  addOwner?: string;
+  /** Removes this person as an owner. */
+  removeOwner?: string;
+}
+
+/** Edits several items in one transaction (all or nothing). Returns the number changed. */
+export async function editItems(ctx: Ctx, itemIds: string[], edit: BatchItemEdit): Promise<number> {
+  const { addOwner, removeOwner, ...fieldsPatch } = edit;
+  const patch = Object.fromEntries(Object.entries(fieldsPatch).filter(([, v]) => v !== undefined));
+  await ctx.db.transaction(async (tx) => {
+    const c = { ...ctx, db: tx };
+    const { setPersonLinks } = await import("./personLinks");
+    for (const id of itemIds) {
+      if (Object.keys(patch).length) await updateEntity(c, "item", id, patch as never);
+      if (addOwner || removeOwner) {
+        const now = await ownersOf(tx, id);
+        const next = new Set(now.filter((p) => p !== removeOwner));
+        if (addOwner) next.add(addOwner);
+        await setPersonLinks(c, "item", id, [...next]);
+      }
+    }
+  });
+  return itemIds.length;
+}
+
+/** Archives several items (their components follow, see the archive hook). */
+export async function archiveItems(ctx: Ctx, itemIds: string[]): Promise<number> {
+  await ctx.db.transaction(async (tx) => {
+    for (const id of itemIds) await archiveEntity({ ...ctx, db: tx }, "item", id);
+  });
+  return itemIds.length;
+}

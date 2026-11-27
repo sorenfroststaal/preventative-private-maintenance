@@ -235,3 +235,37 @@ describe("drag and drop in the tree", () => {
     expect(await get()).toMatchObject({ location_id: kitchen.id, category: "Køkken", parent_item_id: null });
   });
 });
+
+describe("several items at once", () => {
+  it("moves, edits and archives a selection in one go, all or nothing, and undoes a move", async () => {
+    const { env, archive } = await newArchive();
+    const ctx = ctxFor(env, archive);
+    const { moveItems, undoMoves, editItems, archiveItems, personLinks } = await import("../src");
+    const house = await createEntity(ctx, "property", { name: "Hus", kind: "house" });
+    const shed = await createEntity(ctx, "location", { property_id: String(house.id), name: "Skur" });
+    const printer = await createEntity(ctx, "item", { name: "3D-printer" });
+    const a = await createEntity(ctx, "item", { name: "Filament rød", category: "Diverse" });
+    const b = await createEntity(ctx, "item", { name: "Filament blå" });
+    const anna = await createEntity(ctx, "person", { name: "Anna" });
+    const ids = [String(a.id), String(b.id)];
+    const rows = () => archive.db.select<Record<string, unknown>>("SELECT name, location_id, category, parent_item_id, component_role, stock_status, archived_at FROM item WHERE id IN (?, ?) ORDER BY name", ids);
+
+    const undo = await moveItems(ctx, ids, { kind: "location", locationId: String(shed.id) });
+    expect((await rows()).map((r) => r.location_id)).toEqual([shed.id, shed.id]);
+    await undoMoves(ctx, undo);
+    expect((await rows()).map((r) => r.location_id)).toEqual([null, null]);
+
+    await moveItems(ctx, ids, { kind: "item", parentId: String(printer.id) });
+    await editItems(ctx, ids, { component_role: "consumable", stock_status: "in_stock", addOwner: String(anna.id) });
+    expect((await rows()).map((r) => [r.parent_item_id, r.component_role, r.stock_status])).toEqual([
+      [printer.id, "consumable", "in_stock"],
+      [printer.id, "consumable", "in_stock"],
+    ]);
+    expect((await personLinks(archive.db, "item")).get(String(b.id))?.map((p) => p.name)).toEqual(["Anna"]);
+    // All or nothing: one bad item stops the whole batch.
+    await expect(moveItems(ctx, [String(a.id), String(printer.id)], { kind: "item", parentId: String(a.id) })).rejects.toThrow();
+    expect((await rows()).map((r) => r.parent_item_id)).toEqual([printer.id, printer.id]);
+    await archiveItems(ctx, ids);
+    expect((await rows()).every((r) => r.archived_at)).toBe(true);
+  });
+});

@@ -10,9 +10,16 @@ import {
   componentsUsedIn,
   deadlineState,
   itemTree,
+  archiveItems,
+  editItems,
+  listEntities,
+  listPersons,
+  locationsWithProperty,
   moveItem,
+  moveItems,
   STOCK_STATUSES,
-  undoMove,
+  textListValues,
+  undoMoves,
   consumeComponent,
   workOrdersWithNames,
   type ComponentRow,
@@ -409,16 +416,29 @@ const GROUPS: [TreeGroupBy, string][] = [
 ];
 
 /** Bolig og inventar → Genstande as a tree that can be expanded with + (by location, owner or category). */
-export function ItemTree({ q, selectedId, onSelect }: { q: string; selectedId: string | null; onSelect(id: string): void }) {
+export function ItemTree({
+  q,
+  selectedId,
+  onSelect,
+  selection = new Set<string>(),
+  onToggle,
+}: {
+  q: string;
+  selectedId: string | null;
+  onSelect(id: string): void;
+  /** Items chosen with the checkboxes (dragging one of them moves all of them). */
+  selection?: Set<string>;
+  onToggle?(id: string, e: { shiftKey: boolean }): void;
+}) {
   const session = useSession();
   const { archive } = session;
   const qc = useQueryClient();
   const toast = useToast();
   const ro = archive.readOnly;
   // Drag and drop: drop an item on a room/category/owner to move it there, on another item to make it a component.
-  const [dragging, setDragging] = useState<{ id: string; name: string; fromKey: string } | null>(null);
+  const [dragging, setDragging] = useState<{ id: string; name: string; fromKey: string; ids: string[] } | null>(null);
   const [over, setOver] = useState<string | null>(null);
-  const [lastMove, setLastMove] = useState<{ undo: MoveUndo; label: string } | null>(null);
+  const [lastMove, setLastMove] = useState<{ undo: MoveUndo[]; label: string } | null>(null);
   const [groupBy, setGroupBy] = useState<TreeGroupBy>(() => {
     try {
       return (localStorage.getItem("ppm.tree.groupBy") as TreeGroupBy) || "location";
@@ -448,7 +468,7 @@ export function ItemTree({ q, selectedId, onSelect }: { q: string; selectedId: s
     if (!dragging) return null;
     if (n === "root") return { target: { kind: "root" }, label: "hovedgenstand" };
     if (n.kind === "item") {
-      if (!n.item || String(n.item.id) === dragging.id) return null;
+      if (!n.item || dragging.ids.includes(String(n.item.id))) return null;
       return { target: { kind: "item", parentId: String(n.item.id) }, label: `del af ${n.label}` };
     }
     const k = n.key;
@@ -469,8 +489,13 @@ export function ItemTree({ q, selectedId, onSelect }: { q: string; selectedId: s
     setOver(null);
     if (!t || !d) return;
     try {
-      const undo = await moveItem(session.ctx(), d.id, t.target);
-      setLastMove({ undo, label: `${d.name} er flyttet til ${t.label}.` });
+      if (d.ids.length > 1) {
+        const undos = await moveItems(session.ctx(), d.ids, t.target);
+        setLastMove({ undo: undos, label: `${d.ids.length} genstande er flyttet til ${t.label}.` });
+      } else {
+        const undo = await moveItem(session.ctx(), d.id, t.target);
+        setLastMove({ undo: [undo], label: `${d.name} er flyttet til ${t.label}.` });
+      }
       await qc.invalidateQueries({ queryKey: ["item"] });
       await qc.invalidateQueries({ queryKey: ["person_link"] });
     } catch (e) {
@@ -510,7 +535,9 @@ export function ItemTree({ q, selectedId, onSelect }: { q: string; selectedId: s
                 e.dataTransfer.setData("text/plain", String(n.item.id));
                 e.dataTransfer.effectAllowed = "move";
                 setLastMove(null);
-                setDragging({ id: String(n.item.id), name: n.label, fromKey: n.key });
+                const id = String(n.item.id);
+                const ids = selection.has(id) && selection.size > 1 ? [...selection] : [id];
+                setDragging({ id, name: ids.length > 1 ? `${ids.length} genstande` : n.label, fromKey: n.key, ids });
               }}
               onDragEnd={() => {
                 setDragging(null);
@@ -525,8 +552,21 @@ export function ItemTree({ q, selectedId, onSelect }: { q: string; selectedId: s
               ) : (
                 <span className="tree-toggle" aria-hidden="true" />
               )}
+              {n.item && onToggle && (
+                <input
+                  type="checkbox"
+                  className="tree-check"
+                  aria-label={`Vælg ${n.label}`}
+                  checked={selection.has(String(n.item.id))}
+                  onChange={() => undefined}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggle(String(n.item!.id), e);
+                  }}
+                />
+              )}
               {n.item ? (
-                <button className="tree-item" onClick={() => onSelect(String(n.item!.id))}>
+                <button className="tree-item" onClick={(e) => (onToggle && (e.ctrlKey || e.metaKey || e.shiftKey) ? onToggle(String(n.item!.id), e) : onSelect(String(n.item!.id)))}>
                   <RowThumb doc={thumbs?.get(String(n.item.id))} icon={Package} />
                   <span className="text">{n.label}</span>
                   {n.item.component_role ? <span className="chip small">{roleLabel(n.item.component_role)}</span> : null}
@@ -585,7 +625,7 @@ export function ItemTree({ q, selectedId, onSelect }: { q: string; selectedId: s
           <button
             className="link"
             onClick={async () => {
-              await undoMove(session.ctx(), lastMove.undo);
+              await undoMoves(session.ctx(), lastMove.undo);
               setLastMove(null);
               await qc.invalidateQueries({ queryKey: ["item"] });
               await qc.invalidateQueries({ queryKey: ["person_link"] });
@@ -602,6 +642,205 @@ export function ItemTree({ q, selectedId, onSelect }: { q: string; selectedId: s
       )}
       {tree.data?.length === 0 && <Empty>{q ? "Ingen genstande passer til søgningen." : "Ingen genstande endnu."}</Empty>}
       {tree.data && render(tree.data, 0)}
+    </div>
+  );
+}
+
+
+// ---------------------------------------------------------------- several items at once
+
+/**
+ * Toolbar for a selection of items (list or tree): move them to a room, category or another item,
+ * add or remove an owner, set role or stock status, or archive them. Moves can be undone.
+ */
+export function BulkBar({ ids, onClear }: { ids: string[]; onClear(): void }) {
+  const session = useSession();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const db = session.archive.db;
+  const [undo, setUndo] = useState<{ undos: MoveUndo[]; label: string } | null>(null);
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const [category, setCategory] = useState("");
+  const locations = useQuery({ queryKey: ["location", "withProperty"], queryFn: () => locationsWithProperty(db) });
+  const categories = useQuery({ queryKey: ["lists", "item_category"], queryFn: () => textListValues(db, "item_category") });
+  const persons = useQuery({ queryKey: ["person", "list", "household"], queryFn: () => listPersons(db, { household: true }) });
+  const items = useQuery({ queryKey: ["item", "list"], queryFn: () => listEntities(db, "item", { orderBy: "name" }) });
+  const n = ids.length;
+  const what = n === 1 ? "1 genstand" : `${n} genstande`;
+  const refresh = async () => {
+    await qc.invalidateQueries({ queryKey: ["item"] });
+    await qc.invalidateQueries({ queryKey: ["person_link"] });
+  };
+  const run = async (label: string, f: () => Promise<MoveUndo[] | number>) => {
+    try {
+      const r = await f();
+      await refresh();
+      if (Array.isArray(r)) setUndo({ undos: r, label });
+      else toast(label);
+    } catch (e) {
+      toast(errorText(e), "error");
+    }
+  };
+  const move = (target: MoveTarget, label: string) => run(`${what} er flyttet til ${label}.`, () => moveItems(session.ctx(), ids, target));
+  const ro = session.archive.readOnly;
+  const selected = new Set(ids);
+  return (
+    <div className="bulk-bar" role="toolbar" aria-label="Handlinger for valgte genstande">
+      <strong>{n} valgt</strong>
+      <select
+        aria-label="Flyt til placering"
+        value=""
+        disabled={ro}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (!v) return;
+          const l = (locations.data ?? []).find((x) => x.id === v);
+          void move({ kind: "location", locationId: v === "__none" ? null : v }, l ? l.name : "uden placering");
+        }}
+      >
+        <option value="">Placering …</option>
+        {(locations.data ?? []).map((l) => (
+          <option key={l.id} value={l.id}>
+            {l.property_name} › {l.name}
+          </option>
+        ))}
+        <option value="__none">Uden placering</option>
+      </select>
+      <span className="inline-field">
+        <input aria-label="Kategori" list="bulk-categories" placeholder="Kategori …" value={category} onChange={(e) => setCategory(e.target.value)} disabled={ro} />
+        <datalist id="bulk-categories">
+          {(categories.data ?? []).map((c) => (
+            <option key={c.value} value={c.value} />
+          ))}
+        </datalist>
+        <button disabled={ro} onClick={() => void move({ kind: "category", category: category || null }, category || "uden kategori").then(() => setCategory(""))}>
+          Sæt
+        </button>
+      </span>
+      <select
+        aria-label="Gør til del af"
+        value=""
+        disabled={ro}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (!v) return;
+          if (v === "__root") void move({ kind: "root" }, "hovedgenstande");
+          else void move({ kind: "item", parentId: v }, `dele af ${(items.data ?? []).find((i) => i.id === v)?.name ?? ""}`);
+        }}
+      >
+        <option value="">Del af …</option>
+        <option value="__root">Ingen (hovedgenstand)</option>
+        {(items.data ?? [])
+          .filter((i) => !selected.has(String(i.id)))
+          .map((i) => (
+            <option key={String(i.id)} value={String(i.id)}>
+              {String(i.name)}
+            </option>
+          ))}
+      </select>
+      <select
+        aria-label="Ejer"
+        value=""
+        disabled={ro}
+        onChange={(e) => {
+          const [op, pid] = e.target.value.split(":");
+          if (!pid) return;
+          const name = (persons.data ?? []).find((p) => p.id === pid)?.name ?? "";
+          void run(op === "add" ? `${name} er tilføjet som ejer af ${what}.` : `${name} er fjernet som ejer af ${what}.`, () =>
+            editItems(session.ctx(), ids, op === "add" ? { addOwner: pid } : { removeOwner: pid }),
+          );
+        }}
+      >
+        <option value="">Ejer …</option>
+        <optgroup label="Tilføj ejer">
+          {(persons.data ?? []).map((p) => (
+            <option key={`a${p.id}`} value={`add:${p.id}`}>
+              + {p.name}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label="Fjern ejer">
+          {(persons.data ?? []).map((p) => (
+            <option key={`r${p.id}`} value={`remove:${p.id}`}>
+              − {p.name}
+            </option>
+          ))}
+        </optgroup>
+      </select>
+      <select
+        aria-label="Rolle"
+        value=""
+        disabled={ro}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (!v) return;
+          void run(`Rollen er sat for ${what}.`, () => editItems(session.ctx(), ids, { component_role: v === "__none" ? null : (v as never) }));
+        }}
+      >
+        <option value="">Rolle …</option>
+        {COMPONENT_ROLES.map(([k, l]) => (
+          <option key={k} value={k}>
+            {l}
+          </option>
+        ))}
+        <option value="__none">Ingen rolle</option>
+      </select>
+      <select
+        aria-label="Lagerstatus"
+        value=""
+        disabled={ro}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (!v) return;
+          void run(`Lagerstatus er sat for ${what}.`, () => editItems(session.ctx(), ids, { stock_status: v === "__none" ? null : (v as never) }));
+        }}
+      >
+        <option value="">Lager …</option>
+        {STOCK_STATUSES.map(([k, l]) => (
+          <option key={k} value={k}>
+            {l}
+          </option>
+        ))}
+        <option value="__none">Ingen</option>
+      </select>
+      {confirmArchive ? (
+        <span className="inline-field">
+          <span>Arkivér {what}?</span>
+          <button
+            className="danger"
+            onClick={async () => {
+              setConfirmArchive(false);
+              await run(`${what} er arkiveret.`, () => archiveItems(session.ctx(), ids));
+              onClear();
+            }}
+          >
+            Ja, arkivér
+          </button>
+          <button onClick={() => setConfirmArchive(false)}>Fortryd</button>
+        </span>
+      ) : (
+        <button onClick={() => setConfirmArchive(true)} disabled={ro}>
+          Arkivér
+        </button>
+      )}
+      <button className="link" onClick={onClear}>
+        Ryd valg
+      </button>
+      {undo && (
+        <span className="inline-field" role="status">
+          <span>{undo.label}</span>
+          <button
+            className="link"
+            onClick={async () => {
+              await undoMoves(session.ctx(), undo.undos);
+              setUndo(null);
+              await refresh();
+            }}
+          >
+            Fortryd
+          </button>
+        </span>
+      )}
     </div>
   );
 }

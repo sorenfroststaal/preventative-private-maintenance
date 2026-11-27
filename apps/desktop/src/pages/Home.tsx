@@ -19,7 +19,7 @@ import { attachPending, PendingAttachments, PhotoStrip, type PendingFile } from 
 import { ReceiptSuggestionBanner } from "../components/ReceiptSuggest";
 import { ItemLending, LendingTab } from "../components/Lending";
 import { GiftsTab } from "../components/Gifts";
-import { ComponentPath, ComponentsTab, DeadlineBadges, DeadlinePanel, ItemTree } from "../components/Components";
+import { BulkBar, ComponentPath, ComponentsTab, DeadlineBadges, DeadlinePanel, ItemTree } from "../components/Components";
 
 export function Home() {
   const [params, setParams] = useSearchParams();
@@ -66,6 +66,9 @@ function Items() {
     }
   });
   const [showComponents, setShowComponents] = useState(false);
+  // Multi-select: checkboxes, Ctrl/Cmd-click toggles, Shift-click selects a range (in the list).
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const [anchor, setAnchor] = useState<string | null>(null);
   const chooseView = (v: "list" | "tree") => {
     setView(v);
     try {
@@ -92,6 +95,20 @@ function Items() {
   );
   const selectedId = params.get("id");
   const selected = items.data?.find((i) => i.id === selectedId) ?? null;
+  const toggle = (id: string, e: { shiftKey: boolean }) => {
+    setChosen((cur) => {
+      const next = new Set(cur);
+      const order = rows.map((r) => String(r.id));
+      if (e.shiftKey && anchor && order.includes(anchor) && order.includes(id)) {
+        const [a, b] = [order.indexOf(anchor), order.indexOf(id)].sort((x, y) => x - y);
+        for (const x of order.slice(a!, b! + 1)) next.add(x);
+      } else if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setAnchor(id);
+  };
+  const chosenIds = [...chosen].filter((id) => (items.data ?? []).some((i) => i.id === id));
 
   return (
     <>
@@ -134,13 +151,22 @@ function Items() {
           Ny genstand
         </button>
       </div>
+      {chosenIds.length > 0 && <BulkBar ids={chosenIds} onClear={() => setChosen(new Set())} />}
       <div className="split">
         {view === "tree" ? (
-          <ItemTree q={q} selectedId={selectedId} onSelect={(id) => setParams({ id })} />
+          <ItemTree q={q} selectedId={selectedId} onSelect={(id) => setParams({ id })} selection={chosen} onToggle={toggle} />
         ) : (
         <table className="list">
           <thead>
             <tr>
+              <th className="check-col">
+                <input
+                  type="checkbox"
+                  aria-label="Vælg alle viste"
+                  checked={rows.length > 0 && rows.every((r) => chosen.has(String(r.id)))}
+                  onChange={(e) => setChosen(e.target.checked ? new Set(rows.map((r) => String(r.id))) : new Set())}
+                />
+              </th>
               <th>Navn</th>
               <th>Placering</th>
               <th>Købt</th>
@@ -150,7 +176,21 @@ function Items() {
           </thead>
           <tbody>
             {rows.map((i) => (
-              <tr key={String(i.id)} {...rowProps(i.id === selectedId, () => setParams({ id: String(i.id) }))}>
+              <tr
+                key={String(i.id)}
+                {...rowProps(i.id === selectedId, () => setParams({ id: String(i.id) }))}
+                className={`${i.id === selectedId ? "selected" : ""}${chosen.has(String(i.id)) ? " chosen" : ""}`}
+                onClickCapture={(e) => {
+                  if (e.ctrlKey || e.metaKey || e.shiftKey) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggle(String(i.id), e);
+                  }
+                }}
+              >
+                <td className="check-col" onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" aria-label={`Vælg ${String(i.name)}`} checked={chosen.has(String(i.id))} onChange={() => undefined} onClick={(e) => toggle(String(i.id), e)} />
+                </td>
                 <td>
                   <span className="with-thumb">
                     <RowThumb doc={thumbs?.get(String(i.id))} icon={Package} />
@@ -174,7 +214,7 @@ function Items() {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5}>
+                <td colSpan={6}>
                   <EmptyState module="home" text="Hold styr på genstande med kvitteringer, garantier og reklamationsret." action="Opret din første genstand" onAction={() => setCreating(true)} disabled={archive.readOnly} />
                 </td>
               </tr>

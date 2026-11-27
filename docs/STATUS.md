@@ -103,6 +103,8 @@ PPM kan bruges fra iPhone som en app på hjemmeskærmen, når telefonen er på s
 - **Træk og slip i trævisningen:** en linje sluppet på et rum skifter placering, på en kategori skifter kategori, på en ejer skifter ejer (fra den ejer, den blev trukket fra), og på en anden genstand bliver den en del af den (indbygget del). Feltet "Slip her …" gør den til hovedgenstand igen, og *Fortryd* tager flytningen tilbage. Kredsløb afvises som før. Tomme rum vises nu i træet (undtagen ved søgning), så man kan trække ting ind i dem (`moveItem`/`undoMove` i core).
 - **Grupper foldes sammen:** grupperne i fanen *Komponenter* (indbyggede dele, tilbehør, forbrugsstoffer, reservedele) kan foldes sammen med antal; træet foldes som før med pilene og *Fold alt ud/sammen*.
 - Tests: `components.test.ts` "drag and drop in the tree", `rendered.test.tsx` "warranty: 5 years …" og "tree: dragging …".
+- **Multiselect:** genstande vælges med afkrydsningsfelter i listen og træet, Ctrl/Cmd-klik vælger enkeltvis og Shift-klik et interval (i listen); "Vælg alle viste" i listens overskrift. En værktøjslinje for de valgte flytter dem til en placering, en kategori eller under en anden genstand (eller op som hovedgenstande), tilføjer eller fjerner en ejer, sætter rolle og lagerstatus, og arkiverer (med bekræftelse). Flytninger kan fortrydes. Trækkes én af de valgte i træet, flyttes alle. Hver handling sker samlet: fejler én, ændres ingen (`moveItems`, `undoMoves`, `editItems`, `archiveItems` i core).
+- Tests: `components.test.ts` "several items at once", `rendered.test.tsx` "multi-select …".
 
 ## Ønske 26.11.2026: komponenter og trævisning (migration 0012)
 
