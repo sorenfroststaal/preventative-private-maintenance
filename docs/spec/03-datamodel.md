@@ -127,3 +127,11 @@ Moduler bruges i `search_index.module`, til AI-adgang (06) og til filtrering. Ma
 - Reservedele og forbrugsstoffer har `quantity` og `stock_status` (`in_stock`, `used`, `to_buy`). Bruges en del af lageret i en reparation, deles rækken: den brugte del får `stock_status = 'used'`, `used_work_order_id` og `used_date`, resten står på lager.
 - En komponent kan have egen placering og egne ejere; uden egne ejere hører den til genstandens ejere.
 - `item_part` bruges ikke længere; dens rækker er flyttet til `item` med samme id, og bilag peger på `item`.
+
+## Afhændelse af genstande (schemaVersion 13)
+
+- Arkiveres en genstand, vælger brugeren en årsag i `disposal_kind`: *Givet væk*, *Givet til* en person (`disposal_person_id`, også personer uden for husstanden), *Solgt* (`disposal_price_minor` og eventuelt køber i `disposal_person_id`), *Smidt ud* eller *Andet*. `disposal_date` er datoen (standard i dag), og `disposal_note` er fri tekst. Arkivering uden årsag er stadig muligt.
+- Komponenter arkiveres med genstanden og får samme årsag og dato, men ingen pris.
+- *Givet til* kan samtidig registreres som en gave (`gift.direction = 'given'`, `gift.item_id` = genstanden).
+- Afhændede genstande står i arkivet (*Bolig og inventar › Arkiv*), hvor de kan søges frem efter navn, årsag og person og gendannes. Gendannelse rydder årsagen og gendanner de komponenter, der blev arkiveret med genstanden.
+- *Slet helt* er den eneste fysiske sletning af en primær post (undtagelse fra sletteregeln i README) og kræver en ekstra bekræftelse. I samme transaktion slettes genstandens koblinger (`document_link`, `person_link`, `policy_coverage`, `transaction_link`, `entity_tag`) og søgeindeks. `lending.item_id` og `gift.item_id` sættes til `NULL`, og genstandens navn gemmes i deres titel. Arbejdsordrer og opgaver beholdes uden mål; opgaverne arkiveres. Komponenter slettes med, hvis brugeren vælger det, og bliver ellers selvstændige genstande. Selve dokumenterne bliver i arkivet. Hver sletning auditeres med `action = 'delete'` og hele rækken som `før`.
