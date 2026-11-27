@@ -36,8 +36,12 @@ try {
   await click("//button[normalize-space()='Liste']");
   await sleep(400);
   await click("//td//span[normalize-space()='Emhætte']");
-  await click("//aside//button[@role='tab' and normalize-space()='Komponenter']");
-  step("Komponenter på genstanden", await waitText("Reservedele"));
+  let shown = false;
+  for (let attempt = 0; attempt < 3 && !shown; attempt++) {
+    await click("//aside//button[@role='tab' and normalize-space()='Komponenter']");
+    shown = await waitText("Reservedele", 4000);
+  }
+  step("Komponenter på genstanden", shown);
   await shot("komponenter");
   await click("//aside//button[normalize-space()='Brug …']");
   await sleep(400);

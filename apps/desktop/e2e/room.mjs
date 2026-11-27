@@ -26,13 +26,22 @@ try {
   await click("//table//td[contains(., 'Sofa')]");
   const sel = "//aside[@aria-label='Genstand']//label[normalize-space()='Placering']/following-sibling::select";
   await find(sel);
-  await js("const s = document.evaluate(arguments[0], document, null, 9, null).singleNodeValue; const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; setter.call(s, '__new__'); s.dispatchEvent(new Event('change', { bubbles: true }));", sel);
+  // Right after login the app may still be refreshing; open "+ Nyt rum" again if the dialog did not stay open.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await find(sel);
+    await js("const s = document.evaluate(arguments[0], document, null, 9, null).singleNodeValue; const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; setter.call(s, '__new__'); s.dispatchEvent(new Event('change', { bubbles: true }));", sel);
+    await sleep(1000);
+    if (await js("return !!document.querySelector('[role=dialog] form')")) break;
+  }
   await find("//div[@role='dialog']");
   await type("//div[@role='dialog']//label[starts-with(normalize-space(.), 'Navn')]/following-sibling::input", "Bryggers E2E");
   // Bolig: choose the first property (wait until the dialog's dropdown has its options).
   const boligSel = "//div[@role='dialog']//label[starts-with(normalize-space(.), 'Bolig')]/following-sibling::select";
-  await find(boligSel);
-  for (let i = 0; i < 40 && !(await js("const s = document.evaluate(arguments[0], document, null, 9, null).singleNodeValue; return !!s && s.options.length > 1", boligSel)); i++) await sleep(200);
+  // The only property is chosen automatically; choose it explicitly when the dropdown is there.
+  const hasBolig = await find(boligSel, 4000).then(() => true, () => false);
+  if (!hasBolig) console.log("Felter i dialogen:", await js("return [...document.querySelectorAll('[role=dialog] label')].map((l) => l.textContent).join(' | ')"));
+  for (let i = 0; hasBolig && i < 40 && !(await js("const s = document.evaluate(arguments[0], document, null, 9, null).singleNodeValue; return !!s && s.options.length > 1", boligSel)); i++) await sleep(200);
+  if (hasBolig)
   await js("const s = document.evaluate(\"//div[@role='dialog']//label[starts-with(normalize-space(.), 'Bolig')]/following-sibling::select\", document, null, 9, null).singleNodeValue; const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; setter.call(s, s.options[1].value); s.dispatchEvent(new Event('change', { bubbles: true }));");
   await shot("rum-dialog");
   await click("//div[@role='dialog']//button[@type='submit']");

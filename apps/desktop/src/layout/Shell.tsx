@@ -156,7 +156,11 @@ export function Shell() {
     if (session.archive.readOnly) return;
     const run = () =>
       closeExpiredDeadlines(session.ctx())
-        .then((n) => (n ? qc.invalidateQueries() : undefined))
+        // Only task views are refreshed: refreshing everything would reset open forms and dialogs.
+        .then(async (n) => {
+          if (!n) return;
+          for (const key of ["tasks", "task", "task-history", "task_occurrence", "dashboard", "calendar", "timeline"]) await qc.invalidateQueries({ queryKey: [key] });
+        })
         .catch(() => undefined);
     void run();
     const t = setInterval(run, 60 * 60 * 1000);
