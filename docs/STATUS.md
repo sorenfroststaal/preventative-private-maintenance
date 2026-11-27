@@ -94,6 +94,16 @@ PPM kan bruges fra iPhone som en app på hjemmeskærmen, når telefonen er på s
 - **Privatliv:** helbred vises ikke på telefonen (kalender, opgaver, søgning), og dokumenter koblet til helbredsdata kan ikke hentes.
 - **Tests:** `mobile.test.ts` i core (parring, nøgler, LAN-adresser), `mobile.test.ts` i mcp-server (rigtig HTTPS mod demoarkivet: certifikatets egenskaber, parring, overblik, udført, kalender, indkøb, madplan, søgning, upload, helbredsspærring, HTTP-porten), `rendered.test.tsx` (Indstillinger → Mobil). E2E: `e2e/mobile.ts` (iPhone-visning i Chromium mod rigtig server, 9/9) og `e2e/mobile-desktop.mjs` (den rigtige app starter og stopper serveren, 6/6). Selve iPhone (Safari, certifikatinstallation, hjemmeskærm) er **ikke** afprøvet; det kræver en rigtig iPhone.
 
+## Ønske 27.11.2026: arkivér med årsag, Arkiv og slet helt (migration 0013)
+
+- **Migration 0013** (foreslået som `docs/spec/schema-0013.sql` i PR #6): `item.disposal_kind` (givet væk, givet til, solgt, smidt ud, andet), `disposal_date`, `disposal_price_minor`, `disposal_person_id` og `disposal_note`.
+- **Arkivér …** på genstanden og i værktøjslinjen for valgte genstande åbner en dialog: *Givet væk*, *Givet til* (en person, også uden for husstanden, og eventuelt *Registrér også som gave*), *Solgt* (pris og eventuelt køber), *Smidt ud*, *Andet*, *Bare arkivér* og *Slet helt*. Komponenter arkiveres med og får samme årsag og dato.
+- **Bolig og inventar › Arkiv:** alle arkiverede genstande med årsag, dato, person og pris, søgning (navn, mærke, model, kategori, note og person), filter på årsag og "Solgt for i alt". *Gendan* gendanner genstanden og de komponenter, der blev arkiveret med den, og rydder årsagen.
+- **Slet helt** er den eneste valgmulighed, der fjerner noget permanent, og kræver, at man skriver "slet". Dialogen viser, hvor mange bilag, arbejdsordrer, udlån og gaver der berøres. Koblinger og søgeindeks slettes, udlån og gaver beholder navnet, arbejdsordrer og opgaver beholdes uden genstand (opgaverne arkiveres), og selve bilagsfilerne bliver i arkivet. Komponenter slettes med eller bliver selvstændige. Sletningen auditeres med hele rækken (`deleteItemsPermanently` i core).
+- Demoarkivet har en solgt cykel og en kasseret elkedel i Arkiv.
+- Tests: `disposal.test.ts` (migration, årsager, søgning, gendan, slet med og uden komponenter), `rendered.test.tsx` "archive reasons …" og C5.
+- **Venter:** CI's `gen:check` kræver `docs/spec/schema-0013.sql` på main. Indtil PR #6 er merget, fejler lint på branchen (F56).
+
 ## Ønske 27.11.2026: udløbet reklamationsret
 
 - Når reklamationsretten (eller garantien) er udløbet, afsluttes den automatiske opgave af sig selv: forekomsten får status "sprunget over" på udløbsdatoen med noten "Udløbet" og auditeres som `via = 'system'` (`closeExpiredDeadlines` i core). Det sker, når appen åbner, og hver time mens den kører (mobilserveren startes af appen og gør det ikke selv).

@@ -10,6 +10,8 @@ import {
   changeWorkOrderStatus,
   createArchive,
   createEntity,
+  createOutsidePerson,
+  disposeItems,
   createTask,
   createUser,
   importDocument,
@@ -143,6 +145,12 @@ export async function createDemoArchive(env: Env, root: string): Promise<DemoInf
   await createEntity(ctx, "item", { name: "Kulfilter", parent_item_id: String(items[2]!.id), component_role: "spare_part", part_number: "KF-100", quantity: 2, stock_status: "in_stock", location_id: String(kitchen.id) });
   await createEntity(ctx, "item", { name: "Afspændingsmiddel", parent_item_id: String(items[0]!.id), component_role: "consumable", quantity: 1, stock_status: "in_stock", location_id: String(kitchen.id) });
   await createEntity(ctx, "item", { name: "Fjernbetjening", parent_item_id: String(items[3]!.id), component_role: "accessory", location_id: String(living.id) });
+  // Disposal (migration 0013): an old bike sold to a neighbour and a broken kettle thrown out, both in Arkiv.
+  const neighbour = await createOutsidePerson(ctx, "Nabo Eksempel", "nabo");
+  const oldBike = await createEntity(ctx, "item", { name: "Gammel cykel (eksempel)", category: "Sport og fritid", purchase_date: "2015-05-01" });
+  await disposeItems(ctx, [String(oldBike.id)], { kind: "sold", priceMinor: 80000, personId: String(neighbour.id), date: "2026-09-12", note: "Solgt med lås" });
+  const kettle = await createEntity(ctx, "item", { name: "Elkedel (eksempel)", category: "Køkken" });
+  await disposeItems(ctx, [String(kettle.id)], { kind: "discarded", date: "2026-10-03", note: "Utæt" });
   await doc("kvittering-opvasker.pdf", syntheticPdf("Kvittering opvaskemaskine 4.999,00 kr (syntetisk)"), { type: "item", id: items[0]!.id, role: "receipt" });
   await doc("kvittering-tv.pdf", syntheticPdf("Kvittering fjernsyn 7.995,00 kr (syntetisk)"), { type: "item", id: items[3]!.id, role: "receipt" });
   await doc("foto-opvasker.png", syntheticPng(1), { type: "item", id: items[0]!.id, role: "photo" });

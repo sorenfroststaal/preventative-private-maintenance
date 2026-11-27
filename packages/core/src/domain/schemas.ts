@@ -153,6 +153,12 @@ export const fields = {
     stock_status: opt(z.enum(["in_stock", "used", "to_buy"])),
     used_work_order_id: opt(zId),
     used_date: opt(zDate),
+    // Disposal when archived (schemaVersion 13)
+    disposal_kind: opt(z.enum(["given_away", "given_to", "sold", "discarded", "other"])),
+    disposal_date: opt(zDate),
+    disposal_price_minor: opt(zMoney.nonnegative()),
+    disposal_person_id: opt(zId),
+    disposal_note: opt(z.string()),
   },
   item_part: {
     item_id: zId,

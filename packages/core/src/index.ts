@@ -25,6 +25,7 @@ export * from "./repo/lending";
 export * from "./repo/gifts";
 export * from "./repo/views";
 export * from "./repo/components";
+export * from "./repo/disposal";
 export { danishErrorMap, friendlyDbError, safeParseDanish } from "./domain/messages";
 export * from "./repo/personLinks";
 export * from "./repo/timeline";

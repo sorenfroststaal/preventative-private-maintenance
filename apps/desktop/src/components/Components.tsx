@@ -10,7 +10,6 @@ import {
   componentsUsedIn,
   deadlineState,
   itemTree,
-  archiveItems,
   editItems,
   listEntities,
   listPersons,
@@ -29,6 +28,7 @@ import {
   type MoveTarget,
   type MoveUndo,
 } from "@ppm/core";
+import { DisposeDialog } from "./Disposal";
 import { NewWorkOrder } from "../pages/WorkOrders";
 import { errorText, useSession } from "../app/session";
 import { useToast } from "../layout/Shell";
@@ -803,26 +803,10 @@ export function BulkBar({ ids, onClear }: { ids: string[]; onClear(): void }) {
         ))}
         <option value="__none">Ingen</option>
       </select>
-      {confirmArchive ? (
-        <span className="inline-field">
-          <span>Arkivér {what}?</span>
-          <button
-            className="danger"
-            onClick={async () => {
-              setConfirmArchive(false);
-              await run(`${what} er arkiveret.`, () => archiveItems(session.ctx(), ids));
-              onClear();
-            }}
-          >
-            Ja, arkivér
-          </button>
-          <button onClick={() => setConfirmArchive(false)}>Fortryd</button>
-        </span>
-      ) : (
-        <button onClick={() => setConfirmArchive(true)} disabled={ro}>
-          Arkivér
-        </button>
-      )}
+      <button onClick={() => setConfirmArchive(true)} disabled={ro}>
+        Arkivér …
+      </button>
+      {confirmArchive && <DisposeDialog ids={ids} what={what} onClose={() => setConfirmArchive(false)} onDone={onClear} />}
       <button className="link" onClick={onClear}>
         Ryd valg
       </button>

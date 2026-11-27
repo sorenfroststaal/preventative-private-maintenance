@@ -17,6 +17,7 @@ import {
   addDays,
   createArchive,
   createEntity,
+  disposeItems,
   createRecipe,
   createGift,
   createOutsidePerson,
@@ -711,16 +712,19 @@ describe("phase 2b.9 – rendered components", () => {
     await settle("Bolig og inventar");
     const detail = await screen.findByRole("complementary", { name: "Genstand" });
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
-    fireEvent.click(within(detail).getByRole("button", { name: "Arkivér" }));
-    expect(confirm).toHaveBeenCalledWith(expect.stringMatching(/^Arkivér genstanden\?/));
+    fireEvent.click(within(detail).getByRole("button", { name: "Arkivér …" }));
+    let dialog = await screen.findByRole("dialog", { name: "Arkivér genstanden" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Annullér" }));
     expect(await archive.db.select("SELECT archived_at FROM item WHERE id = ?", [String(item.id)])).toEqual([{ archived_at: null }]);
     fireEvent.click(within(detail).getByRole("tab", { name: "Bilag" }));
     fireEvent.click(await within(detail).findByRole("button", { name: /^Fjern kvittering/ }));
     expect(confirm).toHaveBeenLastCalledWith(expect.stringMatching(/Fjern bilaget/));
     expect((await archive.db.select("SELECT count(*) AS n FROM document_link WHERE target_id = ?", [String(item.id)]))[0]).toEqual({ n: 1 });
-    confirm.mockReturnValue(true);
-    fireEvent.click(within(detail).getByRole("button", { name: "Arkivér" }));
-    await waitFor(async () => expect((await archive.db.select<{ archived_at: string | null }>("SELECT archived_at FROM item WHERE id = ?", [String(item.id)]))[0]!.archived_at).not.toBeNull());
+    fireEvent.click(within(detail).getByRole("button", { name: "Arkivér …" }));
+    dialog = await screen.findByRole("dialog", { name: "Arkivér genstanden" });
+    fireEvent.click(within(dialog).getByRole("radio", { name: /Smidt ud/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Arkivér" }));
+    await waitFor(async () => expect((await archive.db.select<{ archived_at: string | null; disposal_kind: string | null }>("SELECT archived_at, disposal_kind FROM item WHERE id = ?", [String(item.id)]))[0]).toMatchObject({ disposal_kind: "discarded" }));
     cleanup();
     // Removing what a policy covers asks first too.
     const policy = await createEntity(ctx, "policy", { title: "C5-police", kind: "home_contents", premium_period: "year" });
@@ -733,6 +737,49 @@ describe("phase 2b.9 – rendered components", () => {
     expect(confirm).toHaveBeenLastCalledWith('Fjern "C5-cykel" fra policen?');
     expect((await archive.db.select("SELECT count(*) AS n FROM policy_coverage WHERE policy_id = ?", [String(policy.id)]))[0]).toEqual({ n: 1 });
     confirm.mockRestore();
+  });
+  it("archive reasons: an item is sold with a price, found in Arkiv, restored, and only Slet helt removes it", async () => {
+    const ctx = makeCtx(env, archive.db, user.id, "ui");
+    const item = await createEntity(ctx, "item", { name: "Arkiv-cykel" });
+    const id = String(item.id);
+    renderAt(`/bolig?id=${id}`);
+    await settle("Bolig og inventar");
+    const detail = await screen.findByRole("complementary", { name: "Genstand" });
+    fireEvent.click(within(detail).getByRole("button", { name: "Arkivér …" }));
+    const dialog = await screen.findByRole("dialog", { name: "Arkivér genstanden" });
+    fireEvent.click(within(dialog).getByRole("radio", { name: /Solgt/ }));
+    fireEvent.change(within(dialog).getByLabelText("Pris"), { target: { value: "1.250" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Arkivér" }));
+    await waitFor(async () =>
+      expect((await archive.db.select("SELECT disposal_kind, disposal_price_minor FROM item WHERE id = ?", [id]))[0]).toEqual({ disposal_kind: "sold", disposal_price_minor: 125000 }),
+    );
+    cleanup();
+
+    renderAt("/bolig?tab=archive");
+    await settle("Bolig og inventar");
+    const table = await screen.findByRole("table", { name: "Arkiverede genstande" });
+    fireEvent.click(await within(table).findByText("Arkiv-cykel"));
+    let aside = await screen.findByRole("complementary", { name: "Arkiveret genstand" });
+    expect(aside.textContent).toContain("Solgt");
+    expect(aside.textContent).toMatch(/1\.250/);
+    fireEvent.click(within(aside).getByRole("button", { name: "Gendan" }));
+    await waitFor(async () => expect((await archive.db.select("SELECT archived_at, disposal_kind FROM item WHERE id = ?", [id]))[0]).toEqual({ archived_at: null, disposal_kind: null }));
+
+    // Archive again without a reason, then delete it for good from Arkiv (requires typing "slet").
+    await disposeItems(ctx, [id], { kind: null });
+    cleanup();
+    renderAt("/bolig?tab=archive");
+    await settle("Bolig og inventar");
+    fireEvent.click(await within(await screen.findByRole("table", { name: "Arkiverede genstande" })).findByText("Arkiv-cykel"));
+    aside = await screen.findByRole("complementary", { name: "Arkiveret genstand" });
+    fireEvent.click(within(aside).getByRole("button", { name: "Slet helt …" }));
+    const del = await screen.findByRole("dialog", { name: 'Arkivér "Arkiv-cykel"' });
+    const go = within(del).getByRole("button", { name: "Slet helt" }) as HTMLButtonElement;
+    expect(go.disabled).toBe(true);
+    fireEvent.change(within(del).getByLabelText("Bekræft sletning"), { target: { value: "slet" } });
+    expect(go.disabled).toBe(false);
+    fireEvent.click(go);
+    await waitFor(async () => expect((await archive.db.select("SELECT count(*) AS n FROM item WHERE id = ?", [id]))[0]).toEqual({ n: 0 }));
   });
   it("C1: persons and finance categories are created in one place (Lister); Settings links there", async () => {
     renderAt("/indstillinger");

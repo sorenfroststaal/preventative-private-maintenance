@@ -19,6 +19,7 @@ import { attachPending, PendingAttachments, PhotoStrip, type PendingFile } from 
 import { ReceiptSuggestionBanner } from "../components/ReceiptSuggest";
 import { ItemLending, LendingTab } from "../components/Lending";
 import { GiftsTab } from "../components/Gifts";
+import { ArchiveTab, DisposeButton } from "../components/Disposal";
 import { BulkBar, ComponentPath, ComponentsTab, DeadlineBadges, DeadlinePanel, ItemTree } from "../components/Components";
 
 export function Home() {
@@ -37,6 +38,7 @@ export function Home() {
           { id: "pets", label: "Husdyr", content: () => <Pets /> },
           { id: "lending", label: "Udlån", content: () => <LendingTab /> },
           { id: "gifts", label: "Gaver", content: () => <GiftsTab /> },
+          { id: "archive", label: "Arkiv", content: () => <ArchiveTab /> },
         ]}
       />
     </section>
@@ -301,7 +303,7 @@ function ItemDetail({ item, onArchived }: { item: Row; onArchived(): void }) {
     <aside className="detail wide-detail" aria-label="Genstand">
       <div className="header-row">
         <h2>{String(item.name)}</h2>
-        <ArchiveButton type="item" id={id} label="Genstanden" onDone={onArchived} />
+        <DisposeButton id={id} onDone={onArchived} />
       </div>
       <ComponentPath itemId={id} />
       <DeadlinePanel item={item} />

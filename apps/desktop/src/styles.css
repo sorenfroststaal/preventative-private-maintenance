@@ -1763,3 +1763,31 @@ tr.chosen td {
   flex: none;
   margin: 0 0.2rem 0 0;
 }
+
+/* Arkivér-dialog: reasons as a radio list (migration 0013). */
+.choice-list {
+  border: 0;
+  padding: 0;
+  margin: 0 0 12px;
+  display: grid;
+  gap: 4px;
+}
+.choice-list legend {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.choice-list .choice {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.choice-list .choice:has(input:checked) {
+  background: color-mix(in srgb, var(--accent, #1f5e54) 10%, transparent);
+}
+.choice-list .choice.danger strong {
+  color: var(--danger, #b3261e);
+}
