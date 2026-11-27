@@ -16,7 +16,7 @@
 }
 ```
 
-  Installationen SKAL indeholde en selvstændig `ppm-mcp`-binær. Den kan være pakket med Node SEA eller `pkg` og ligges som sidecar i Tauri-bundlen, så brugeren ikke behøver at have Node installeret.
+  Installationen SKAL indeholde en selvstændig `ppm-mcp`-binær. Den kan være pakket med Node SEA eller `pkg` og ligges som sidecar i Tauri-bundlen, så brugeren ikke behøver at have Node installeret. En SEA kan ikke indlejre native addons, så `better_sqlite3.node` ligger ved siden af binæren og indlæses derfra. Binæren må ligge i en undermappe af installationsmappen (fx `resources\mcp`). Det er den mappe, der lægges i `PATH`.
 
 ## Adgangskontrol
 
@@ -28,7 +28,7 @@ Hvert værktøjskald:
 
 Rettes et kald direkte mod et modul, der er slået fra, returneres fejlen `"Modulet 'health' er ikke delt med AI. Det kan slås til i Indstillinger → AI-adgang."`.
 
-Moduler for entitetstyper: `home` (property, location, item, item_part, building_part), `maintenance` (work_order, task), `vehicle`, `finance` (account, bank_transaction, budget, recurring_expense, category), `insurance` (policy, claim), `health` (health_*, men ikke person selv), `documents` (document), `food` (recipe, recipe_ingredient, meal_plan_entry, shopping_list, shopping_item). Et dokument er kun synligt, hvis både `documents` og modulet for mindst én af dets koblinger er slået til. Et dokument uden koblinger kræver kun `documents`.
+Moduler for entitetstyper: `home` (property, location, item, item_part, building_part, pet), `maintenance` (work_order, task), `vehicle`, `finance` (account, bank_transaction, budget, recurring_expense, category), `insurance` (policy, claim), `health` (health_*, men ikke person selv), `documents` (document), `food` (recipe, recipe_ingredient, meal_plan_entry, shopping_list, shopping_item). Et dokument er kun synligt, hvis både `documents` og modulet for mindst én af dets koblinger er slået til. Et dokument uden koblinger kræver kun `documents`. Opgaver hører til `maintenance`. En opgave med `module = 'health'` kræver desuden `health` og må ikke være for en person, hvis helbredsdata er private for en anden bruger. Allergi-advarsler i `meal_plan` er helbredsdata: de vises kun, når `health` er delt, og ellers svarer værktøjet med `warnings_hidden: true`.
 
 ## Regler for værktøjerne
 
@@ -38,7 +38,8 @@ Værktøjslisten står under "Værktøjer" nedenfor, og formatet følger "Få to
 
 **`propose`:** Skriver kun til `ai_draft` og returnerer `{"group":"…","n":antal,"status":"pending"}`.
 
-- `type` ved `create` og `update` er en af: item, item_part, building_part, location, contact, vehicle, odometer_reading, work_order, task, policy, claim, bank_transaction (kun ved `update` af kategori og note), recurring_expense, budget_line, health_visit, health_screening, health_vaccination, health_medication, health_allergy, health_measurement, recipe (med `ingredients` som tekstlinjer eller strukturerede rækker), meal_plan_entry og shopping_item.
+- `type` ved `create` og `update` er en af: person og property (AI kan ikke sætte `app_user_id` og `health_private_user_id`), item, item_part, building_part, location, contact, vehicle, odometer_reading, work_order, task, policy, claim, bank_transaction (kun ved `update` af kategori og note), recurring_expense, budget_line, health_visit, health_screening, health_vaccination, health_medication, health_allergy, health_measurement, pet, recipe (med `ingredients` som tekstlinjer eller strukturerede rækker), meal_plan_entry og shopping_item. `policy_coverage` kan oprettes (ikke ændres), så en police kan kobles til det, den dækker.
+- `propose` tager `dry_run: true`, som validerer alle operationer uden at gemme noget. Ved ugyldige data rapporteres alle fejlende operationer, og fejlen viser de gyldige felter for typen (påkrævede felter, tilladte værdier og enheder).
 - `data` valideres med det samme Zod-skema, som UI bruger (ved `update` som et partielt skema), **når kladden oprettes**. Er data ugyldige, returneres valideringsfejlen med operationens indeks, og der oprettes ingen kladde.
 - `attach_document` tager `document` (ref) eller `file_path`. `file_path` må kun pege ind i mapper, som er tilladt i `setting` under `ai.allowed_import_dirs` (standard: `<arkiv>/indbakke` og brugerens mappe `Overførsler`/`Downloads`). Filen kopieres til `indbakke/ai/<group>-<n>.<ext>` og importeres først, når kladden godkendes.
 - Operationer på moduler, der ikke er delt, afvises på samme måde som læsning.
@@ -57,7 +58,7 @@ Appen SKAL levere disse forbindelser. Alle bruger den samme `ppm-mcp`-binær ove
 
 | Kanal | Leverance | Godkendelse |
 | --- | --- | --- |
-| **Claude Desktop** | `ppm.mcpb` (MCP Bundle med `manifest.json`), bygget i CI og lagt ved installeren. Indstillinger → AI-adgang har knappen *Installér i Claude Desktop*, som åbner filen. Alternativet er en kopiérbar `claude_desktop_config.json`-stump. | Ingen ved privat distribution. Optagelse i Anthropics katalog er uden for v1. |
+| **Claude Desktop** | `ppm.mcpb` (MCP Bundle med `manifest.json`), bygget i CI som artefakt. Installeren behøver ikke indeholde selve `.mcpb`, da den indeholder hele binæren igen: knappen *Installér i Claude Desktop* under Indstillinger → AI-adgang MÅ bygge `ppm.mcpb` af den installerede binær og et medfølgende manifest og derefter åbne filen. Alternativet er en kopiérbar `claude_desktop_config.json`-stump. | Ingen ved privat distribution. Optagelse i Anthropics katalog er uden for v1. |
 | **Claude Code** | Plugin og marketplace i dette repo: `.claude-plugin/marketplace.json` og `plugins/ppm/` med `.mcp.json` (kommando `ppm-mcp`) og en kort skill med arbejdsgange, fx "registrér kvittering" og "lav ugens madplan". Indstillingssiden viser kommandoerne `/plugin marketplace add <repo>` og `/plugin install ppm`. | Ingen. |
 | **Codex / ChatGPT desktop** | Indstillingssiden viser og kopierer `codex mcp add ppm -- ppm-mcp`. Samme konfiguration bruges af Codex CLI, IDE-udvidelsen og ChatGPT-desktopappen. | Ingen. |
 | **Lokal AI** | Dokumentation af opsætning med en MCP-kompatibel klient og en lokal model (fx Ollama). Projektet garanterer ikke en bestemt klient. | Ingen. |
@@ -82,7 +83,7 @@ Hvert værktøjs navn, beskrivelse og skema sendes med i hver eneste besked. Sva
 | --- | --- |
 | `overview` | Overblikket (krav 5) |
 | `search` | `q`, `modules?`, `limit?` |
-| `get` | `ref`, `fields?`, `offset?`. Posten med koblinger (kun `ref`, titel og rolle) og de seneste 10 historikposter |
+| `get` | `ref`, `fields?`, `offset?`. Posten med koblinger (kun `ref`, titel og rolle) og de seneste 10 historikposter (for bolig, bygningsdel, genstand og bil: arbejdsordrer og udførte opgaver; for andre typer: de seneste 10 linjer i `audit_log`) |
 | `list` | `type`, `filter?` (simple felt=værdi og `from`/`to` på datofelter), `fields?`, `limit?`, `cursor?` |
 | `tasks` | `status?` (overdue, upcoming, open, done), `from?`, `to?`, `module?` |
 | `history` | `ref` på mål |
@@ -101,7 +102,7 @@ Alle operationer i `propose` valideres, før noget gemmes. Fejler én, oprettes 
 
 - `ai_draft` får gruppen gemt i `payload_json.group` (uuid). Det kræver ingen ny kolonne.
 - AI-indbakken viser grupper med begrundelse og antal operationer. Hver operation kan foldes ud. Knapperne er *Godkend alle*, *Godkend valgte*, *Redigér* og *Afvis alle*.
-- *Godkend alle* udfører gruppens operationer i én transaktion. Fejler én, rulles alle tilbage, og gruppen markeres `failed` med en fejltekst.
+- *Godkend alle* udfører gruppens operationer i én transaktion. Fejler én, rulles alle tilbage, og kun den fejlende operation markeres `failed` med en fejltekst. De øvrige forbliver `pending` og kan godkendes uden den. *Godkend valgte* virker på samme måde for de valgte operationer; ikke-valgte forbliver `pending`.
 
 ## Vejledning til AI-klienten
 

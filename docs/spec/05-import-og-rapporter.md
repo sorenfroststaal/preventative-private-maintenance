@@ -16,7 +16,7 @@ Mail-HTML vises aldrig som HTML. Kun tekstdelen vises.
 
 ## Overvåget indbakke
 
-- Appen overvåger `<arkiv>/indbakke/` (ikke undermapper), så længe den kører, og scanner mappen, når den starter.
+- Appen overvåger `<arkiv>/indbakke/` (ikke undermapper), så længe den kører, og scanner mappen, når den starter. Overvågningen kan ske med filsystem-events eller ved at scanne mappen med højst 2 sekunders mellemrum (polling), som også virker på netværksdrev.
 - En fil importeres, når dens størrelse har været uændret i 2 sekunder. Derefter flyttes den til `indbakke/importeret/YYYY-MM/`.
 - Filer, der ikke er understøttet, bliver liggende og vises med en advarsel i importkøen.
 
@@ -66,7 +66,7 @@ Filen gemmes i `eksport/forsikringsrapport-YYYYMMDD.pdf` eller et sted, brugeren
 
 ## Eksport
 
-- **CSV eller JSON pr. tabel** samt en samlet JSON med alle tabeller (`ppm-export.json` med `schemaVersion`).
+- **CSV eller JSON pr. tabel** samt en samlet JSON med alle tabeller (`ppm-export.json` med `schemaVersion`). CSV bruger semikolon som skilletegn og gemmes i UTF-8 med BOM, så filen åbner korrekt i dansk Excel. Søgeindekset (FTS) eksporteres ikke.
 - **ICS:** valgte opgaver og deres åbne forekomster som heldags-`VEVENT`. Som standard bruges en neutral titel (opgavens titel) uden noter, bilag og helbredsdetaljer. Helbredsopgaver får titlen "Helbred: påmindelse", medmindre brugeren aktivt vælger at bruge den fulde titel.
 
 ## Madplan: ingredienser og Open Planner
@@ -112,7 +112,7 @@ Ingredienser på tekstform (indsat eller importeret) fortolkes linje for linje. 
 PPM SKAL kunne importere en Open Planner-database (JSON, version 1 eller 2) fra projektet `open-planner`:
 
 - Formatet er `{ "version": 1|2, "format"?: "...", "sprog": "da", "retter": [{ "id", "navn", "billede"?, "ingredienser": [tekst] | tekst, "fremgangsmaade"?, "opskrift"? }] }`. Højst 200 retter og højst 50 MB.
-- Hver ret bliver til en `recipe` med `source = 'import'` og `source_ref = 'open-planner:<id>'`. Findes `source_ref` allerede, opdateres opskriften. Brugerens egne ændringer af en importeret opskrift overskrives dog ikke uden bekræftelse: importdialogen viser "N nye, M ændrede, K uændrede", og ændrede kan vælges fra.
+- Hver ret bliver til en `recipe` med `source = 'import'` og `source_ref = 'open-planner:<id>'`. Findes `source_ref` allerede, opdateres opskriften. Brugerens egne ændringer af en importeret opskrift overskrives dog ikke uden bekræftelse: importdialogen viser "N nye, M ændrede, K uændrede", og ændrede kan vælges fra. Tomme felter i filen tæller ikke som en ændring og overskriver ikke det, brugeren har udfyldt.
 - `ingredienser` fortolkes med ingrediens-parseren. `fremgangsmaade` (eller `opskrift`) bliver til `instructions`.
 - `billede` som indlejret `data:image/png|jpeg;base64,...` (version 2) importeres som et `document` (kilde `drop`) og kobles via `photo_document_id`. Relative stier (version 1) ignoreres med en besked, fordi filen ikke findes i JSON-filen.
 

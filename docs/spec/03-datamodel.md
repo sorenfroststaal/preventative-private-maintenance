@@ -1,6 +1,6 @@
 # 03 Datamodel
 
-[schema.sql](schema.sql) er det normative skema for `schemaVersion 1`, og [schema-0002.sql](schema-0002.sql) bringer det til `schemaVersion 2` (madplan). Dokumentet her forklarer regler, som skemaet ikke selv kan håndhæve.
+[schema.sql](schema.sql) er det normative skema for `schemaVersion 1`, [schema-0002.sql](schema-0002.sql) bringer det til `schemaVersion 2` (madplan), [schema-0003.sql](schema-0003.sql) bringer det til `schemaVersion 3` (bilag og fotos på reservedele, `document_link.target_type = 'item_part'`), [schema-0004.sql](schema-0004.sql) bringer det til `schemaVersion 4` (husdyr: tabellen `pet`, som bilag og forsikringsdækning kan pege på), [schema-0005.sql](schema-0005.sql) bringer det til `schemaVersion 5` (`recurring_expense.priority` 1–5: 5 = obligatorisk, 1 = kan undværes), og [schema-0006.sql](schema-0006.sql) bringer det til `schemaVersion 6` (tabellen `loan`; bilag på kontakter, konti og lån; dokumentrollerne garantibevis, kontrakt og certifikat; posteringer kan kobles til lån; købsdato og købspris på bil; faste udgifter med bolig, bil, slutdato og variabelt beløb), og [schema-0007.sql](schema-0007.sql) bringer det til `schemaVersion 7` (tabellen `lending` til udlån; mærke, model og serienummer på bygningsdele og serienummer på reservedele), og [schema-0008.sql](schema-0008.sql) bringer det til `schemaVersion 8` (en fast udgift kan høre til en person), og [schema-0009.sql](schema-0009.sql) bringer det til `schemaVersion 9` (en genstand kan have en ejer i husstanden), og [schema-0010.sql](schema-0010.sql) bringer det til `schemaVersion 10` (flere personer pr. fast udgift og genstand i `person_link`; enkeltkolonnerne fra 0008 og 0009 bruges ikke længere), og [schema-0011.sql](schema-0011.sql) bringer det til `schemaVersion 11` (`person.household`: personer uden for husstanden; tabellen `gift` til gaver givet og fået), og [schema-0012.sql](schema-0012.sql) bringer det til `schemaVersion 12` (komponenter: genstande under genstande som indbygget del, tilbehør, forbrugsstof eller reservedel, med antal og lagerstatus; `item_part` flyttes til `item`). Dokumentet her forklarer regler, som skemaet ikke selv kan håndhæve.
 
 ## Polymorfe koblinger
 
@@ -99,5 +99,29 @@ Moduler bruges i `search_index.module`, til AI-adgang (06) og til filtrering. Ma
 
 - En opskrifts ingredienser gemmes som rækker i `recipe_ingredient`, ordnet efter `position`. Ved hver gemning erstattes hele listen i samme transaktion (sletning og indsættelse af koblingsrækker auditeres som for andre koblinger).
 - `meal_plan_entry` har enten en opskrift eller en fri titel. `servings` overstyrer opskriftens antal portioner for den dag.
-- Foto af en opskrift er et `document`, som `recipe.photo_document_id` peger på.
+- Foto af en opskrift er et `document`, som `recipe.photo_document_id` peger på. `document_link` kan ikke pege på `recipe`, så et dokument, som en opskrift bruger som foto, tæller som koblet (fx i importkøen under Dokumenter).
 - `shopping_item.source = 'plan'` betyder, at varen er genereret fra madplanen. Den genereres igen, når madplanen ændres (se 04).
+
+## Værdilister bag rullelister
+
+- Fritekstkolonner, som vælges fra en rulleliste (`item.category` og `building_part.kind`), har en redigerbar værdiliste i `setting` under `lists.item_category` og `lists.building_part_kind` (JSON-array af tekster). Listen vises altid sammen med de værdier, der allerede er i brug, uden forskel på store og små bogstaver.
+- Omdøbes en værdi, opdateres alle poster, der bruger den, og hver ændring auditeres. En værdi, der er i brug, kan ikke slettes fra listen.
+- Standardværdier: genstandskategorier *Hvidevarer, Elektronik, Møbler, Køkken, Værktøj, Have, Belysning, Sport og fritid, Andet*. Bygningsdelstyper *Tag, Facade, Vinduer og døre, Varme, Ventilation, VVS, El, Kloak og afløb, Have og udearealer, Andet*.
+
+## Husdyr (schemaVersion 4)
+
+- `pet` hører til modulet `home` (også for AI-adgang og søgeindeks: titel `name`, brødtekst race, chipnummer, dyrlægens navn og noter).
+- Et husdyr kan have bilag og fotos (`document_link.target_type = 'pet'`) og være dækket af en police (`policy_coverage.target_type = 'pet'`, typisk `policy.kind = 'pet'`).
+- Dyrlæge er en `contact`, og ejer er en `person`. Vaccinationer og dyrlægebesøg registreres foreløbig som opgaver og bilag (en egen helbredsjournal for dyr er uden for v1).
+
+## Personer uden for husstanden og gaver (schemaVersion 11)
+
+- `person.household = 0` er familie, venner, naboer o.l. De kan låne ting (`lending.borrower_person_id`) og have gaver (`gift.person_id`), men må ikke knyttes som ejere eller personer på faste udgifter (`person_link`), dækkes af forsikringer, være husdyrs ejer eller have helbredsdata. Core håndhæver reglen for `person_link` og viser kun husstanden i helbred.
+- `gift.direction` er `given` (personen er modtager) eller `received` (personen er giver). En gave har én person. Gaver kan slettes fysisk med audit.
+
+## Komponenter (schemaVersion 12)
+
+- `item.parent_item_id` gør en genstand til en komponent af en anden med `component_role` (`part`, `accessory`, `consumable`, `spare_part`). Core afviser kredsløb og en arkiveret overordnet genstand.
+- Reservedele og forbrugsstoffer har `quantity` og `stock_status` (`in_stock`, `used`, `to_buy`). Bruges en del af lageret i en reparation, deles rækken: den brugte del får `stock_status = 'used'`, `used_work_order_id` og `used_date`, resten står på lager.
+- En komponent kan have egen placering og egne ejere; uden egne ejere hører den til genstandens ejere.
+- `item_part` bruges ikke længere; dens rækker er flyttet til `item` med samme id, og bilag peger på `item`.
