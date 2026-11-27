@@ -96,14 +96,13 @@ PPM kan bruges fra iPhone som en app på hjemmeskærmen, når telefonen er på s
 
 ## Ønske 27.11.2026: arkivér med årsag, Arkiv og slet helt (migration 0013)
 
-- **Migration 0013** (foreslået som `docs/spec/schema-0013.sql` i PR #6): `item.disposal_kind` (givet væk, givet til, solgt, smidt ud, andet), `disposal_date`, `disposal_price_minor`, `disposal_person_id` og `disposal_note`.
+- **Migration 0013** (`docs/spec/schema-0013.sql`, merget i PR #6): `item.disposal_kind` (givet væk, givet til, solgt, smidt ud, andet), `disposal_date`, `disposal_price_minor`, `disposal_person_id` og `disposal_note`.
 - **Arkivér …** på genstanden og i værktøjslinjen for valgte genstande åbner en dialog: *Givet væk*, *Givet til* (en person, også uden for husstanden, og eventuelt *Registrér også som gave*), *Solgt* (pris og eventuelt køber), *Smidt ud*, *Andet*, *Bare arkivér* og *Slet helt*. Komponenter arkiveres med og får samme årsag og dato.
 - **Bolig og inventar › Arkiv:** alle arkiverede genstande med årsag, dato, person og pris, søgning (navn, mærke, model, kategori, note og person), filter på årsag og "Solgt for i alt". *Gendan* gendanner genstanden og de komponenter, der blev arkiveret med den, og rydder årsagen.
 - **Slet helt** er den eneste valgmulighed, der fjerner noget permanent, og kræver, at man skriver "slet". Dialogen viser, hvor mange bilag, arbejdsordrer, udlån og gaver der berøres. Koblinger og søgeindeks slettes, udlån og gaver beholder navnet, arbejdsordrer og opgaver beholdes uden genstand (opgaverne arkiveres), og selve bilagsfilerne bliver i arkivet. Komponenter slettes med eller bliver selvstændige. Sletningen auditeres med hele rækken (`deleteItemsPermanently` i core).
 - Demoarkivet har en solgt cykel og en kasseret elkedel i Arkiv.
 - Tests: `disposal.test.ts` (migration, årsager, søgning, gendan, slet med og uden komponenter), `rendered.test.tsx` "archive reasons …" og C5.
 - **Shift-klik (ønske 27.11.2026):** Shift-klik vælger alle genstande fra den åbne (eller sidst klikkede) genstand til den, der klikkes på, i den viste rækkefølge – både i listen og i træet (kun udfoldede grene, hver genstand én gang). Test: `rendered.test.tsx` "multi-select: Shift-click selects from the open item …".
-- **Venter:** CI's `gen:check` kræver `docs/spec/schema-0013.sql` på main. Indtil PR #6 er merget, fejler lint på branchen (F56).
 
 ## Ønske 27.11.2026: udløbet reklamationsret
 

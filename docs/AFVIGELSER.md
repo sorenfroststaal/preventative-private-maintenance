@@ -75,7 +75,6 @@ Listen dækker de steder, hvor implementeringen afviger fra specifikationen elle
 | F52 | 04 Lister | Personer og økonomikategorier oprettes og rettes kun i Lister (Indstillinger linker dertil). Konti (Økonomi) og Boliger og rum (Bolig og inventar) kan stadig rettes i deres modul, men med samme formular som Lister. |
 | F53 | 03 Datamodel | En genstand har én placering. "Flere placeringer" dækkes af komponenter: en komponent kan ligge et andet sted end sin genstand og vises begge steder i trævisningen. Tallet ved en gruppe tæller en sådan komponent begge steder. |
 | F54 | 03 Datamodel | `item_part` bruges ikke efter migration 0012 (rækkerne er flyttet til `item`); tabellen og Zod-skemaet beholdes, men AI kan ikke længere foreslå `item_part`. |
-| F56 | README Sletning, 03 | *Slet helt* sletter en genstand fysisk (med audit), selv om primære poster ellers kun arkiveres. Ønsket af brugeren 27.11.2026; foreslået i spec 03 og README (PR #6). Migration 0013 er foreslået som `docs/spec/schema-0013.sql`; indtil PR #6 er merget, fejler `gen:check`. |
 | F48 | 03 Audit | Ændringer fra telefonen auditeres med `via = 'ui'` og den parrede brugers id, fordi `audit_log.via` ikke har værdien "mobil" (CHECK i skemaet). |
 
 ## Fjernet efter PR #2 (nu en del af specifikationen)
